@@ -6,6 +6,7 @@ Parameters:
 
   RepoArn:
     Type: String
+    Default: arn:aws:codecommit:unused::UNUSED
 
   RepoUrl:
     Type: String
@@ -54,6 +55,22 @@ Parameters:
     Default: "EXTRA_ARG_2"
 
   ExtraEnvVal2:
+    Type: String
+    Default: ""
+
+  ExtraEnvVar3:
+    Type: String
+    Default: "EXTRA_ARG_3"
+
+  ExtraEnvVal3:
+    Type: String
+    Default: ""
+
+  ExtraEnvVar4:
+    Type: String
+    Default: "EXTRA_ARG_4"
+
+  ExtraEnvVal4:
     Type: String
     Default: ""
 
@@ -138,6 +155,10 @@ Resources:
             Value: !Ref ExtraEnvVal1
           - Name: !Ref ExtraEnvVar2
             Value: !Ref ExtraEnvVal2
+          - Name: !Ref ExtraEnvVar3
+            Value: !Ref ExtraEnvVal3
+          - Name: !Ref ExtraEnvVar4
+            Value: !Ref ExtraEnvVal4
       ServiceRole: !GetAtt CodeBuildServiceRole.Arn
       Source:
         Location: !Ref RepoUrl

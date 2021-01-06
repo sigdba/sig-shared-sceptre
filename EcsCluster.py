@@ -23,11 +23,13 @@ def read_local_file(path):
 # aws ssm get-parameters --names /aws/service/ecs/optimized-ami/amazon-linux-2/recommended
 def region_map():
     return {
-        "us-east-1": { "AMIID": "ami-007cd1678c6286a05" }
+        "us-east-1": {"AMIID": "ami-0f06fc190dd71269e"},
+        "us-east-2": {"AMIID": "ami-0d9574c101c76fa20"},
+        "us-west-2": {"AMIID": "ami-0a65620cb9b1fd77d"}
     }
 
 
-def parameter_key():
+def parameter_key(ssm_key_admins):
     return Key(
         "ParameterKey",
         Description="Key used to encrypt parameters in the SSM parameter store",
@@ -38,12 +40,7 @@ def parameter_key():
                 "Sid": "Allow administration of the key",
                 "Effect": "Allow",
                 "Principal": {
-                    "AWS": [
-                        Sub("arn:aws:iam::${AWS::AccountId}:root"),
-
-                        # TODO: Move this Bucknell-specific code to an input
-                        Sub("arn:aws:sts::${AWS::AccountId}:role/AWS-Shibboleth-BannerAdmin")
-                    ]
+                    "AWS": [Sub(a) for a in ssm_key_admins]
                 },
                 "Action": [
                     "kms:Create*",
@@ -136,17 +133,13 @@ def node_instance_profile(role):
     )
 
 
-def node_security_group(vpc_id):
+def node_security_group(vpc_id, ingress_cidrs):
     return SecurityGroup(
         "NodeSecurityGroup",
         GroupDescription="Security group for ECS nodes",
         VpcId=Ref(vpc_id),
         SecurityGroupEgress=[SecurityGroupRule(CidrIp="0.0.0.0/0", IpProtocol="-1")],
-        SecurityGroupIngress=[
-            # TODO: These are Bucknell-specific
-            SecurityGroupRule(CidrIp="10.0.0.0/8", IpProtocol="-1"),
-            SecurityGroupRule(CidrIp="172.16.0.0/16", IpProtocol="-1")
-        ]
+        SecurityGroupIngress=[SecurityGroupRule(CidrIp=c, IpProtocol="-1") for c in ingress_cidrs]
     )
 
 
@@ -334,22 +327,22 @@ def sceptre_handler(sceptre_user_data):
     #
     # Resources
     #
-    key = r(parameter_key())
+    key = r(parameter_key(sceptre_user_data['ssm_key_admins']))
     node_role = r(node_instance_role(key))
     node_profile = r(node_instance_profile(node_role))
     fn_ex_role = r(lambda_execution_role())
     asg_lambda = r(lambda_fn_for_asg(fn_ex_role))
     sns_topic = r(asg_sns_topic(asg_lambda))
     sns_fn_role = r(sns_lambda_role())
-    node_sg = r(node_security_group(vpc_id))
+    node_sg = r(node_security_group(vpc_id, sceptre_user_data['ingress_cidrs']))
     cluster = r(ecs_cluster())
 
     r(parameter_key_alias(key))
     r(service_role())
     r(lambda_invoke_permission(asg_lambda, sns_topic))
     r(lambda_subs_to_topic(asg_lambda, sns_topic))
-    
-    template.add_output(Output("ClusterArnOutput", 
+
+    template.add_output(Output("ClusterArnOutput",
                                Value=Ref(cluster),
                                Export=Export(Sub("${EnvName}-EcsEnv-EcsCluster"))))
 

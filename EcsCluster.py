@@ -96,7 +96,9 @@ def node_instance_role(par_key):
                 "Action": ['sts:AssumeRole']
             }]
         },
-        ManagedPolicyArns=["arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role"],
+        ManagedPolicyArns=["arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role",
+                           "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore",
+                           "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"],
         Policies=[
             Policy(
                 PolicyName="root",

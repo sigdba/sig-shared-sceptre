@@ -71,6 +71,15 @@ def container_mount_point(data):
                       ReadOnly=data.get('read_only', False))
 
 
+def port_mappings(container_data):
+    if 'port_mappings' in container_data:
+        return [PortMapping(ContainerPort=m['container_port']) for m in container_data['port_mappings']]
+    elif 'container_port' in container_data:
+        return [PortMapping(ContainerPort=container_data['container_port'])]
+    else:
+        return []
+
+
 def container_def(data):
     # NB: container_memory is the hard limit on RAM presented to the container. It will be killed if it tries to
     #     allocate more. container_memory_reservation is the soft limit and docker will try to keep the container to
@@ -107,7 +116,8 @@ def container_def(data):
         Memory=container_memory,
         MemoryReservation=container_memory_reservation,
         MountPoints=mount_points,
-        PortMappings=[PortMapping(ContainerPort=data.get("container_port", 8080))],
+        PortMappings=port_mappings(data),
+        Links=data.get('links', []),
 
         # TODO: We might want to check for failed connection pools and this can probably be done
         #       using HealthCheck here which runs a command inside the container.
@@ -203,7 +213,7 @@ def sceptre_handler(sceptre_user_data):
         if "target_group_arn" in c:
             # We're injecting into an existing target. Don't set up listener rules.
             target_group_arn = c["target_group_arn"]
-        else:
+        elif 'rules' in c:
             # Create target group and associated listener rules
             rules = c["rules"]
             health_check = c.get('health_check', {})
@@ -214,11 +224,14 @@ def sceptre_handler(sceptre_user_data):
                 listener_rules.append(listener_rule(tg, rule))
 
             target_group_arn = Ref(tg)
+        else:
+            target_group_arn = None
 
-        lb_mappings.append(LoadBalancer(ContainerName=container.Name,
-                                        # TODO: Ugly hack, do better.
-                                        ContainerPort=container.PortMappings[0].ContainerPort,
-                                        TargetGroupArn=target_group_arn))
+        if target_group_arn is not None:
+            lb_mappings.append(LoadBalancer(ContainerName=container.Name,
+                                            # TODO: Ugly hack, do better.
+                                            ContainerPort=container.PortMappings[0].ContainerPort,
+                                            TargetGroupArn=target_group_arn))
 
     task_def(containers, efs_volumes, exec_role)
     service(listener_rules, lb_mappings)

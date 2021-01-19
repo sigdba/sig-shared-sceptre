@@ -1,3 +1,5 @@
+import hashlib
+
 from troposphere import Template, Ref, Sub, Parameter, ImportValue
 from troposphere.ecs import TaskDefinition, Service, ContainerDefinition, PortMapping, LogConfiguration, Environment, \
     LoadBalancer, DeploymentConfiguration, Volume, EFSVolumeConfiguration, MountPoint, Secret
@@ -6,6 +8,7 @@ from troposphere.elasticloadbalancingv2 import ListenerRule, TargetGroup, Action
 from troposphere.iam import Role, Policy
 
 TEMPLATE = Template()
+PRIORITY_CACHE = []
 
 
 def add_resource(r):
@@ -17,6 +20,14 @@ def clean_title(s):
     return s.replace('-', 'DASH').replace('.', 'DOT').replace('_', 'US').replace('*', 'STAR').replace('?',
                                                                                                       'QM').replace('/',
                                                                                                                     'SLASH')
+
+
+def priority_hash(name):
+    ret = int(hashlib.md5(name.encode('utf-8')).hexdigest(), 16) % 48000 + 1000
+    while ret in PRIORITY_CACHE:
+        ret += 1
+    PRIORITY_CACHE.append(ret)
+    return ret
 
 
 def add_params(t):
@@ -169,7 +180,7 @@ def target_group(protocol, health_check, default_health_check_path):
 
 def listener_rule(tg, rule):
     path = rule["path"]
-    priority = rule["priority"]
+    priority = rule.get("priority", priority_hash(path))
 
     path_patterns = [path, "%s/*" % path]
     return add_resource(ListenerRule("ListenerRule%s" % priority,

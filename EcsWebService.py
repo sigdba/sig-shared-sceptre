@@ -148,13 +148,15 @@ def task_def(container_defs, efs_volumes, exec_role):
     volumes = [Volume(Name=v['name'],
                       EFSVolumeConfiguration=EFSVolumeConfiguration(FilesystemId=v["fs_id"])) for v in efs_volumes]
 
-    exec_role_arn = Ref(exec_role) if exec_role is not None else None
+    extra_args = {}
+    if exec_role is not None:
+        extra_args['ExecutionRoleArn'] = Ref(exec_role)
 
     return add_resource(TaskDefinition("TaskDef",
                                        Volumes=volumes,
                                        Family=Ref("AWS::StackName"),
                                        ContainerDefinitions=container_defs,
-                                       ExecutionRoleArn=exec_role_arn))
+                                       **extra_args))
 
 
 def target_group(protocol, health_check, default_health_check_path):

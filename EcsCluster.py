@@ -11,6 +11,7 @@ from troposphere.iam import Role, Policy, InstanceProfile
 from troposphere.kms import Key, Alias
 from troposphere.policies import UpdatePolicy, AutoScalingRollingUpdate
 from troposphere.sns import Topic, Subscription, SubscriptionResource
+from troposphere.s3 import Bucket, PublicAccessBlockConfiguration
 
 REGION_MAP = "RegionMap"
 
@@ -70,6 +71,16 @@ def parameter_key_alias(key):
     )
 
 
+def cluster_bucket():
+    return Bucket(
+        "ClusterBucket",
+        PublicAccessBlockConfiguration=PublicAccessBlockConfiguration(
+            BlockPublicAcls=True,
+            BlockPublicPolicy=True,
+            IgnorePublicAcls=True,
+            RestrictPublicBuckets=True))
+
+
 def service_role():
     return Role(
         "ServiceRole",
@@ -121,7 +132,15 @@ def node_instance_role(par_key):
                                     "logs:CreateLogStream",
                                     "logs:PutLogEvents",
                                     "logs:DescribeLogStreams"],
-                         "Resource": ['arn:aws:logs:*:*:*']}]
+                         "Resource": ['arn:aws:logs:*:*:*']},
+                        {"Effect": "Allow",
+                         "Action": ['s3:ListBucket',
+                                    's3:GetObjectVersion',
+                                    's3:GetObjectVersionAcl',
+                                    's3:GetObject',
+                                    's3:GetObjectVersion'],
+                         "Resource": [GetAtt('ClusterBucket', 'Arn'),
+                                      Sub('${ClusterBucket.Arn}/*')]}]
                 }
             )
         ]
@@ -343,10 +362,15 @@ def sceptre_handler(sceptre_user_data):
     r(service_role())
     r(lambda_invoke_permission(asg_lambda, sns_topic))
     r(lambda_subs_to_topic(asg_lambda, sns_topic))
+    r(cluster_bucket())
 
     template.add_output(Output("ClusterArnOutput",
                                Value=Ref(cluster),
                                Export=Export(Sub("${EnvName}-EcsEnv-EcsCluster"))))
+
+    template.add_output(Output("ClusterBucketOutput",
+                               Value=Ref('ClusterBucket'),
+                               Export=Export(Sub("${EnvName}-EcsEnv-ClusterBucket"))))
 
     for asg in sceptre_user_data['scaling_groups']:
         name = asg['name']

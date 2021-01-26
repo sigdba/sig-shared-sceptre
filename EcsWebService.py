@@ -33,7 +33,7 @@ def priority_hash(name):
 def add_params(t):
     t.add_parameter(Parameter("VpcId", Type="String"))
     t.add_parameter(Parameter("ListenerArn", Type="String"))
-    t.add_parameter(Parameter("EcsEnv", Type="String"))
+    t.add_parameter(Parameter("ClusterArn", Type="String"))
     t.add_parameter(Parameter("DesiredCount", Type="Number", Default="1"))
     t.add_parameter(Parameter("MaximumPercent", Type="Number", Default="200"))
     t.add_parameter(Parameter("MinimumHealthyPercent", Type="Number", Default="100"))
@@ -197,7 +197,7 @@ def service(listener_rules, lb_mappings):
     return add_resource(Service("Service",
                                 DependsOn=[r.title for r in listener_rules],
                                 TaskDefinition=Ref("TaskDef"),
-                                Cluster=ImportValue(Sub("${EcsEnv}-EcsEnv-EcsCluster")),
+                                Cluster=Ref('ClusterArn'),
                                 DesiredCount=Ref("DesiredCount"),
                                 DeploymentConfiguration=DeploymentConfiguration(
                                     MaximumPercent=Ref("MaximumPercent"),

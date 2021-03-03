@@ -164,9 +164,17 @@ def container_def(data):
         ))
 
 
+def efs_volume(v):
+    extra_args = {}
+    if 'root_directory' in v:
+        extra_args['RootDirectory'] = v['root_directory']
+
+    return Volume(Name=v['name'],
+                  EFSVolumeConfiguration=EFSVolumeConfiguration(FilesystemId=v["fs_id"], **extra_args))
+
+
 def task_def(container_defs, efs_volumes, exec_role):
-    volumes = [Volume(Name=v['name'],
-                      EFSVolumeConfiguration=EFSVolumeConfiguration(FilesystemId=v["fs_id"])) for v in efs_volumes]
+    volumes = [efs_volume(v) for v in efs_volumes]
 
     extra_args = {}
     if exec_role is not None:

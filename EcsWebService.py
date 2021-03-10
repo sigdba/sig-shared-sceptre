@@ -1,6 +1,6 @@
 import hashlib
 
-from troposphere import Template, Ref, Sub, Parameter, ImportValue
+from troposphere import Template, Ref, Sub, Parameter
 from troposphere.ecs import TaskDefinition, Service, ContainerDefinition, PortMapping, LogConfiguration, Environment, \
     LoadBalancer, DeploymentConfiguration, Volume, EFSVolumeConfiguration, MountPoint, Secret
 from troposphere.elasticloadbalancingv2 import ListenerRule, TargetGroup, Action, Condition, Matcher, \
@@ -39,7 +39,28 @@ def add_params(t):
     t.add_parameter(Parameter("MinimumHealthyPercent", Type="Number", Default="100"))
 
 
-def execution_role():
+def execution_role_secret_statement(secret_arn):
+    if ':secretsmanager:' in secret_arn:
+        return {
+            "Action": "secretsmanager:GetSecretValue",
+            "Resource": secret_arn,
+            "Effect": "Allow"
+        }
+    elif ':ssm:' in secret_arn:
+        return {
+            "Action": "ssm:GetParameters",
+            "Resource": secret_arn,
+            "Effect": "Allow"
+        }
+    else:
+        return {
+            "Action": "ssm:GetParameters",
+            "Resource": Sub('arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/%s' % secret_arn),
+            "Effect": "Allow"
+        }
+
+
+def execution_role(secret_arns):
     return add_resource(Role('TaskExecutionRole',
                              AssumeRolePolicyDocument={
                                  "Version": "2012-10-17",
@@ -58,19 +79,18 @@ def execution_role():
                                          "Version": '2012-10-17',
                                          "Statement": [
                                              {"Effect": "Allow",
-                                              "Action": ['kms:Decrypt'],
-                                              # TODO: Tighten this based on inputs
-                                              "Resource": ['*']},
-                                             {"Effect": "Allow",
-                                              "Action": ['ssm:GetParameters'],
-                                              # TODO: Tighten this based on inputs
-                                              "Resource": ['*']},
-                                             {"Effect": "Allow",
                                               "Action": ["logs:CreateLogGroup",
                                                          "logs:CreateLogStream",
                                                          "logs:PutLogEvents",
                                                          "logs:DescribeLogStreams"],
                                               "Resource": ['arn:aws:logs:*:*:*']}]
+                                     }
+                                 ),
+                                 Policy(
+                                     PolicyName="secrets",
+                                     PolicyDocument={
+                                         "Version": '2012-10-17',
+                                         "Statement": [execution_role_secret_statement(s) for s in secret_arns]
                                      }
                                  )
                              ]))
@@ -144,9 +164,17 @@ def container_def(data):
         ))
 
 
+def efs_volume(v):
+    extra_args = {}
+    if 'root_directory' in v:
+        extra_args['RootDirectory'] = v['root_directory']
+
+    return Volume(Name=v['name'],
+                  EFSVolumeConfiguration=EFSVolumeConfiguration(FilesystemId=v["fs_id"], **extra_args))
+
+
 def task_def(container_defs, efs_volumes, exec_role):
-    volumes = [Volume(Name=v['name'],
-                      EFSVolumeConfiguration=EFSVolumeConfiguration(FilesystemId=v["fs_id"])) for v in efs_volumes]
+    volumes = [efs_volume(v) for v in efs_volumes]
 
     extra_args = {}
     if exec_role is not None:
@@ -213,8 +241,8 @@ def sceptre_handler(sceptre_user_data):
     efs_volumes = sceptre_user_data.get("efs_volumes", [])
 
     # If we're using secrets, we need to define an execution role
-    exec_role = execution_role() if len(list(filter(lambda x: 'secrets' in x, sceptre_user_data['containers']))) > 0 \
-        else None
+    secret_arns = [v for c in sceptre_user_data['containers'] if 'secrets' in c for k, v in c['secrets'].items()]
+    exec_role = execution_role(secret_arns) if len(secret_arns) > 0 else None
 
     containers = []
     listener_rules = []

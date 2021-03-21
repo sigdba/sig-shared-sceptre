@@ -10,6 +10,15 @@ from troposphere.iam import Role, Policy
 TEMPLATE = Template()
 PRIORITY_CACHE = []
 
+TITLE_CHAR_MAP = {
+    '-': 'DASH',
+    '.': 'DOT',
+    '_': 'US',
+    '*': 'STAR',
+    '?': 'QM',
+    '/': 'SLASH'
+}
+
 
 def add_resource(r):
     TEMPLATE.add_resource(r)
@@ -17,9 +26,9 @@ def add_resource(r):
 
 
 def clean_title(s):
-    return s.replace('-', 'DASH').replace('.', 'DOT').replace('_', 'US').replace('*', 'STAR').replace('?',
-                                                                                                      'QM').replace('/',
-                                                                                                                    'SLASH')
+    for k in TITLE_CHAR_MAP.keys():
+        s = s.replace(k, TITLE_CHAR_MAP[k])
+    return s
 
 
 def priority_hash(name):

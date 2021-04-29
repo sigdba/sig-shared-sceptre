@@ -1,0 +1,170 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+
+Parameters: 
+  VpcId:
+    Type: String
+    Description: The identifier of the virtual private cloud (VPC)
+
+  NlbSubnetId:
+    Type: String
+    Description: Public subnet ID for the Network Load Balancer
+
+  EipAllocId:
+    Type: String
+    Description: Allocation ID of the EIP for the Network Load Balancer
+
+  Fqdn:
+    Type: String
+    Description: Fully-qualified domain name of the load balancer
+
+  HostedZoneId:
+    Type: String
+    Description: Route53 hosted zone ID for the FQDN
+
+  TlsPort:
+    Type: Number
+    Description: Port for the TLS listener of the Network Load Balancer
+    Default: 443
+
+  BackendPort:
+    Type: Number
+    Description: Port for backend communication
+    Default: 80
+
+  BackendProtocol:
+    Type: String
+    Description: Protocol for backend communication
+    Default: TCP
+
+Resources:
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties: 
+      LoadBalancerAttributes: 
+        # - Key: access_logs.s3.enabled
+        #   Value: true
+        # - Key: access_logs.s3.bucket
+        #   Value: !Ref LogBucket
+        # - Key: access_logs.s3.prefix
+        #   Value: !Sub "nlb-logs-${AWS::StackName}"
+        - Key: load_balancing.cross_zone.enabled
+          Value: true
+      Name: touchnet
+      SubnetMappings: 
+        - AllocationId: !Ref EipAllocId
+          SubnetId: !Ref NlbSubnetId
+      Type: network
+    # DependsOn: LogBucketPolicy
+
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties: 
+      LoadBalancerArn: !Ref LoadBalancer
+      Certificates:
+        - CertificateArn: !Ref Certificate
+      Port: !Ref TlsPort
+      Protocol: TLS
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties: 
+      TargetType: instance
+      Port: !Ref BackendPort
+      Protocol: !Ref BackendProtocol
+      VpcId: !Ref VpcId
+
+  # LogBucket:
+  #   Type: AWS::S3::Bucket
+  #   Properties: 
+  #     AccessControl: LogDeliveryWrite
+
+  # LogBucketPolicy:
+  #   Type: AWS::S3::BucketPolicy
+  #   Properties:
+  #     Bucket: !Ref LogBucket
+  #     PolicyDocument:
+  #       Statement:
+  #         - Action:
+  #             - s3:PutObject*
+  #             - s3:Abort*
+  #           Effect: Allow
+  #           Principal: 
+  #             AWS:
+  #               Fn::Join:
+  #                 - ""
+  #                 - - "arn:"
+  #                   - Ref: AWS::Partition
+  #                   - ':iam::'
+  #                   - Fn::FindInMap:
+  #                     - ElbAccountMap
+  #                     - !Ref AWS::Region
+  #                     - AccountId
+  #                   - ':root'
+  #           Resource: !Sub "${LogBucket.Arn}/*"
+  #       Version: "2012-10-17"
+
+  Certificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Ref Fqdn
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: !Ref Fqdn
+          HostedZoneId: !Ref HostedZoneId
+
+Mappings:
+  ElbAccountMap:
+    us-east-1:
+      AccountId: '127311923021'
+    us-east-2:
+      AccountId: '033677994240'
+    us-west-1:
+      AccountId: '027434742980'
+    us-west-2:
+      AccountId: '797873946194'
+    af-south-1:
+      AccountId: '098369216593'
+    ca-central-1:
+      AccountId: '985666609251'
+    eu-central-1:
+      AccountId: '054676820928'
+    eu-west-1:
+      AccountId: '156460612806'
+    eu-west-2:
+      AccountId: '652711504416'
+    eu-south-1:
+      AccountId: '635631232127'
+    eu-west-3:
+      AccountId: '009996457667'
+    eu-north-1:
+      AccountId: '897822967062'
+    ap-east-1:
+      AccountId: '754344448648'
+    ap-northeast-1:
+      AccountId: '582318560864'
+    ap-northeast-2:
+      AccountId: '600734575887'
+    ap-northeast-3:
+      AccountId: '383597477331'
+    ap-southeast-1:
+      AccountId: '114774131450'
+    ap-southeast-2:
+      AccountId: '783225319266'
+    ap-south-1:
+      AccountId: '718504428378'
+    me-south-1:
+      AccountId: '076674570225'
+    sa-east-1:
+      AccountId: '507241528517'
+    us-gov-west-1:
+      AccountId: '048591011584'
+    us-gov-east-1:
+      AccountId: '190560391635'
+    cn-north-1:
+      AccountId: '638102146993'
+    cn-northwest-1:
+      AccountId: '037604701340'

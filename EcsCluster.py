@@ -6,7 +6,8 @@ from troposphere.autoscaling import AutoScalingGroup, NotificationConfigurations
     LaunchConfiguration, LifecycleHook, Tags as ASTags
 from troposphere.awslambda import Permission, Function, Code
 from troposphere.ec2 import SecurityGroup, SecurityGroupRule
-from troposphere.ecs import Cluster, ClusterSetting
+from troposphere.ecs import Cluster, ClusterSetting, CapacityProvider, AutoScalingGroupProvider, ManagedScaling, \
+    ClusterCapacityProviderAssociations, CapacityProviderStrategy
 from troposphere.iam import Role, Policy, InstanceProfile
 from troposphere.kms import Key, Alias
 from troposphere.policies import UpdatePolicy, AutoScalingRollingUpdate
@@ -318,6 +319,42 @@ def lambda_fn_for_asg(fn_ex_role):
     )
 
 
+def capacity_provider(r, asg_props):
+    asg = asg_props['asg']
+    return {**asg_props, 'capacity_provider': r(CapacityProvider(
+        asg.title + "CapacityProvider",
+        AutoScalingGroupProvider=AutoScalingGroupProvider(
+            AutoScalingGroupArn=Ref(asg),
+            ManagedTerminationProtection='DISABLED',  # For now, this is handled by our lifecycle Lambda
+            ManagedScaling=ManagedScaling(
+                Status='ENABLED',
+                TargetCapacity=100
+            )
+        )
+    ))}
+
+
+def capacity_provider_assoc(asg_props):
+    return ClusterCapacityProviderAssociations(
+        "CapacityProviderAssoc",
+        Cluster=Ref("EcsCluster"),
+        CapacityProviders=[Ref(p['capacity_provider']) for p in asg_props],
+        DefaultCapacityProviderStrategy=[CapacityProviderStrategy(
+            CapacityProvider=Ref(p['capacity_provider']),
+            Weight=p.get('weight', 1)
+        ) for p in asg_props]
+    )
+
+
+def scaling_groups(r, scaling_group_data, security_groups, node_profile, subnets, sns_topic, sns_fn_role):
+    for asg_props in scaling_group_data:
+        name = asg_props['name']
+        c = r(launch_config(name, security_groups, asg_props['node_type'], node_profile, asg_props['key_name']))
+        asg = r(auto_scaling_group(name, subnets, c, asg_props['max_size'], asg_props['desired_size'], sns_topic))
+        r(asg_terminate_hook(asg, sns_topic, sns_fn_role))
+        yield {**asg_props, 'asg': asg}
+
+
 def sceptre_handler(sceptre_user_data):
     template = Template()
 
@@ -372,11 +409,11 @@ def sceptre_handler(sceptre_user_data):
                                Value=Ref('ClusterBucket'),
                                Export=Export(Sub("${EnvName}-EcsEnv-ClusterBucket"))))
 
-    for asg in sceptre_user_data['scaling_groups']:
-        name = asg['name']
-        sgs = [Ref(node_sg)] + sceptre_user_data['node_security_groups']
-        c = r(launch_config(name, sgs, asg['node_type'], node_profile, asg['key_name']))
-        asg = r(auto_scaling_group(name, subnets, c, asg['max_size'], asg['desired_size'], sns_topic))
-        r(asg_terminate_hook(asg, sns_topic, sns_fn_role))
+    asgs = list(scaling_groups(r, sceptre_user_data['scaling_groups'],
+                               [Ref(node_sg)] + sceptre_user_data['node_security_groups'],
+                               node_profile, subnets, sns_topic, sns_fn_role))
+
+    if sceptre_user_data.get('auto_scaling_enabled', False):
+        r(capacity_provider_assoc([capacity_provider(r, p) for p in asgs]))
 
     return template.to_json()

@@ -315,12 +315,13 @@ def lambda_invoke_permission(rule):
 
 def scheduling_rule(rule_props):
     cron_expr = rule_props['cron']
-    rule_hash = md5(str(rule_props))
+    rule_hash = md5(cron_expr)[:7]
     desired_count = rule_props['desired_count']
 
     return add_resource(EventRule(
         'ScheduleRule' + rule_hash,
         ScheduleExpression='cron(%s)' % cron_expr,
+        Description=rule_props.get('description', 'ECS service scheduling rule'),
         Targets=[EventTarget(
             Id='ScheduleRule' + rule_hash,
             Arn=GetAtt('SchedulingLambda', 'Arn'),

@@ -1,14 +1,23 @@
 import hashlib
+import os.path
+import json
 
-from troposphere import Template, Ref, Sub, Parameter
+from troposphere import Template, Ref, Sub, Parameter, GetAtt
 from troposphere.ecs import TaskDefinition, Service, ContainerDefinition, PortMapping, LogConfiguration, Environment, \
     LoadBalancer, DeploymentConfiguration, Volume, EFSVolumeConfiguration, MountPoint, Secret
 from troposphere.elasticloadbalancingv2 import ListenerRule, TargetGroup, Action, Condition, Matcher, \
     TargetGroupAttribute, PathPatternConfig
 from troposphere.iam import Role, Policy
+from troposphere.awslambda import Permission, Function, Code
+from troposphere.events import Rule as EventRule, Target as EventTarget
 
 TEMPLATE = Template()
 PRIORITY_CACHE = []
+
+
+def read_local_file(path):
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), path), 'r') as fp:
+        return fp.read()
 
 
 def add_resource(r):
@@ -22,11 +31,16 @@ def clean_title(s):
         .replace('_', 'US') \
         .replace('*', 'STAR') \
         .replace('?', 'QM') \
-        .replace('/', 'SLASH')
+        .replace('/', 'SLASH') \
+        .replace(' ', 'SP')
+
+
+def md5(s):
+    return hashlib.md5(s.encode('utf-8')).hexdigest()
 
 
 def priority_hash(name):
-    ret = int(hashlib.md5(name.encode('utf-8')).hexdigest(), 16) % 48000 + 1000
+    ret = int(md5(name), 16) % 48000 + 1000
     while ret in PRIORITY_CACHE:
         ret += 1
     PRIORITY_CACHE.append(ret)
@@ -243,6 +257,78 @@ def service(listener_rules, lb_mappings):
                                 LoadBalancers=lb_mappings))
 
 
+def lambda_execution_role():
+    return add_resource(Role(
+        "LambdaExecutionRole",
+        Policies=[Policy(
+            PolicyName="lambda-inline",
+            PolicyDocument={
+                "Version": "2012-10-17",
+                "Statement": [{
+                    "Effect": "Allow",
+                    "Action": [
+                        "autoscaling:CompleteLifecycleAction",
+                        "logs:CreateLogGroup",
+                        "logs:CreateLogStream",
+                        "logs:PutLogEvents",
+                        "ecs:UpdateService"
+                    ],
+                    "Resource": "*"
+                }]
+            }
+        )],
+        AssumeRolePolicyDocument={
+            "Version": "2012-10-17",
+            "Statement": [{
+                "Effect": "Allow",
+                "Principal": {"Service": ["lambda.amazonaws.com"]},
+                "Action": ["sts:AssumeRole"]
+            }]
+        },
+        ManagedPolicyArns=[],
+        Path="/"
+    ))
+
+
+def scheduling_lambda():
+    return add_resource(Function(
+        "SchedulingLambda",
+        Description="Updates service properties on a schedule",
+        Handler="index.lambda_handler",
+        Role=GetAtt('LambdaExecutionRole', "Arn"),
+        Runtime="python3.6",
+        MemorySize=128,
+        Timeout=60,
+        Code=Code(ZipFile=Sub(read_local_file("EcsWebService_ScheduleLambda.py")))
+    ))
+
+
+def lambda_invoke_permission(rule):
+    return add_resource(Permission(
+        "LambdaInvokePermission" + rule.title,
+        FunctionName=Ref('SchedulingLambda'),
+        Action="lambda:InvokeFunction",
+        Principal="events.amazonaws.com",
+        SourceArn=GetAtt(rule, 'Arn')
+    ))
+
+
+def scheduling_rule(rule_props):
+    cron_expr = rule_props['cron']
+    rule_hash = md5(str(rule_props))
+    desired_count = rule_props['desired_count']
+
+    return add_resource(EventRule(
+        'ScheduleRule' + rule_hash,
+        ScheduleExpression='cron(%s)' % cron_expr,
+        Targets=[EventTarget(
+            Id='ScheduleRule' + rule_hash,
+            Arn=GetAtt('SchedulingLambda', 'Arn'),
+            Input=json.dumps({'desired_count': desired_count})
+        )]
+    ))
+
+
 def sceptre_handler(sceptre_user_data):
     add_params(TEMPLATE)
 
@@ -289,5 +375,13 @@ def sceptre_handler(sceptre_user_data):
 
     task_def(containers, efs_volumes, exec_role)
     service(listener_rules, lb_mappings)
+
+    schedule = sceptre_user_data.get('schedule', [])
+    if len(schedule) > 0:
+        lambda_execution_role()
+        scheduling_lambda()
+        for p in schedule:
+            rule = scheduling_rule(p)
+            lambda_invoke_permission(rule)
 
     return TEMPLATE.to_json()

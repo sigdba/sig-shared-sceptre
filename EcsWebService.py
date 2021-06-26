@@ -17,9 +17,12 @@ def add_resource(r):
 
 
 def clean_title(s):
-    return s.replace('-', 'DASH').replace('.', 'DOT').replace('_', 'US').replace('*', 'STAR').replace('?',
-                                                                                                      'QM').replace('/',
-                                                                                                                    'SLASH')
+    return s.replace('-', 'DASH') \
+        .replace('.', 'DOT') \
+        .replace('_', 'US') \
+        .replace('*', 'STAR') \
+        .replace('?', 'QM') \
+        .replace('/', 'SLASH')
 
 
 def priority_hash(name):
@@ -270,7 +273,9 @@ def sceptre_handler(sceptre_user_data):
 
         if target_group_arn is not None:
             if len(container.PortMappings) < 1:
-                raise ValueError("Container '%s' connects to an ELB but does not specify port_mappings or container_port" % c['name'])
+                raise ValueError(
+                    "Container '%s' connects to an ELB but does not specify port_mappings or container_port" % c[
+                        'name'])
             lb_mappings.append(LoadBalancer(ContainerName=container.Name,
                                             # TODO: Ugly hack, do better.
                                             ContainerPort=container.PortMappings[0].ContainerPort,

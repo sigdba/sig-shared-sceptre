@@ -190,8 +190,14 @@ def task_def(container_defs, efs_volumes, exec_role):
                                        **extra_args))
 
 
-def target_group(protocol, health_check, default_health_check_path):
+def target_group(protocol, health_check, target_group_props, default_health_check_path):
     health_check_path = health_check.get('path', default_health_check_path)
+    attrs = target_group_props.get('attributes', {})
+
+    if 'stickiness.enabled' not in attrs:
+        attrs['stickiness.enabled'] = 'true'
+    if 'stickiness.type' not in attrs:
+        attrs['stickiness.type'] = 'lb_cookie'
 
     return add_resource(TargetGroup(clean_title("TargetGroupFOR%s" % health_check_path),
                                     HealthCheckProtocol=protocol,
@@ -204,9 +210,8 @@ def target_group(protocol, health_check, default_health_check_path):
                                     Matcher=Matcher(HttpCode="200-399"),
                                     Port=8080,  # This is overridden by the targets themselves.
                                     Protocol=protocol,
-                                    TargetGroupAttributes=[
-                                        TargetGroupAttribute(Key="stickiness.enabled", Value="true"),
-                                        TargetGroupAttribute(Key="stickiness.type", Value="lb_cookie")],
+                                    TargetGroupAttributes=[TargetGroupAttribute(Key=k, Value=str(v))
+                                                           for k, v in attrs.items()],
                                     TargetType="instance",
                                     VpcId=Ref("VpcId")))
 
@@ -261,8 +266,9 @@ def sceptre_handler(sceptre_user_data):
             # Create target group and associated listener rules
             rules = c["rules"]
             health_check = c.get('health_check', {})
+            target_group_props = c.get('target_group', {})
             protocol = c.get('protocol', 'HTTP')
-            tg = target_group(protocol, health_check, "%s/" % rules[0]["path"])
+            tg = target_group(protocol, health_check, target_group_props, "%s/" % rules[0]["path"])
 
             for rule in rules:
                 listener_rules.append(listener_rule(tg, rule))

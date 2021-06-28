@@ -1,3 +1,4 @@
+import hashlib
 import os
 import os.path
 
@@ -5,6 +6,7 @@ from troposphere import Template, Ref, Sub, GetAtt, Parameter, FindInMap, Base64
 from troposphere.autoscaling import AutoScalingGroup, NotificationConfigurations, MetricsCollection, \
     LaunchConfiguration, LifecycleHook, Tags as ASTags
 from troposphere.awslambda import Permission, Function, Code
+from troposphere.cloudformation import AWSCustomObject
 from troposphere.ec2 import SecurityGroup, SecurityGroupRule
 from troposphere.ecs import Cluster, ClusterSetting, CapacityProvider, AutoScalingGroupProvider, ManagedScaling, \
     ClusterCapacityProviderAssociations, CapacityProviderStrategy
@@ -15,6 +17,10 @@ from troposphere.sns import Topic, Subscription, SubscriptionResource
 from troposphere.s3 import Bucket, PublicAccessBlockConfiguration
 
 REGION_MAP = "RegionMap"
+
+
+def md5(s):
+    return hashlib.md5(s.encode('utf-8')).hexdigest()
 
 
 def read_local_file(path):
@@ -252,8 +258,12 @@ def lambda_execution_role():
                         "logs:CreateLogStream",
                         "logs:PutLogEvents",
                         "ecs:ListContainerInstances",
+                        "ecs:ListServices",
+                        "ecs:DescribeClusters",
+                        "ecs:DescribeServices",
                         "ecs:DescribeContainerInstances",
                         "ecs:UpdateContainerInstancesState",
+                        "ecs:UpdateService",
                         "sns:Publish"
                     ],
                     "Resource": "*"
@@ -319,6 +329,33 @@ def lambda_fn_for_asg(fn_ex_role):
     )
 
 
+def lambda_fn_for_cps():
+    return Function(
+        "LambdaFunctionForCpsReset",
+        Description="Updates services in the cluster to use the new default CapacityProviderStrategy",
+        Handler="index.lambda_handler",
+        Role=GetAtt('LambdaExecutionRole', "Arn"),
+        Runtime="python3.6",
+        MemorySize=128,
+        Timeout=60,
+        Code=Code(ZipFile=Sub(read_local_file("EcsCluster_ResetCapacityProvidersLambda.py")))
+    )
+
+
+class CpsReset(AWSCustomObject):
+    resource_type = "Custom::CpsReset"
+    props = {"ServiceToken": (str, True), "StrategyHash": (str, True)}
+
+
+def cps_reset_resource(scaling_group_props):
+    return CpsReset(
+        "CpsReset",
+        ServiceToken=GetAtt('LambdaFunctionForCpsReset', 'Arn'),
+        StrategyHash=md5(str(scaling_group_props)),
+        DependsOn='CapacityProviderAssoc'
+    )
+
+
 def capacity_provider(r, asg_props):
     asg = asg_props['asg']
     return {**asg_props, 'capacity_provider': r(CapacityProvider(
@@ -342,7 +379,7 @@ def capacity_provider_assoc(asg_props):
         DefaultCapacityProviderStrategy=[CapacityProviderStrategy(
             CapacityProvider=Ref(p['capacity_provider']),
             Weight=p.get('weight', 1)
-        ) for p in asg_props]
+        ) for p in asg_props if p.get('in_default_cps', True)]
     )
 
 
@@ -409,11 +446,15 @@ def sceptre_handler(sceptre_user_data):
                                Value=Ref('ClusterBucket'),
                                Export=Export(Sub("${EnvName}-EcsEnv-ClusterBucket"))))
 
-    asgs = list(scaling_groups(r, sceptre_user_data['scaling_groups'],
+    scaling_group_props = sceptre_user_data['scaling_groups']
+    asgs = list(scaling_groups(r, scaling_group_props,
                                [Ref(node_sg)] + sceptre_user_data['node_security_groups'],
                                node_profile, subnets, sns_topic, sns_fn_role))
 
     if sceptre_user_data.get('auto_scaling_enabled', False):
         r(capacity_provider_assoc([capacity_provider(r, p) for p in asgs]))
+        if sceptre_user_data.get('force_default_cps', False):
+            r(lambda_fn_for_cps())
+            r(cps_reset_resource(scaling_group_props))
 
     return template.to_json()

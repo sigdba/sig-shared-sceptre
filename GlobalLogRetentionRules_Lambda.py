@@ -1,8 +1,7 @@
 import boto3
 import re
 
-# REGION = '${AWS::Region}'
-REGION = 'us-east-2'
+REGION = '${AWS::Region}'
 
 CWL = boto3.client('logs', region_name=REGION)
 

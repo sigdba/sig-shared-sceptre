@@ -4,7 +4,7 @@ import json
 
 from troposphere import Template, Ref, Sub, Parameter, GetAtt
 from troposphere.ecs import TaskDefinition, Service, ContainerDefinition, PortMapping, LogConfiguration, Environment, \
-    LoadBalancer, DeploymentConfiguration, Volume, EFSVolumeConfiguration, MountPoint, Secret
+    LoadBalancer, DeploymentConfiguration, Volume, EFSVolumeConfiguration, MountPoint, Secret, PlacementStrategy
 from troposphere.elasticloadbalancingv2 import ListenerRule, TargetGroup, Action, Condition, Matcher, \
     TargetGroupAttribute, PathPatternConfig
 from troposphere.iam import Role, Policy
@@ -245,12 +245,14 @@ def listener_rule(tg, rule):
                                      Priority=priority))
 
 
-def service(listener_rules, lb_mappings):
+def service(listener_rules, lb_mappings, placement_strategies):
     return add_resource(Service("Service",
                                 DependsOn=[r.title for r in listener_rules],
                                 TaskDefinition=Ref("TaskDef"),
                                 Cluster=Ref('ClusterArn'),
                                 DesiredCount=Ref("DesiredCount"),
+                                PlacementStrategies=[PlacementStrategy(Field=s['field'], Type=s['type'])
+                                                     for s in placement_strategies],
                                 DeploymentConfiguration=DeploymentConfiguration(
                                     MaximumPercent=Ref("MaximumPercent"),
                                     MinimumHealthyPercent=Ref("MinimumHealthyPercent")),
@@ -375,7 +377,8 @@ def sceptre_handler(sceptre_user_data):
                                             TargetGroupArn=target_group_arn))
 
     task_def(containers, efs_volumes, exec_role)
-    service(listener_rules, lb_mappings)
+    placement_strategies = sceptre_user_data.get('placement_strategies', [{'field': 'memory', 'type': 'binpack'}])
+    service(listener_rules, lb_mappings, placement_strategies)
 
     schedule = sceptre_user_data.get('schedule', [])
     if len(schedule) > 0:

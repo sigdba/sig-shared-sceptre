@@ -422,7 +422,7 @@ def sceptre_handler(sceptre_user_data):
     #
     # Resources
     #
-    key = r(parameter_key(sceptre_user_data['ssm_key_admins']))
+    key = r(parameter_key(sceptre_user_data.get('ssm_key_admins', ['arn:aws:iam::${AWS::AccountId}:root'])))
     node_role = r(node_instance_role(key))
     node_profile = r(node_instance_profile(node_role))
     fn_ex_role = r(lambda_execution_role())

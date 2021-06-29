@@ -1,5 +1,9 @@
 # EcsCluster.py - ECS Cluster With Optional Auto-Scaling Features
 
+  * [Parameters](#parameters)
+  * [sceptre_user_data](#sceptre-user-data)
+    + [scaling_group Objects](#scaling-group-objects)
+  
 **See Also:**
 * [Example Configuration](../examples/EcsCluster.yaml)
 * [Changing instance types with auto-scaling enabled](EcsCluster_NodeTypeChangeWithAutoScaling.md)

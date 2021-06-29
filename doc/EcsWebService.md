@@ -1,5 +1,17 @@
 # EcsWebService.py - ECS Service With Load-Balancer Integration
 
+  * [Parameters](#parameters)
+  * [sceptre_user_data](#sceptre-user-data)
+    + [container objects](#container-objects)
+      - [health check object](#health-check-object)
+      - [mount point objects](#mount-point-objects)
+      - [port mapping objects](#port-mapping-objects)
+      - [rule objects](#rule-objects)
+      - [schedule objects](#schedule-objects)
+      - [target group object](#target-group-object)
+    + [efs volume objects](#efs-volume-objects)
+    + [placement strategy objects](#placement-strategy-objects)
+
 ## Parameters
 
 * `VpcId` (string) - *Required* - The ID of the VPC of the ECS cluster
@@ -108,16 +120,6 @@
 * `read_only` (boolean) - If true, the volume will not be writable to the container.
   * **Default:** `false`
 
-#### placement strategy objects
-
-**See:** [AWS::ECS::Service PlacementStrategy](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-placementstrategy.html)
-  for more information.
-
-* `field` (string) - *Required* - The field to apply the placement strategy against
-* `type` (string) - *Required* - The type of placement strategy
-
-
-
 #### port mapping objects
 
 * `container_port` (number) - *required* - The port exposed by the container
@@ -160,3 +162,11 @@
 
 * `root_directory` (string) - The directory within the EFS volume which will mounted by containers
   * **Default:** By default the root directory of the volume will be used.
+    
+### placement strategy objects
+
+**See:** [AWS::ECS::Service PlacementStrategy](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-placementstrategy.html)
+  for more information.
+
+* `field` (string) - *Required* - The field to apply the placement strategy against
+* `type` (string) - *Required* - The type of placement strategy

@@ -211,11 +211,13 @@ def launch_config(name, sgs, inst_type, inst_prof, keyName):
     )
 
 
-def ecs_cluster():
+def ecs_cluster(container_insights_enabled):
     return Cluster(
         "EcsCluster",
         ClusterName=Ref("EnvName"),
-        ClusterSettings=[ClusterSetting(Name="containerInsights", Value="enabled")]
+        ClusterSettings=[
+            ClusterSetting(Name="containerInsights", Value="enabled" if container_insights_enabled else "disabled")
+        ]
     )
 
 
@@ -430,7 +432,7 @@ def sceptre_handler(sceptre_user_data):
     sns_topic = r(asg_sns_topic(asg_lambda))
     sns_fn_role = r(sns_lambda_role())
     node_sg = r(node_security_group(vpc_id, sceptre_user_data['ingress_cidrs']))
-    cluster = r(ecs_cluster())
+    cluster = r(ecs_cluster(sceptre_user_data.get('container_insights_enabled', False)))
 
     r(parameter_key_alias(key))
     r(service_role())

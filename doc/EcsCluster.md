@@ -19,7 +19,7 @@
 
 * `node_security_groups` (list of strings) - *required* - List of security group IDs which will be assigned to all
   container instances.
-  
+
 * `ssm_key_admins` (list of strings) - *required* - List of ARNs of IAM users/roles which will be granted permission to
   manage the encryption key.
   * **Default:** `['arn:aws:iam::${AWS::AccountId}:root']`
@@ -36,6 +36,14 @@
   * **Note:** Once a capacity provider has been assigned to an ECS service it can be changed but it cannot be removed.
     Therefore, once auto-scaling has been enabled on a cluster, it will be necessary to remove all services before
     auto-scaling can be disabled again.
+
+
+* `container_insights_enabled` (boolean) - When true, Container Insights will be
+  enabled.
+  * **Default:** `false`
+  * **Note:** Container Insights can be surprisingly expensive. Be sure to
+    review the [CloudWatch Pricing page](https://aws.amazon.com/cloudwatch/pricing/)
+    and note the pricing example for Container Insights. 
     
 * `force_default_cps` (boolean) - When true, changes to the `scaling_groups` will trigger an update of all services on
   the cluster, forcing them to use the new default capacity provider(s). This setting has no effect if 

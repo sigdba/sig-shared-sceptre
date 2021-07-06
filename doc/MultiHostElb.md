@@ -28,13 +28,16 @@
 * `port`
 
 * `default_action`
-* `https_redirect_to`
+* `https_redirect_to` (integer)
 * `hostnames` 
+* `rules` (list of rule objects)
 
 ### action objects
 
 * `fixed_response`
 * `health_check`
+
+* `redirect` (redirect object)
   
 * `target_port` (integer)
   * **Default:** `8080`
@@ -78,6 +81,26 @@
 
 * `id`
 * `port`
+
+#### redirect objects
+
+* `host`
+* `path`
+* `port`
+* `protocol`
+* `query`
+* `status_code`
+  * **Default:** `302`
+  * **Allowed Values:** `301` or `302`
+
+#### rule objects
+
+A rule object is an action object with conditional keys
+
+* `path` - Alias for `paths`
+* `paths`
+* `host` - Alias for `hosts`  
+* `hosts`
 
 ### hostname objects
 

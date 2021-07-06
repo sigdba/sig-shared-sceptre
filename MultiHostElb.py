@@ -1,8 +1,10 @@
+import hashlib
 from functools import lru_cache, partial
 from troposphere import Template, Ref, Sub, Parameter, GetAtt, Tag
 from troposphere.elasticloadbalancingv2 import LoadBalancer, LoadBalancerAttributes, Listener, ListenerRule, \
     ListenerCertificate, Certificate as ListenerCertificateEntry, FixedResponseConfig, ForwardConfig, TargetGroup, \
-    Matcher, TargetGroupAttribute, TargetDescription, Action
+    Matcher, TargetGroupAttribute, TargetDescription, Action, RedirectConfig, Condition, HostHeaderConfig, \
+    PathPatternConfig
 from troposphere.s3 import Bucket, BucketPolicy, LifecycleConfiguration, LifecycleRule, LifecycleRuleTransition, \
     PublicAccessBlockConfiguration
 from troposphere.certificatemanager import Certificate, DomainValidationOption
@@ -10,6 +12,31 @@ from troposphere.route53 import RecordSet, RecordSetType
 from troposphere.ec2 import SecurityGroup, SecurityGroupRule
 
 TEMPLATE = Template()
+PRIORITY_CACHE = []
+
+
+# TODO: Replace all uses of isinstance(_, str) with this.
+def as_list(s):
+    """If s is a string it returns [s]. Otherwise it returns list(s)."""
+    if isinstance(s, str):
+        return [s]
+    return list(s)
+
+
+def md5(*s):
+    return hashlib.md5(''.join(map(str, s)).encode('utf-8')).hexdigest()
+
+
+def priority_hash(s, range_start=1000, range_end=47999):
+    ret = int(md5(s), 16) % (range_end - range_start) + range_start
+    while ret in PRIORITY_CACHE:
+        ret += 1
+    PRIORITY_CACHE.append(ret)
+    return ret
+
+
+def hostname_to_fqdn(user_data, hostname):
+    return hostname if '.' in hostname else '{}.{}'.format(hostname, user_data['domain'])
 
 
 def add_resource(r):
@@ -29,6 +56,10 @@ def clean_title(s):
         .replace('?', 'QM') \
         .replace('/', 'SLASH') \
         .replace(' ', 'SP')
+
+
+def camel_case(s):
+    return ''.join(map(str.title, s.split('_')))
 
 
 def log_bucket(user_data):
@@ -168,7 +199,7 @@ def normalize_hostname_data(user_data, hostname_data):
 
     hostname = hostname_data['hostname']
     return {**hostname_data,
-            'fqdn': hostname if '.' in hostname else '{}.{}'.format(hostname, user_data['domain'])}
+            'fqdn': hostname_to_fqdn(user_data, hostname)}
 
 
 def certificate_arn(user_data, hostname_data):
@@ -219,19 +250,88 @@ def target_group_with(title, default_hc_path, tg_data):
 
 
 def fixed_response_action(fr_data):
-    return FixedResponseConfig(
+    return Action(FixedResponseConfig=FixedResponseConfig(
         ContentType=fr_data.get('content_type', 'text/plain'),
         MessageBody=fr_data['message_body'],
         StatusCode=str(fr_data.get('status_code', 200))
-    )
+    ), Type='fixed-response')
+
+
+def redirect_action(**redirect_data):
+    args = ['host', 'path', 'port', 'protocol', 'query']
+    return Action(RedirectConfig=RedirectConfig(
+        **{**{'StatusCode': 'HTTP_' + str(redirect_data.get('status_code', 302))},
+           **{camel_case(k): str(redirect_data[k]) for k in args if k in redirect_data}}
+    ), Type='redirect')
 
 
 def action_with(title_context, action_data):
     if 'fixed_response' in action_data:
-        return Action(FixedResponseConfig=fixed_response_action(action_data['fixed_response']), Type='fixed-response')
+        return fixed_response_action(action_data['fixed_response'])
+    if 'redirect' in action_data:
+        return redirect_action(**action_data['redirect'])
 
     tg = target_group_with('{}TargetGroup'.format(title_context), '/', action_data)
     return Action(TargetGroupArn=Ref(tg), Type='forward')
+
+
+def paths_with(path_data):
+    if isinstance(path_data, str):
+        return [path_data]
+    for path in path_data:
+        yield path
+        if '*' not in path and path[-1] != '/':
+            yield path + '/*'
+
+
+def normalize_condition_data(user_data, rule_data):
+    hosts = [hostname_to_fqdn(user_data, h) for h in as_list(rule_data.get('hosts', rule_data.get('host', [])))]
+    paths = rule_data.get('paths', as_list(rule_data.get('path', [])))
+
+    if 'priority' in rule_data:
+        priority = rule_data['priority']
+    elif len(hosts) > 0 and len(paths) < 1:
+        # Host conditions are provided but no paths. That means this is equivalent to a default action in a
+        # single-host ELB. So we put its priority up in a higher range so they'll be evaluated last.
+        priority = priority_hash(rule_data, 48000, 48999)
+    else:
+        priority = priority_hash(rule_data, 1000, 47999)
+
+    ret = {'priority': priority}
+    if len(hosts) > 0:
+        ret['hosts'] = hosts
+    if len(paths) > 0:
+        ret['paths'] = paths
+    return ret
+
+
+def conditions_with(user_data, cond_data):
+    conditions = []
+    if 'hosts' in cond_data:
+        conditions.append(Condition(
+            Field='host-header',
+            HostHeaderConfig=HostHeaderConfig(Values=[hostname_to_fqdn(user_data, h) for h in cond_data['hosts']])
+        ))
+    if 'paths' in cond_data:
+        conditions.append(Condition(
+            Field='path-pattern',
+            PathPatternConfig=PathPatternConfig(Values=list(paths_with(cond_data['paths'])))
+        ))
+    return conditions
+
+
+def listener_rule(user_data, listener_ref, rule_data):
+    rule_title = 'Rule{}'.format(md5(listener_ref, rule_data)[:7])
+    cond_data = normalize_condition_data(user_data, rule_data)
+    action = action_with(rule_title, rule_data)
+
+    return add_resource(ListenerRule(
+        rule_title,
+        Actions=[action],
+        ListenerArn=listener_ref,
+        Priority=cond_data['priority'],
+        Conditions=conditions_with(user_data, cond_data)
+    ))
 
 
 def listener(user_data, listener_data):
@@ -253,14 +353,27 @@ def listener(user_data, listener_data):
         primary_certs = []
         cert_arns = []
 
+    if 'https_redirect_to' in listener_data:
+        default_action = redirect_action(protocol='HTTPS',
+                                         port=listener_data['https_redirect_to'],
+                                         host='#{host}',
+                                         path='/#{path}',
+                                         query='#{query}',
+                                         status_code=301)
+    else:
+        default_action = action_with('DefaultPort{}'.format(port), listener_data.get('default_action', {}))
+
     ret = add_resource(Listener(
         "ListenerOnPort{}".format(port),
         Certificates=primary_certs,
         Protocol=protocol,
         LoadBalancerArn=Ref('LoadBalancer'),
         Port=port,
-        DefaultActions=[action_with('DefaultPort{}'.format(port), listener_data.get('default_action', {}))]
+        DefaultActions=[default_action]
     ))
+
+    for rule_data in listener_data.get('rules', []):
+        listener_rule(user_data, Ref(ret), rule_data)
 
     # For some reason, even though the listener accepts a list of certificate ARNs, you're only allowed to put ONE in
     # that parameter. So we have to associate the others using separate resources.

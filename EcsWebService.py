@@ -14,6 +14,16 @@ from troposphere.events import Rule as EventRule, Target as EventTarget
 TEMPLATE = Template()
 PRIORITY_CACHE = []
 
+TITLE_CHAR_MAP = {
+    '-': 'DASH',
+    '.': 'DOT',
+    '_': 'US',
+    '*': 'STAR',
+    '?': 'QM',
+    '/': 'SLASH',
+    ' ': 'SP'
+}
+
 
 def read_local_file(path):
     with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), path), 'r') as fp:
@@ -26,15 +36,11 @@ def add_resource(r):
 
 
 def clean_title(s):
-    return s.replace('-', 'DASH') \
-        .replace('.', 'DOT') \
-        .replace('_', 'US') \
-        .replace('*', 'STAR') \
-        .replace('?', 'QM') \
-        .replace('/', 'SLASH') \
-        .replace(' ', 'SP')
+    for k in TITLE_CHAR_MAP.keys():
+        s = s.replace(k, TITLE_CHAR_MAP[k])
+    return s
 
-
+    
 def md5(s):
     return hashlib.md5(s.encode('utf-8')).hexdigest()
 

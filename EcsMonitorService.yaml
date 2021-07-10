@@ -5,6 +5,10 @@ Parameters:
   ClusterArn:
     Type: String
     Description: Name or ARN of the cluster to monitor
+  Debug:
+    Type: String
+    Description: Set to 'yes' to enable debugging
+    Default: ''
 
 Resources:
   TaskDef:
@@ -16,7 +20,7 @@ Resources:
             SourcePath: /var/run/docker.sock
       TaskRoleArn: !Ref TaskRole
       ContainerDefinitions:
-        - Image: sigcorp/ecs_monitor:0.1.7
+        - Image: sigcorp/ecs_monitor:0.1.9
           Name: main
           Hostname: !Ref AWS::StackName
           Memory: 128
@@ -27,6 +31,8 @@ Resources:
               Value: !Ref AWS::Region
             - Name: CLUSTER_ARN
               Value: !Ref ClusterArn
+            - Name: ECS_MONITOR_DEBUG
+              Value: !Ref Debug
           MountPoints:
             - SourceVolume: docker_socket
               ContainerPath: /var/run/docker.sock
@@ -37,6 +43,7 @@ Resources:
               awslogs-region: !Ref AWS::Region
               awslogs-stream-prefix: ecs
               awslogs-create-group: yes
+              awslogs-datetime-format: '\[%b %d, %Y %H:%M:%S\]'
 
   Service:
     Type: AWS::ECS::Service

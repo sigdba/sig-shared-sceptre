@@ -24,7 +24,8 @@ def as_list(s):
 
 
 def md5(*s):
-    return hashlib.md5(''.join(map(str, s)).encode('utf-8')).hexdigest()
+    hs = ''.join(map(str, s))
+    return hashlib.md5(hs.encode('utf-8')).hexdigest()
 
 
 def priority_hash(s, range_start=1000, range_end=47999):
@@ -321,7 +322,7 @@ def conditions_with(user_data, cond_data):
 
 
 def listener_rule(user_data, listener_ref, rule_data):
-    rule_title = 'Rule{}'.format(md5(listener_ref, rule_data)[:7])
+    rule_title = 'Rule{}'.format(md5(listener_ref.data, rule_data)[:7])
     cond_data = normalize_condition_data(user_data, rule_data)
     action = action_with(rule_title, rule_data)
 

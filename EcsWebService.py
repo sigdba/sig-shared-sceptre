@@ -6,7 +6,7 @@ from troposphere import Template, Ref, Sub, Parameter, GetAtt
 from troposphere.ecs import TaskDefinition, Service, ContainerDefinition, PortMapping, LogConfiguration, Environment, \
     LoadBalancer, DeploymentConfiguration, Volume, EFSVolumeConfiguration, MountPoint, Secret, PlacementStrategy
 from troposphere.elasticloadbalancingv2 import ListenerRule, TargetGroup, Action, Condition, Matcher, \
-    TargetGroupAttribute, PathPatternConfig
+    TargetGroupAttribute, PathPatternConfig, HostHeaderConfig
 from troposphere.iam import Role, Policy
 from troposphere.awslambda import Permission, Function, Code
 from troposphere.events import Rule as EventRule, Target as EventTarget
@@ -23,6 +23,12 @@ TITLE_CHAR_MAP = {
     '/': 'SLASH',
     ' ': 'SP'
 }
+
+
+def as_list(s):
+    """If s is a string it returns [s]. Otherwise it returns list(s)."""
+    if isinstance(s, str):
+        return [s]
 
 
 def read_local_file(path):
@@ -240,13 +246,24 @@ def listener_rule(tg, rule):
     path = rule["path"]
     priority = rule.get("priority", priority_hash(path))
 
+    # TODO: We may want to support more flexible rules in the way
+    #       MultiHostElb.py does. But one thing to note if we do that, rules
+    #       having a single path and no host would need to have their priority
+    #       hash generated as above (priority_hash(path)). Otherwise it'll cause
+    #       issues when updating older stacks.
     path_patterns = [path, "%s/*" % path]
+    conditions = [Condition(Field="path-pattern", PathPatternConfig=PathPatternConfig(Values=path_patterns))]
+
+    if 'host' in rule:
+        conditions.append(Condition(
+            Field='host-header',
+            HostHeaderConfig=HostHeaderConfig(Values=[rule['host']])))
+
     return add_resource(ListenerRule("ListenerRule%s" % priority,
                                      Actions=[Action(
                                          Type="forward",
                                          TargetGroupArn=Ref(tg))],
-                                     Conditions=[Condition(Field="path-pattern",
-                                                           PathPatternConfig=PathPatternConfig(Values=path_patterns))],
+                                     Conditions=conditions,
                                      ListenerArn=Ref("ListenerArn"),
                                      Priority=priority))
 

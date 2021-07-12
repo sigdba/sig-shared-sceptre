@@ -12,6 +12,7 @@
     + [efs volume objects](#efs-volume-objects)
     + [placement strategy objects](#placement-strategy-objects)
 
+
 ## Parameters
 
 * `VpcId` (string) - *Required* - The ID of the VPC of the ECS cluster
@@ -27,6 +28,8 @@
   * **Default:** `100`
   * **See also:** [AWS::ECS::Service DeploymentConfiguration](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-deploymentconfiguration.html#cfn-ecs-service-deploymentconfiguration-minimumhealthypercent)
   
+
+
 ## sceptre_user_data
 
 * `containers` (list of [container objects](#container-objects)) - *Required* - Defines the containers for this service.
@@ -42,6 +45,8 @@
 
 * `schedule` (list of [schedule objects](#schedule-objects)) - Specifies a schedule for modifying the DesiredCount of
   the service.
+
+
 
 ### container objects
 
@@ -106,10 +111,14 @@
   `rules` then no target group will be created. Instead, the container will be assigned to an externally-defined target
   group. This is normally used to assign a container to the default target group of an ELB. 
 
+
+
 #### health check object
 
 * `path` (string) - Path the target group health check will request
   * **Default:** If unspecified, the `path` value of the first [rule](#rule-objects) will be used.
+
+
 
 #### mount point objects
 
@@ -120,11 +129,15 @@
 * `read_only` (boolean) - If true, the volume will not be writable to the container.
   * **Default:** `false`
 
+
+
 #### port mapping objects
 
 * `container_port` (number) - *required* - The port exposed by the container
   * **Note:** You may specify more than one port mapping object per container, but the target group will always route
     its traffic to the `container_port` of the first port mapping.
+
+
 
 #### rule objects
 
@@ -132,6 +145,8 @@
   rules will be created, one matching `path` and one matching `path + '/*'`.
 
 * `priority` (number) - The priority value for the listener rule. If undefined, a hash-based value will be generated.
+
+
 
 #### schedule objects
 
@@ -145,6 +160,8 @@
 
 * `description` (string) - Description of the schedule
 
+
+
 #### target group object
 
 * `attributes` - (string:string dictionary) - Sets target group attributes
@@ -152,6 +169,8 @@
     * `'stickiness.enabled' = 'true'`
     * `'stickiness.type' = 'lb_cookie'`
   * **See Also:** [AWS::ElasticLoadBalancingV2::TargetGroup TargetGroupAttribute](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-targetgroup-targetgroupattribute.html)
+
+
 
 ### efs volume objects
 
@@ -163,6 +182,8 @@
 * `root_directory` (string) - The directory within the EFS volume which will mounted by containers
   * **Default:** By default the root directory of the volume will be used.
     
+
+
 ### placement strategy objects
 
 **See:** [AWS::ECS::Service PlacementStrategy](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-placementstrategy.html)

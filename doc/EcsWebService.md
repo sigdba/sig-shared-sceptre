@@ -143,6 +143,10 @@
 
 * `path` (string) - *Required* - The context path for the listener rule. The path should start with a `/`. Two listener
   rules will be created, one matching `path` and one matching `path + '/*'`.
+  
+* `host` (string) - Pattern to match against the request's host header. Wildcards `?` and `*` are supported.
+  * **Note:** For this setting to work properly, the ELB will need to be set up to for multiple hostnames.
+  * **See Also:** [AWS::ElasticLoadBalancingV2::ListenerRule HostHeaderConfig](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-hostheaderconfig.html)
 
 * `priority` (number) - The priority value for the listener rule. If undefined, a hash-based value will be generated.
 

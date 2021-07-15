@@ -5,6 +5,10 @@ Parameters:
   ClusterArn:
     Type: String
     Description: Name or ARN of the cluster to monitor
+  DockerImage:
+    Type: String
+    Description: Docker image to deploy.
+    Default: sigcorp/ecs_monitor:0.1.10
   Debug:
     Type: String
     Description: Set to 'yes' to enable debugging
@@ -20,7 +24,7 @@ Resources:
             SourcePath: /var/run/docker.sock
       TaskRoleArn: !Ref TaskRole
       ContainerDefinitions:
-        - Image: sigcorp/ecs_monitor:0.1.9
+        - Image: !Ref DockerImage
           Name: main
           Hostname: !Ref AWS::StackName
           Memory: 128

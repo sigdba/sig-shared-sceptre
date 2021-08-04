@@ -51,8 +51,8 @@ def md5(s):
     return hashlib.md5(s.encode('utf-8')).hexdigest()
 
 
-def priority_hash(name):
-    ret = int(md5(name), 16) % 48000 + 1000
+def priority_hash(rule):
+    ret = int(md5(str(rule)), 16) % 48000 + 1000
     while ret in PRIORITY_CACHE:
         ret += 1
     PRIORITY_CACHE.append(ret)
@@ -244,15 +244,18 @@ def target_group(protocol, health_check, target_group_props, default_health_chec
 
 def listener_rule(tg, rule):
     path = rule["path"]
-    priority = rule.get("priority", priority_hash(path))
+    priority = rule.get("priority", priority_hash(rule))
 
     # TODO: We may want to support more flexible rules in the way
     #       MultiHostElb.py does. But one thing to note if we do that, rules
     #       having a single path and no host would need to have their priority
     #       hash generated as above (priority_hash(path)). Otherwise it'll cause
     #       issues when updating older stacks.
-    path_patterns = [path, "%s/*" % path]
-    conditions = [Condition(Field="path-pattern", PathPatternConfig=PathPatternConfig(Values=path_patterns))]
+    if path == '/':
+        conditions = []
+    else:
+        path_patterns = [path, "%s/*" % path]
+        conditions = [Condition(Field="path-pattern", PathPatternConfig=PathPatternConfig(Values=path_patterns))]
 
     if 'host' in rule:
         conditions.append(Condition(

@@ -1,14 +1,33 @@
 import hashlib
+import os.path
+import json
 
-from troposphere import Template, Ref, Sub, Parameter
+from troposphere import Template, Ref, Sub, Parameter, GetAtt
 from troposphere.ecs import TaskDefinition, Service, ContainerDefinition, PortMapping, LogConfiguration, Environment, \
-    LoadBalancer, DeploymentConfiguration, Volume, EFSVolumeConfiguration, MountPoint, Secret
+    LoadBalancer, DeploymentConfiguration, Volume, EFSVolumeConfiguration, MountPoint, Secret, PlacementStrategy
 from troposphere.elasticloadbalancingv2 import ListenerRule, TargetGroup, Action, Condition, Matcher, \
     TargetGroupAttribute, PathPatternConfig
 from troposphere.iam import Role, Policy
+from troposphere.awslambda import Permission, Function, Code
+from troposphere.events import Rule as EventRule, Target as EventTarget
 
 TEMPLATE = Template()
 PRIORITY_CACHE = []
+
+TITLE_CHAR_MAP = {
+    '-': 'DASH',
+    '.': 'DOT',
+    '_': 'US',
+    '*': 'STAR',
+    '?': 'QM',
+    '/': 'SLASH',
+    ' ': 'SP'
+}
+
+
+def read_local_file(path):
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), path), 'r') as fp:
+        return fp.read()
 
 
 def add_resource(r):
@@ -17,13 +36,17 @@ def add_resource(r):
 
 
 def clean_title(s):
-    return s.replace('-', 'DASH').replace('.', 'DOT').replace('_', 'US').replace('*', 'STAR').replace('?',
-                                                                                                      'QM').replace('/',
-                                                                                                                    'SLASH')
+    for k in TITLE_CHAR_MAP.keys():
+        s = s.replace(k, TITLE_CHAR_MAP[k])
+    return s
+
+    
+def md5(s):
+    return hashlib.md5(s.encode('utf-8')).hexdigest()
 
 
 def priority_hash(name):
-    ret = int(hashlib.md5(name.encode('utf-8')).hexdigest(), 16) % 48000 + 1000
+    ret = int(md5(name), 16) % 48000 + 1000
     while ret in PRIORITY_CACHE:
         ret += 1
     PRIORITY_CACHE.append(ret)
@@ -187,8 +210,14 @@ def task_def(container_defs, efs_volumes, exec_role):
                                        **extra_args))
 
 
-def target_group(protocol, health_check, default_health_check_path):
+def target_group(protocol, health_check, target_group_props, default_health_check_path):
     health_check_path = health_check.get('path', default_health_check_path)
+    attrs = target_group_props.get('attributes', {})
+
+    if 'stickiness.enabled' not in attrs:
+        attrs['stickiness.enabled'] = 'true'
+    if 'stickiness.type' not in attrs:
+        attrs['stickiness.type'] = 'lb_cookie'
 
     return add_resource(TargetGroup(clean_title("TargetGroupFOR%s" % health_check_path),
                                     HealthCheckProtocol=protocol,
@@ -201,9 +230,8 @@ def target_group(protocol, health_check, default_health_check_path):
                                     Matcher=Matcher(HttpCode="200-399"),
                                     Port=8080,  # This is overridden by the targets themselves.
                                     Protocol=protocol,
-                                    TargetGroupAttributes=[
-                                        TargetGroupAttribute(Key="stickiness.enabled", Value="true"),
-                                        TargetGroupAttribute(Key="stickiness.type", Value="lb_cookie")],
+                                    TargetGroupAttributes=[TargetGroupAttribute(Key=k, Value=str(v))
+                                                           for k, v in attrs.items()],
                                     TargetType="instance",
                                     VpcId=Ref("VpcId")))
 
@@ -223,16 +251,91 @@ def listener_rule(tg, rule):
                                      Priority=priority))
 
 
-def service(listener_rules, lb_mappings):
+def service(listener_rules, lb_mappings, placement_strategies):
     return add_resource(Service("Service",
                                 DependsOn=[r.title for r in listener_rules],
                                 TaskDefinition=Ref("TaskDef"),
                                 Cluster=Ref('ClusterArn'),
                                 DesiredCount=Ref("DesiredCount"),
+                                PlacementStrategies=[PlacementStrategy(Field=s['field'], Type=s['type'])
+                                                     for s in placement_strategies],
                                 DeploymentConfiguration=DeploymentConfiguration(
                                     MaximumPercent=Ref("MaximumPercent"),
                                     MinimumHealthyPercent=Ref("MinimumHealthyPercent")),
                                 LoadBalancers=lb_mappings))
+
+
+def lambda_execution_role():
+    return add_resource(Role(
+        "LambdaExecutionRole",
+        Policies=[Policy(
+            PolicyName="lambda-inline",
+            PolicyDocument={
+                "Version": "2012-10-17",
+                "Statement": [{
+                    "Effect": "Allow",
+                    "Action": [
+                        "autoscaling:CompleteLifecycleAction",
+                        "logs:CreateLogGroup",
+                        "logs:CreateLogStream",
+                        "logs:PutLogEvents",
+                        "ecs:UpdateService"
+                    ],
+                    "Resource": "*"
+                }]
+            }
+        )],
+        AssumeRolePolicyDocument={
+            "Version": "2012-10-17",
+            "Statement": [{
+                "Effect": "Allow",
+                "Principal": {"Service": ["lambda.amazonaws.com"]},
+                "Action": ["sts:AssumeRole"]
+            }]
+        },
+        ManagedPolicyArns=[],
+        Path="/"
+    ))
+
+
+def scheduling_lambda():
+    return add_resource(Function(
+        "SchedulingLambda",
+        Description="Updates service properties on a schedule",
+        Handler="index.lambda_handler",
+        Role=GetAtt('LambdaExecutionRole', "Arn"),
+        Runtime="python3.6",
+        MemorySize=128,
+        Timeout=60,
+        Code=Code(ZipFile=Sub(read_local_file("EcsWebService_ScheduleLambda.py")))
+    ))
+
+
+def lambda_invoke_permission(rule):
+    return add_resource(Permission(
+        "LambdaInvokePermission" + rule.title,
+        FunctionName=Ref('SchedulingLambda'),
+        Action="lambda:InvokeFunction",
+        Principal="events.amazonaws.com",
+        SourceArn=GetAtt(rule, 'Arn')
+    ))
+
+
+def scheduling_rule(rule_props):
+    cron_expr = rule_props['cron']
+    rule_hash = md5(cron_expr)[:7]
+    desired_count = rule_props['desired_count']
+
+    return add_resource(EventRule(
+        'ScheduleRule' + rule_hash,
+        ScheduleExpression='cron(%s)' % cron_expr,
+        Description=rule_props.get('description', 'ECS service scheduling rule'),
+        Targets=[EventTarget(
+            Id='ScheduleRule' + rule_hash,
+            Arn=GetAtt('SchedulingLambda', 'Arn'),
+            Input=json.dumps({'desired_count': desired_count})
+        )]
+    ))
 
 
 def sceptre_handler(sceptre_user_data):
@@ -258,8 +361,9 @@ def sceptre_handler(sceptre_user_data):
             # Create target group and associated listener rules
             rules = c["rules"]
             health_check = c.get('health_check', {})
+            target_group_props = c.get('target_group', {})
             protocol = c.get('protocol', 'HTTP')
-            tg = target_group(protocol, health_check, "%s/" % rules[0]["path"])
+            tg = target_group(protocol, health_check, target_group_props, "%s/" % rules[0]["path"])
 
             for rule in rules:
                 listener_rules.append(listener_rule(tg, rule))
@@ -270,13 +374,24 @@ def sceptre_handler(sceptre_user_data):
 
         if target_group_arn is not None:
             if len(container.PortMappings) < 1:
-                raise ValueError("Container '%s' connects to an ELB but does not specify port_mappings or container_port" % c['name'])
+                raise ValueError(
+                    "Container '%s' connects to an ELB but does not specify port_mappings or container_port" % c[
+                        'name'])
             lb_mappings.append(LoadBalancer(ContainerName=container.Name,
                                             # TODO: Ugly hack, do better.
                                             ContainerPort=container.PortMappings[0].ContainerPort,
                                             TargetGroupArn=target_group_arn))
 
     task_def(containers, efs_volumes, exec_role)
-    service(listener_rules, lb_mappings)
+    placement_strategies = sceptre_user_data.get('placement_strategies', [{'field': 'memory', 'type': 'binpack'}])
+    service(listener_rules, lb_mappings, placement_strategies)
+
+    schedule = sceptre_user_data.get('schedule', [])
+    if len(schedule) > 0:
+        lambda_execution_role()
+        scheduling_lambda()
+        for p in schedule:
+            rule = scheduling_rule(p)
+            lambda_invoke_permission(rule)
 
     return TEMPLATE.to_json()

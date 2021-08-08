@@ -1,0 +1,72 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+
+Parameters: 
+  ClusterArn:
+    Type: String
+    Description: Name or ARN of the cluster to monitor
+
+Resources:
+  TaskDef:
+    Type: AWS::ECS::TaskDefinition
+    Properties: 
+      Volumes:
+        - Name: docker_socket
+          Host:
+            SourcePath: /var/run/docker.sock
+      TaskRoleArn: !Ref TaskRole
+      ContainerDefinitions:
+        - Image: sigcorp/ecs_monitor:0.1.7
+          Name: main
+          Hostname: !Ref AWS::StackName
+          Memory: 128
+          MemoryReservation: 64
+          Environment:
+            # You wouldn't think this would be necessary, but apparently it is.
+            - Name: AWS_DEFAULT_REGION
+              Value: !Ref AWS::Region
+            - Name: CLUSTER_ARN
+              Value: !Ref ClusterArn
+          MountPoints:
+            - SourceVolume: docker_socket
+              ContainerPath: /var/run/docker.sock
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Sub "/ecs/${AWS::StackName}"
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: ecs
+              awslogs-create-group: yes
+
+  Service:
+    Type: AWS::ECS::Service
+    Properties:
+      TaskDefinition: !Ref TaskDef
+      Cluster: !Ref ClusterArn
+      LaunchType: EC2
+      SchedulingStrategy: DAEMON
+
+  TaskRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ecs-tasks.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'ecs:ListTasks'
+                  - 'ecs:DescribeTasks'
+                  - 'ecs:DescribeClusters'
+                  - 'cloudwatch:PutMetricData'
+                Resource: [ '*' ]

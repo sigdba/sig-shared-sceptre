@@ -1,0 +1,27 @@
+---
+template_path: shared/EcsCluster.py
+
+parameters:
+  EnvName: <ClusterName>
+  VpcId: <VpcID>
+  Subnets:
+    - <PrivateSubnet1>
+    - <PrivateSubnet2>
+
+sceptre_user_data:
+  node_security_groups: []
+  ssm_key_admins:
+    - "arn:aws:iam::${AWS::AccountId}:root"
+  ingress_cidrs:
+    - <VpcCidr>
+
+  # Auto-scaling options
+  # auto_scaling_enabled: yes
+  # force_default_cps: yes
+
+  scaling_groups:
+    - name: T2XLarge
+      key_name: <Ec2SshKey>
+      node_type: t2.xlarge
+      max_size: 10
+      desired_size: 1

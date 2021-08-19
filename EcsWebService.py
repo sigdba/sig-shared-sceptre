@@ -16,6 +16,12 @@ from typing import List, Optional, Dict
 from pydantic import BaseModel, ValidationError, validator
 
 
+#
+# IMPORTANT: The following classes are DATA CLASSES using pydantic.
+#            DO NOT add behavior to them beyond input validation. Use functions
+#            instead.
+#
+
 def debug(*args):
     print(*args, file=sys.stderr)
 

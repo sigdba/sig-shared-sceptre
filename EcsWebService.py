@@ -1,5 +1,6 @@
 import hashlib
 import os.path
+import sys
 import json
 
 from troposphere import Template, Ref, Sub, Parameter, GetAtt
@@ -10,6 +11,82 @@ from troposphere.elasticloadbalancingv2 import ListenerRule, TargetGroup, Action
 from troposphere.iam import Role, Policy
 from troposphere.awslambda import Permission, Function, Code
 from troposphere.events import Rule as EventRule, Target as EventTarget
+
+from typing import List, Optional, Dict
+from pydantic import BaseModel, ValidationError, validator
+
+
+def debug(*args):
+    print(*args, file=sys.stderr)
+
+
+class PlacementStrategyModel(BaseModel):
+    field: str
+    type: str
+
+
+class EfsVolumeModel(BaseModel):
+    name: str
+    fs_id: str
+    root_directory: Optional[str]
+
+
+class TargetGroupModel(BaseModel):
+    attributes: Dict[str,str] = {}
+
+
+class ScheduleModel(BaseModel):
+    cron: str  # TODO: Add a validator
+    desired_count: int
+    description = 'ECS service scheduling rule'
+
+
+class RuleModel(BaseModel):
+    path: str
+    host: Optional[str]
+    priority: Optional[int]
+
+
+class PortMappingModel(BaseModel):
+    container_port: int
+
+
+class MountPointModel(BaseModel):
+    container_path: str
+    source_volume: str
+    read_only = False
+
+
+class HealthCheckModel(BaseModel):
+    path: Optional[str]
+
+
+class ContainerModel(BaseModel):
+    image: str
+    container_port: Optional[int]
+    port_mappings: List[PortMappingModel] = []
+    container_memory = 512
+    container_memory_reservation: Optional[int]
+    env_vars: Dict[str,str] = {}
+    health_check: Optional[HealthCheckModel]
+    links: List[str] = []
+    mount_points: List[MountPointModel] = []
+    name = 'main'
+    protocol = 'HTTP' # TODO: Add validator
+    rules: Optional[List[RuleModel]]
+    secrets: Dict[str,str] = {}
+    target_group = TargetGroupModel()
+    target_group_arn: Optional[str]
+
+    # TODO: add validator for container_port/port_mappings
+
+
+class UserDataModel(BaseModel):
+    containers: List[ContainerModel]
+    efs_volumes: List[EfsVolumeModel] = []
+    placement_strategies: List[PlacementStrategyModel] = [PlacementStrategyModel(field='memory', type='binpack')]
+    schedule: List[ScheduleModel] = []
+
 
 TEMPLATE = Template()
 PRIORITY_CACHE = []
@@ -126,16 +203,16 @@ def execution_role(secret_arns):
 
 
 def container_mount_point(data):
-    return MountPoint(ContainerPath=data['container_path'],
-                      SourceVolume=data['source_volume'],
-                      ReadOnly=data.get('read_only', False))
+    return MountPoint(ContainerPath=data.container_path,
+                      SourceVolume=data.source_volume,
+                      ReadOnly=data.read_only)
 
 
 def port_mappings(container_data):
-    if 'port_mappings' in container_data:
-        return [PortMapping(ContainerPort=m['container_port']) for m in container_data['port_mappings']]
-    elif 'container_port' in container_data:
-        return [PortMapping(ContainerPort=container_data['container_port'])]
+    if len(container_data.port_mappings) > 0:
+        return [PortMapping(ContainerPort=m.container_port) for m in container_data.port_mappings]
+    elif container_data.container_port:
+        return [PortMapping(ContainerPort=container_data.container_port)]
     else:
         return []
 
@@ -146,8 +223,8 @@ def container_def(data):
     #     this value.
     #
     # TODO: container_memory_reservation is not mandatory. Maybe it should default to undefined?
-    container_memory = data.get("container_memory", 512)
-    container_memory_reservation = data.get("container_memory_reservation", container_memory)
+    container_memory = data.container_memory
+    container_memory_reservation = data.container_memory_reservation if data.container_memory_reservation else data.container_memory
 
     # Base environment variables from the stack
     env_map = {
@@ -155,29 +232,29 @@ def container_def(data):
     }
 
     # Add stack-specific vars
-    env_map.update(data.get("env_vars", {}))
+    env_map.update(data.env_vars)
 
     # Convert the environment map to a list of Environment objects
     environment = [Environment(Name=k, Value=v) for (k, v) in env_map.items()]
 
     # Convert the secrets map into a list of Secret objects
-    secrets = [Secret(Name=k, ValueFrom=v) for (k, v) in data.get('secrets', {}).items()]
+    secrets = [Secret(Name=k, ValueFrom=v) for (k, v) in data.secrets.items()]
 
     # Configure mount points
-    mount_points = [container_mount_point(p) for p in data.get('mount_points', [])]
+    mount_points = [container_mount_point(p) for p in data.mount_points]
 
     return ContainerDefinition(
-        Name=data.get("name", "main"),
+        Name=data.name,
         Environment=environment,
         Secrets=secrets,
         Essential=True,
         Hostname=Ref("AWS::StackName"),
-        Image=data["image"],
+        Image=data.image,
         Memory=container_memory,
         MemoryReservation=container_memory_reservation,
         MountPoints=mount_points,
         PortMappings=port_mappings(data),
-        Links=data.get('links', []),
+        Links=data.links,
 
         # TODO: We might want to check for failed connection pools and this can probably be done
         #       using HealthCheck here which runs a command inside the container.
@@ -195,10 +272,10 @@ def container_def(data):
 
 def efs_volume(v):
     extra_args = {}
-    if 'root_directory' in v:
-        extra_args['RootDirectory'] = v['root_directory']
+    if v.root_directory:
+        extra_args['RootDirectory'] = v.root_directory
 
-    return Volume(Name=v['name'],
+    return Volume(Name=v.name,
                   EFSVolumeConfiguration=EFSVolumeConfiguration(FilesystemId=v["fs_id"], **extra_args))
 
 
@@ -217,8 +294,8 @@ def task_def(container_defs, efs_volumes, exec_role):
 
 
 def target_group(protocol, health_check, target_group_props, default_health_check_path):
-    health_check_path = health_check.get('path', default_health_check_path)
-    attrs = target_group_props.get('attributes', {})
+    health_check_path = health_check.path if health_check and health_check.path else default_health_check_path
+    attrs = target_group_props.attributes
 
     if 'stickiness.enabled' not in attrs:
         attrs['stickiness.enabled'] = 'true'
@@ -243,8 +320,8 @@ def target_group(protocol, health_check, target_group_props, default_health_chec
 
 
 def listener_rule(tg, rule):
-    path = rule["path"]
-    priority = rule.get("priority", priority_hash(rule))
+    path = rule.path
+    priority = rule.priority if rule.priority else priority_hash(rule)
 
     # TODO: We may want to support more flexible rules in the way
     #       MultiHostElb.py does. But one thing to note if we do that, rules
@@ -257,10 +334,10 @@ def listener_rule(tg, rule):
         path_patterns = [path, "%s/*" % path]
         conditions = [Condition(Field="path-pattern", PathPatternConfig=PathPatternConfig(Values=path_patterns))]
 
-    if 'host' in rule:
+    if rule.host:
         conditions.append(Condition(
             Field='host-header',
-            HostHeaderConfig=HostHeaderConfig(Values=[rule['host']])))
+            HostHeaderConfig=HostHeaderConfig(Values=[rule.host])))
 
     return add_resource(ListenerRule("ListenerRule%s" % priority,
                                      Actions=[Action(
@@ -277,7 +354,7 @@ def service(listener_rules, lb_mappings, placement_strategies):
                                 TaskDefinition=Ref("TaskDef"),
                                 Cluster=Ref('ClusterArn'),
                                 DesiredCount=Ref("DesiredCount"),
-                                PlacementStrategies=[PlacementStrategy(Field=s['field'], Type=s['type'])
+                                PlacementStrategies=[PlacementStrategy(Field=s.field, Type=s.type)
                                                      for s in placement_strategies],
                                 DeploymentConfiguration=DeploymentConfiguration(
                                     MaximumPercent=Ref("MaximumPercent"),
@@ -342,14 +419,14 @@ def lambda_invoke_permission(rule):
 
 
 def scheduling_rule(rule_props):
-    cron_expr = rule_props['cron']
+    cron_expr = rule_props.cron
     rule_hash = md5(cron_expr)[:7]
-    desired_count = rule_props['desired_count']
+    desired_count = rule_props.desired_count
 
     return add_resource(EventRule(
         'ScheduleRule' + rule_hash,
         ScheduleExpression='cron(%s)' % cron_expr,
-        Description=rule_props.get('description', 'ECS service scheduling rule'),
+        Description=rule_props.description,
         Targets=[EventTarget(
             Id='ScheduleRule' + rule_hash,
             Arn=GetAtt('SchedulingLambda', 'Arn'),
@@ -361,31 +438,28 @@ def scheduling_rule(rule_props):
 def sceptre_handler(sceptre_user_data):
     add_params(TEMPLATE)
 
-    efs_volumes = sceptre_user_data.get("efs_volumes", [])
+    user_data = UserDataModel(**sceptre_user_data)
+    efs_volumes = user_data.efs_volumes
 
     # If we're using secrets, we need to define an execution role
-    secret_arns = [v for c in sceptre_user_data['containers'] if 'secrets' in c for k, v in c['secrets'].items()]
+    secret_arns = [v for c in user_data.containers for k, v in c.secrets.items()]
     exec_role = execution_role(secret_arns) if len(secret_arns) > 0 else None
 
     containers = []
     listener_rules = []
     lb_mappings = []
-    for c in sceptre_user_data["containers"]:
+    for c in user_data.containers:
         container = container_def(c)
         containers.append(container)
 
-        if "target_group_arn" in c:
+        if c.target_group_arn:
             # We're injecting into an existing target. Don't set up listener rules.
-            target_group_arn = c["target_group_arn"]
-        elif 'rules' in c:
+            target_group_arn = c.target_group_arn
+        elif c.rules:
             # Create target group and associated listener rules
-            rules = c["rules"]
-            health_check = c.get('health_check', {})
-            target_group_props = c.get('target_group', {})
-            protocol = c.get('protocol', 'HTTP')
-            tg = target_group(protocol, health_check, target_group_props, "%s/" % rules[0]["path"])
+            tg = target_group(c.protocol, c.health_check, c.target_group, "%s/" % c.rules[0].path)
 
-            for rule in rules:
+            for rule in c.rules:
                 listener_rules.append(listener_rule(tg, rule))
 
             target_group_arn = Ref(tg)
@@ -403,10 +477,9 @@ def sceptre_handler(sceptre_user_data):
                                             TargetGroupArn=target_group_arn))
 
     task_def(containers, efs_volumes, exec_role)
-    placement_strategies = sceptre_user_data.get('placement_strategies', [{'field': 'memory', 'type': 'binpack'}])
-    service(listener_rules, lb_mappings, placement_strategies)
+    service(listener_rules, lb_mappings, user_data.placement_strategies)
 
-    schedule = sceptre_user_data.get('schedule', [])
+    schedule = user_data.schedule
     if len(schedule) > 0:
         lambda_execution_role()
         scheduling_lambda()

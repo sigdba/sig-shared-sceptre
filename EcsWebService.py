@@ -135,7 +135,7 @@ def md5(s):
 
 
 def priority_hash(rule):
-    ret = int(md5(str(rule)), 16) % 48000 + 1000
+    ret = int(md5(str(rule.dict(exclude_defaults=True, exclude_unset=True))), 16) % 48000 + 1000
     while ret in PRIORITY_CACHE:
         ret += 1
     PRIORITY_CACHE.append(ret)

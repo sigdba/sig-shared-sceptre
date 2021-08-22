@@ -130,6 +130,16 @@
 * `env_vars` (string:string dictionary) - Environment variable overrides for the build.
 
 
+##### environment variable override objects
+
+* `name` (string) - *Required* - Variable name
+
+* `value` (string) - *Required* - Variable value
+
+* `type` (string) - Type of variable
+  * **Default:** `PLAINTEXT`
+  * **Allowed Values:** `PLAINTEXT`, `PARAMETER_STORE`, `SECRETS_MANAGER`
+
 #### health check object
 
 * `path` (string) - Path the target group health check will request

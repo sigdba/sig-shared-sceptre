@@ -69,10 +69,18 @@ class HealthCheckModel(BaseModel):
     path: Optional[str]
 
 
+class EnvironmentVariableModel(BaseModel):
+    name: str
+    value: str
+    type = 'PLAINTEXT'
+
+    # TODO: Add validator for type
+
+
 class ImageBuildModel(BaseModel):
     codebuild_project_name: str
     ecr_repo_name: str
-    env_vars: Dict[str,str] = {}
+    env_vars: List[EnvironmentVariableModel] = []
 
 
 class ContainerModel(BaseModel):
@@ -250,7 +258,7 @@ def lambda_fn_for_codebuild():
         Role=GetAtt('LambdaExecutionRole', "Arn"),
         Runtime="python3.6",
         MemorySize=128,
-        Timeout=60,
+        Timeout=900,
         Code=Code(ZipFile=Sub(read_local_file("EcsWebService_CodeBuildResourceLambda.py")))
     ))
 
@@ -259,7 +267,7 @@ class ImageBuild(AWSCustomObject):
     resource_type = "Custom::ImageBuild"
     props = {"ServiceToken": (str, True),
              "ProjectName": (str, True),
-             "EnvironmentVariablesOverride": (dict, False),
+             "EnvironmentVariablesOverride": (list, False),
              "RepositoryName": (str, False)}
 
 
@@ -269,7 +277,7 @@ def image_build(container_name, build):
         "ImageBuildFor{}".format(container_name),
         ServiceToken=GetAtt('LambdaFunctionForCodeBuild', 'Arn'),
         ProjectName=build.codebuild_project_name,
-        EnvironmentVariablesOverride=build.env_vars,
+        EnvironmentVariablesOverride=[v.dict() for v in build.env_vars],
         RepositoryName=build.ecr_repo_name
     ))
 
@@ -301,7 +309,7 @@ def container_def(container):
     mount_points = [container_mount_point(p) for p in container.mount_points]
 
     if container.image_build is not None:
-        image = GetAtt(image_build(container.image_build), 'ImageURI')
+        image = GetAtt(image_build(container.name, container.image_build), 'ImageURI')
     else:
         image = container.image
 
@@ -425,6 +433,7 @@ def service(listener_rules, lb_mappings, placement_strategies):
 
 
 def lambda_execution_role():
+    # TODO: See if we can tighten this a bit.
     return add_resource_once("LambdaExecutionRole", lambda name: Role(
         name,
         Policies=[Policy(
@@ -439,6 +448,7 @@ def lambda_execution_role():
                         "logs:CreateLogStream",
                         "logs:PutLogEvents",
                         "ecr:DescribeImages",
+                        "ecr:DescribeRepositories",
                         "ecr:ListImages",
                         "codebuild:StartBuild",
                         "codebuild:BatchGetBuilds",

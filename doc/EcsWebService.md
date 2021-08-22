@@ -16,13 +16,18 @@
 ## Parameters
 
 * `VpcId` (string) - *Required* - The ID of the VPC of the ECS cluster
+
 * `ListenerArn` (string) - *Required* - The ARN of the ELB listener which will be used by this service
+
 * `ClusterArn` (string) - *Required* - The ARN or name of the ECS cluster
+
 * `DesiredCount` (number) - The desired number of instances of this service
   * **Default:** `1`
 * `MaximumPercent` (number) - The maximum percent of `DesiredCount` allowed to be running during updates.
+
   * **Default:** `200`
   * **See also:** [AWS::ECS::Service DeploymentConfiguration](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-deploymentconfiguration.html#cfn-ecs-service-deploymentconfiguration-maximumpercent)
+
 * `MinimumHealthyPercent` (number) - The minimum number of running instances of this service to keep running during an
   update.
   * **Default:** `100`
@@ -50,8 +55,12 @@
 
 ### container objects
 
-* `image` (string) - *Required* - The image used to start a container.
+* `image` (string) - The URI of the container image.
+  * **Requirement:** One of `image` or `image_build` must be defined
   * **See Also:** [AWS::ECS::TaskDefinition ContainerDefinition](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-containerdefinitions.html#cfn-ecs-taskdefinition-containerdefinition-image)
+  
+* `image_build` ([image build object](#image-build-objects)) - Settings for building the container image.
+  * **Requirement:** One of `image` or `image_build` must be defined
   
 * `container_port` (number) - The port exposed by the container
   * **Requirement:** One of `container_port` or `port_mappings` must be defined for any container connecting to an ELB.
@@ -111,6 +120,14 @@
   `rules` then no target group will be created. Instead, the container will be assigned to an externally-defined target
   group. This is normally used to assign a container to the default target group of an ELB. 
 
+
+#### image build objects
+
+* `codebuild_project_name` (string) - *Required* - Name of the CodeBuild project which builds the image.
+
+* `ecr_repo_name` (string) - *Required* - Name of the ECR repo into which the build image will be pushed.
+
+* `env_vars` (string:string dictionary) - Environment variable overrides for the build.
 
 
 #### health check object

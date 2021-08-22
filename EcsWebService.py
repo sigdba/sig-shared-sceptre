@@ -4,6 +4,7 @@ import sys
 import json
 
 from troposphere import Template, Ref, Sub, Parameter, GetAtt
+from troposphere.cloudformation import AWSCustomObject
 from troposphere.ecs import TaskDefinition, Service, ContainerDefinition, PortMapping, LogConfiguration, Environment, \
     LoadBalancer, DeploymentConfiguration, Volume, EFSVolumeConfiguration, MountPoint, Secret, PlacementStrategy
 from troposphere.elasticloadbalancingv2 import ListenerRule, TargetGroup, Action, Condition, Matcher, \
@@ -68,8 +69,15 @@ class HealthCheckModel(BaseModel):
     path: Optional[str]
 
 
+class ImageBuildModel(BaseModel):
+    codebuild_project_name: str
+    ecr_repo_name: str
+    env_vars: Dict[str,str] = {}
+
+
 class ContainerModel(BaseModel):
-    image: str
+    image: Optional[str]
+    image_build: Optional[ImageBuildModel]
     container_port: Optional[int]
     port_mappings: List[PortMappingModel] = []
     container_memory = 512
@@ -86,6 +94,7 @@ class ContainerModel(BaseModel):
     target_group_arn: Optional[str]
 
     # TODO: add validator for container_port/port_mappings
+    # TODO: add validator for image/image_build
 
 
 class UserDataModel(BaseModel):
@@ -123,6 +132,14 @@ def read_local_file(path):
 def add_resource(r):
     TEMPLATE.add_resource(r)
     return r
+
+
+def add_resource_once(logical_id, res_fn):
+    res = TEMPLATE.to_dict()['Resources']
+    if logical_id in res:
+        return res[logical_id]
+    else:
+        return add_resource(res_fn(logical_id))
 
 
 def clean_title(s):
@@ -224,14 +241,47 @@ def port_mappings(container_data):
         return []
 
 
-def container_def(data):
+def lambda_fn_for_codebuild():
+    lambda_execution_role()
+    return add_resource_once("LambdaFunctionForCodeBuild", lambda name: Function(
+        name,
+        Description="Builds a container image",
+        Handler="index.lambda_handler",
+        Role=GetAtt('LambdaExecutionRole', "Arn"),
+        Runtime="python3.6",
+        MemorySize=128,
+        Timeout=60,
+        Code=Code(ZipFile=Sub(read_local_file("EcsWebService_CodeBuildResourceLambda.py")))
+    ))
+
+
+class ImageBuild(AWSCustomObject):
+    resource_type = "Custom::ImageBuild"
+    props = {"ServiceToken": (str, True),
+             "ProjectName": (str, True),
+             "EnvironmentVariablesOverride": (dict, False),
+             "RepositoryName": (str, False)}
+
+
+def image_build(container_name, build):
+    lambda_fn_for_codebuild()
+    return add_resource(ImageBuild(
+        "ImageBuildFor{}".format(container_name),
+        ServiceToken=GetAtt('LambdaFunctionForCodeBuild', 'Arn'),
+        ProjectName=build.codebuild_project_name,
+        EnvironmentVariablesOverride=build.env_vars,
+        RepositoryName=build.ecr_repo_name
+    ))
+
+
+def container_def(container):
     # NB: container_memory is the hard limit on RAM presented to the container. It will be killed if it tries to
     #     allocate more. container_memory_reservation is the soft limit and docker will try to keep the container to
     #     this value.
     #
     # TODO: container_memory_reservation is not mandatory. Maybe it should default to undefined?
-    container_memory = data.container_memory
-    container_memory_reservation = data.container_memory_reservation if data.container_memory_reservation else data.container_memory
+    container_memory = container.container_memory
+    container_memory_reservation = container.container_memory_reservation if container.container_memory_reservation else container.container_memory
 
     # Base environment variables from the stack
     env_map = {
@@ -239,29 +289,34 @@ def container_def(data):
     }
 
     # Add stack-specific vars
-    env_map.update(data.env_vars)
+    env_map.update(container.env_vars)
 
     # Convert the environment map to a list of Environment objects
     environment = [Environment(Name=k, Value=v) for (k, v) in env_map.items()]
 
     # Convert the secrets map into a list of Secret objects
-    secrets = [Secret(Name=k, ValueFrom=v) for (k, v) in data.secrets.items()]
+    secrets = [Secret(Name=k, ValueFrom=v) for (k, v) in container.secrets.items()]
 
     # Configure mount points
-    mount_points = [container_mount_point(p) for p in data.mount_points]
+    mount_points = [container_mount_point(p) for p in container.mount_points]
+
+    if container.image_build is not None:
+        image = GetAtt(image_build(container.image_build), 'ImageURI')
+    else:
+        image = container.image
 
     return ContainerDefinition(
-        Name=data.name,
+        Name=container.name,
         Environment=environment,
         Secrets=secrets,
         Essential=True,
         Hostname=Ref("AWS::StackName"),
-        Image=data.image,
+        Image=image,
         Memory=container_memory,
         MemoryReservation=container_memory_reservation,
         MountPoints=mount_points,
-        PortMappings=port_mappings(data),
-        Links=data.links,
+        PortMappings=port_mappings(container),
+        Links=container.links,
 
         # TODO: We might want to check for failed connection pools and this can probably be done
         #       using HealthCheck here which runs a command inside the container.
@@ -370,8 +425,8 @@ def service(listener_rules, lb_mappings, placement_strategies):
 
 
 def lambda_execution_role():
-    return add_resource(Role(
-        "LambdaExecutionRole",
+    return add_resource_once("LambdaExecutionRole", lambda name: Role(
+        name,
         Policies=[Policy(
             PolicyName="lambda-inline",
             PolicyDocument={
@@ -383,6 +438,10 @@ def lambda_execution_role():
                         "logs:CreateLogGroup",
                         "logs:CreateLogStream",
                         "logs:PutLogEvents",
+                        "ecr:DescribeImages",
+                        "ecr:ListImages",
+                        "codebuild:StartBuild",
+                        "codebuild:BatchGetBuilds",
                         "ecs:UpdateService"
                     ],
                     "Resource": "*"

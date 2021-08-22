@@ -344,6 +344,19 @@ def lambda_fn_for_cps():
     )
 
 
+def lambda_fn_for_cps():
+    return Function(
+        "LambdaFunctionForCpsReset",
+        Description="Updates services in the cluster to use the new default CapacityProviderStrategy",
+        Handler="index.lambda_handler",
+        Role=GetAtt('LambdaExecutionRole', "Arn"),
+        Runtime="python3.6",
+        MemorySize=128,
+        Timeout=60,
+        Code=Code(ZipFile=Sub(read_local_file("EcsCluster_ResetCapacityProvidersLambda.py")))
+    )
+
+
 class CpsReset(AWSCustomObject):
     resource_type = "Custom::CpsReset"
     props = {"ServiceToken": (str, True), "StrategyHash": (str, True)}

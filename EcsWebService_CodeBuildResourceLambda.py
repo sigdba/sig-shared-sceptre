@@ -119,7 +119,7 @@ def lambda_handler(event, context):
         # We're in a test environment
         res_fn = print_response
     else:
-        res_fn = partial(fnresponse.send, event, context)
+        res_fn = partial(cfnresponse.send, event, context)
 
     try:
         if req_type in ['Create', 'Update']:

@@ -5,7 +5,7 @@ import traceback
 import boto3
 import cfnresponse
 
-from functools import partial
+from functools import partial, reduce
 from datetime import datetime
 
 

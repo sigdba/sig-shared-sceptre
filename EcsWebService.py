@@ -2,6 +2,7 @@ import hashlib
 import os.path
 import sys
 import json
+import re
 
 from troposphere import Template, Ref, Sub, Parameter, GetAtt
 from troposphere.cloudformation import AWSCustomObject
@@ -13,6 +14,7 @@ from troposphere.iam import Role, Policy
 from troposphere.awslambda import Permission, Function, Code
 from troposphere.events import Rule as EventRule, Target as EventTarget
 
+from functools import reduce
 from typing import List, Optional, Dict
 from pydantic import BaseModel, ValidationError, validator
 
@@ -44,7 +46,7 @@ class TargetGroupModel(BaseModel):
 
 
 class ScheduleModel(BaseModel):
-    cron: str  # TODO: Add a validator
+    cron: str
     desired_count: int
     description = 'ECS service scheduling rule'
 
@@ -74,7 +76,12 @@ class EnvironmentVariableModel(BaseModel):
     value: str
     type = 'PLAINTEXT'
 
-    # TODO: Add validator for type
+    @validator('type')
+    def type_is_one_of(cls, v):
+        allowed = ['PLAINTEXT', 'PARAMETER_STORE', 'SECRETS_MANAGER']
+        if v in allowed:
+            return v
+        raise ValueError("Invalid type '{}' must be one of {}".format(v, allowed))
 
 
 class ImageBuildModel(BaseModel):
@@ -95,14 +102,39 @@ class ContainerModel(BaseModel):
     links: List[str] = []
     mount_points: List[MountPointModel] = []
     name = 'main'
-    protocol = 'HTTP' # TODO: Add validator
+    protocol = 'HTTP'
     rules: Optional[List[RuleModel]]
     secrets: Dict[str,str] = {}
     target_group = TargetGroupModel()
     target_group_arn: Optional[str]
 
-    # TODO: add validator for container_port/port_mappings
-    # TODO: add validator for image/image_build
+    @validator('protocol')
+    def protocol_one_of(cls, v):
+        allowed = ['HTTP', 'HTTPS']
+        if v not in allowed:
+            raise ValueError("invalid protocol '{}' must be one of {}".format(v, allowed))
+        return v
+
+    @validator('image_build', always=True)
+    def image_or_build(cls, v, values):
+        if v is None:
+            if not values.get('image', None):
+                raise ValueError('container object must contain one of image or image_build')
+        else:
+            if values.get('image', None):
+                raise ValueError('container object cannot have both image and image_build properties')
+        return v
+
+    @validator('target_group_arn', always=True)
+    def port_or_mapping(cls, v, values):
+        if v is not None or values['rules'] is not None:
+            if len(values['port_mappings']) < 1:
+                if not values.get('container_port', None):
+                    raise ValueError('ELB-attached container object must contain one of container_port or port_mappings')
+            else:
+                if values.get('container_port', None):
+                    raise ValueError('ELB-attached container object cannot have both container_port and port_mappings properties')
+        return v
 
 
 class UserDataModel(BaseModel):

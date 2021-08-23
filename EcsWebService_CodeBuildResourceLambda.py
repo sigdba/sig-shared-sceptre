@@ -24,6 +24,10 @@ CB = boto3.client('codebuild', region_name=REGION)
 ECR = boto3.client('ecr', region_name=REGION)
 
 
+def longest(it):
+    return reduce((lambda a, b: b if len(b) > len(a) else a), it)
+
+
 def get_image_tags(repository_name):
     for page in ECR.get_paginator('list_images').paginate(repositoryName=repository_name, filter={'tagStatus': 'TAGGED'}):
        for id in page['imageIds']:
@@ -73,7 +77,7 @@ def find_image(repo, build_time, build_num):
         image = images[0]
         print('Found image:', image)
         print('Fetching Image URI')
-        image_tag = image['imageTags'][0]  # TODO: It might be better to select the LONGEST tag rather than the first
+        image_tag = longest(image['imageTags'])
         image['imageUri'] = '{}:{}'.format(
             ECR.describe_repositories(repositoryNames=[repo])['repositories'][0]['repositoryUri'], image_tag)
         print('ImageURI:', image['imageUri'])

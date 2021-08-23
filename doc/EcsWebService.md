@@ -3,6 +3,8 @@
   * [Parameters](#parameters)
   * [sceptre_user_data](#sceptre-user-data)
     + [container objects](#container-objects)
+      - [image build objects](#image-build-objects)
+        * [environment variable override objects](#environment-variable-override-objects)
       - [health check object](#health-check-object)
       - [mount point objects](#mount-point-objects)
       - [port mapping objects](#port-mapping-objects)
@@ -11,7 +13,6 @@
       - [target group object](#target-group-object)
     + [efs volume objects](#efs-volume-objects)
     + [placement strategy objects](#placement-strategy-objects)
-
 
 ## Parameters
 

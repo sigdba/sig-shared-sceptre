@@ -14,7 +14,6 @@ from troposphere.iam import Role, Policy
 from troposphere.awslambda import Permission, Function, Code
 from troposphere.events import Rule as EventRule, Target as EventTarget
 
-from functools import reduce
 from typing import List, Optional, Dict
 from pydantic import BaseModel, ValidationError, validator
 

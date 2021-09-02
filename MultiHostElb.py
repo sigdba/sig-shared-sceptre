@@ -11,6 +11,61 @@ from troposphere.certificatemanager import Certificate, DomainValidationOption
 from troposphere.route53 import RecordSet, RecordSetType
 from troposphere.ec2 import SecurityGroup, SecurityGroupRule
 
+from typing import List, Optional, Dict
+from pydantic import BaseModel, ValidationError, validator, root_validator
+
+
+def debug(*args):
+    print(*args, file=sys.stderr)
+
+
+def model_alias(keeper, alias, values):
+    if alias in values:
+        if keeper in values:
+            raise ValueError('{} is an alias for {}, they cannot be specified together'.format(alias, keeper))
+        values[keeper] = values[alias]
+        del(values[alias])
+    return values
+
+
+def model_string_or_list(key, values):
+    if key in values:
+        v = values[key]
+        if isinstance(v, str):
+            values[key] = [v]
+    return values
+
+#
+# IMPORTANT: The following classes are DATA CLASSES using pydantic.
+#            DO NOT add behavior to them beyond input validation. Use functions
+#            instead.
+#
+
+
+class HostnameModel(BaseModel):
+    hostname: str
+    certificate_arn: Optional[str]
+
+
+class RuleModel(BaseModel):
+    paths: List[str] = []
+    hosts: List[str] = []
+
+    @root_validator(pre=True)
+    def path_alias(cls, values):
+        return model_string_or_list('paths', model_alias('paths', 'path', values))
+
+    @root_validator(pre=True)
+    def host_alias(cls, values):
+        return model_string_or_list('hosts', model_alias('hosts', 'host', values))
+
+    @root_validator()
+    def require_hosts_or_paths(cls, values):
+        if len(values['hosts']) < 1 and len(values['paths']) < 1:
+            raise ValueError('one of hosts or paths must be specified')
+        return values
+
+
 TEMPLATE = Template()
 PRIORITY_CACHE = []
 

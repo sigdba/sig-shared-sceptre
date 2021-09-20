@@ -407,7 +407,8 @@ def health_check_options(hc_data):
     args = {'interval_seconds': 'HealthCheckIntervalSeconds',
             'timeout_seconds': 'HealthCheckTimeoutSeconds',
             'path': 'HealthCheckPath'}
-    return {arg: hc_data[key] for key, arg in args.items() if key in hc_data}
+    hc_data = hc_data.dict()
+    return {arg: hc_data[key] for key, arg in args.items() if key in hc_data and hc_data[key] is not None}
 
 
 def target_desc(t):

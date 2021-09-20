@@ -377,7 +377,7 @@ def efs_volume(v):
         extra_args['RootDirectory'] = v.root_directory
 
     return Volume(Name=v.name,
-                  EFSVolumeConfiguration=EFSVolumeConfiguration(FilesystemId=v["fs_id"], **extra_args))
+                  EFSVolumeConfiguration=EFSVolumeConfiguration(FilesystemId=v.fs_id, **extra_args))
 
 
 def task_def(container_defs, efs_volumes, exec_role):

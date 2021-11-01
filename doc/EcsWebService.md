@@ -143,9 +143,28 @@
 
 #### health check object
 
+* `healthy_threshold_count` (number) - The number of consecutive health checks
+  successes required before considering an unhealthy target healthy.
+  * **Default:** `5`
+
+* `http_code` (string) - HTTP status code(s) the health check will consider
+  "healthy." You can specify values between 200 and 499, and the default value
+  is 200. You can specify multiple values (for example, "200,202") or a range of
+  values (for example, "200-299").
+  * **Default:** `200-399`
+
+* `interval_seconds` (number) - The approximate amount of time between health checks of an individual target.
+  * **Default:** `60`
+  
 * `path` (string) - Path the target group health check will request
   * **Default:** If unspecified, the `path` value of the first [rule](#rule-objects) will be used.
 
+* `timeout_seconds` (number) - The amount of time during which no response from a target means a failed health check.
+  * **Default:** `30`
+  
+* `unhealthy_threshold_count` (number) - The number of consecutive health check
+  failures required before considering a target unhealthy.
+  * **Default:** `5`
 
 
 #### mount point objects

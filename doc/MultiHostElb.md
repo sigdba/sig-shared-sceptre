@@ -62,6 +62,9 @@
 * `hosted_zone_id` (string) - The Route53 hosted zone ID in which to create DNS entries for certificate validation and
   for hostnames specified for `listeners`.
   
+* `ns_update` ([NS update object](#ns-update-objects)) - Specifies how DNS
+  entries should be updated when not using Route53.
+  
 
 ### listener objects
 
@@ -185,3 +188,9 @@ these options must be specified.
 * `certificate_arn` (string) - ARN of the certificate to associate with this hostname
   * **Default:** If this value is not specified, then a certificate will be generated as part of the stack.
     
+### NS Update Objects
+
+* `lambda_arn` (string) - ARN of the Lambda function which provides NS update functionality.
+
+* `lambda_arn_export_name` (string) - Export name for the ARN of the Lambda
+  function which provides NS update functionality.

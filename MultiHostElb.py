@@ -769,8 +769,6 @@ def ns_entry_nsupdate(nsu_model, record_type, name, value):
         **nsu_model.lambda_props,
     }
 
-    debug("args:", args)
-
     return add_resource(
         NsUpdate(
             clean_title("NsUpdateFor{}".format(name)),

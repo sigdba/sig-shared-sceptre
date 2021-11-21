@@ -9,6 +9,16 @@ from model import *
 from util import *
 
 
+def ingress_for_allow(allow):
+    return {
+        "CidrIp": allow.cidr,
+        "Description": allow.description,
+        "FromPort": allow.from_port,
+        "ToPort": allow.to_port,
+        "IpProtocol": "-1" if allow.protocol == "any" else allow.protocol,
+    }
+
+
 def instance_sg(user_data):
     name = f"{user_data.instance_name}-sg"
     return add_resource(
@@ -18,7 +28,9 @@ def instance_sg(user_data):
             VpcId=Ref("VpcId"),
             GroupDescription=f"Primary security group for {user_data.instance_name}",
             SecurityGroupEgress=user_data.security_group.egress,
-            SecurityGroupIngress=user_data.security_group.ingress,
+            SecurityGroupIngress=[
+                ingress_for_allow(a) for a in user_data.security_group.allow
+            ],
             Tags=Tags(Name=name),
         )
     )

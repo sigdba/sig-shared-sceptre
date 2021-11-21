@@ -96,4 +96,5 @@ class UserDataModel(BaseModel):
     instance_tags: Dict[str, str] = {}
 
     # TODO: Add check for duplicate drive letters
-    # TODO: Add EFS mount info? Or just let the user pass tags? Or maybe that belongs in Ansible?
+    # TODO: Add EFS mounts (needed here for SG updates?)
+    # TODO: Add backups

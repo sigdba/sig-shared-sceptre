@@ -3,6 +3,7 @@
 
 from typing import List, Optional, Dict, Union
 from pydantic import BaseModel, ValidationError, validator, root_validator
+from util import debug
 
 #
 # IMPORTANT: The following classes are DATA CLASSES using pydantic.
@@ -81,10 +82,17 @@ class AmiModel(BaseModel):
 
 
 class BackupVaultModel(BaseModel):
+    create = False
     name: Optional[str]
     tags: Dict[str, str] = {}
     encryption_key_arn: Optional[str]
     vault_extra_props = {}
+
+    @root_validator
+    def require_name_when_not_creatingz(cls, values):
+        if (not values["create"]) and (values["name"] is None):
+            raise ValueError("name must be specified in vault object")
+        return values
 
 
 class BackupRuleModel(BaseModel):
@@ -99,7 +107,6 @@ class BackupRuleModel(BaseModel):
 
 class BackupsModel(BaseModel):
     vault: Optional[BackupVaultModel]
-    vault_name: Optional[str]
     plan_name: Optional[str]
     plan_tags: Dict[str, str] = {}
     rules: List[BackupRuleModel] = [
@@ -109,6 +116,9 @@ class BackupsModel(BaseModel):
 
     # TODO: Require at least one rule
     # TODO: Add "shortcut" rules
+    # TODO: Disallow vault and vault_name
+    # TODO: vault implies create_vault
+    # TODO: create_vault=False excludes vault
 
 
 class UserDataModel(BaseModel):

@@ -107,7 +107,7 @@ def instance(user_data, ebs_mods_vols):
     )
 
 
-def backup_plan_rule(rule):
+def backup_plan_rule(vault_name, rule):
     lifecycle_opts = {}
     if rule.cold_storage_after_days:
         lifecycle_opts["MoveToColdStorageAfterDays"] = rule.cold_storage_after_days
@@ -115,7 +115,7 @@ def backup_plan_rule(rule):
     return BackupRuleResourceType(
         RuleName=rule.name,
         ScheduleExpression=rule.schedule,
-        TargetBackupVault="Default",  # TODO: Finish vault support
+        TargetBackupVault=vault_name,
         Lifecycle=LifecycleResourceType(
             DeleteAfterDays=rule.retain_days, **lifecycle_opts
         ),
@@ -123,8 +123,34 @@ def backup_plan_rule(rule):
     )
 
 
+def backup_vault(vault):
+    vault_name = vault.name if vault.name else Ref("AWS::StackName")
+
+    opts = {}
+    if vault.encryption_key_arn:
+        opts["EncryptionKeyArn"] = vault.encryption_key_arn
+
+    return add_resource(
+        BackupVault(
+            "BackupVault",
+            BackupVaultName=vault_name,
+            BackupVaultTags=vault.tags,
+            **opts,
+            **vault.vault_extra_props,
+        )
+    )
+
+
 def backup_plan(backups):
     plan_name = backups.plan_name if backups.plan_name else Ref("AWS::StackName")
+
+    if backups.vault:
+        if backups.vault.create:
+            vault_name = Ref(backup_vault(backups.vault))
+        else:
+            vault_name = backups.vault.name
+    else:
+        vault_name = "Default"
 
     return add_resource(
         BackupPlan(
@@ -132,7 +158,7 @@ def backup_plan(backups):
             BackupPlan=BackupPlanResourceType(
                 AdvancedBackupSettings=backups.advanced_backup_settings,
                 BackupPlanName=plan_name,
-                BackupPlanRule=[backup_plan_rule(r) for r in backups.rules],
+                BackupPlanRule=[backup_plan_rule(vault_name, r) for r in backups.rules],
             ),
             BackupPlanTags=backups.plan_tags,
         )

@@ -1,3 +1,4 @@
+import sys
 from troposphere import Template, Parameter
 
 TEMPLATE = Template()
@@ -41,3 +42,7 @@ def clean_title(s):
 
 def add_param(name, **kwargs):
     return TEMPLATE.add_parameter(Parameter(name, **kwargs))
+
+
+def debug(*args):
+    print(*args, file=sys.stderr)

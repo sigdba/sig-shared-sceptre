@@ -28,8 +28,8 @@ class SecurityGroupAllowModel(BaseModel):
     cidr: str
     description: str
     protocol = "tcp"
-    from_port: Optional[int]  # TODO: Should these be optional?
-    to_port: Optional[int]
+    from_port: int
+    to_port: int
 
     def parse_port(port):
         if isinstance(port, int):
@@ -104,4 +104,3 @@ class UserDataModel(BaseModel):
 
     # TODO: Add EFS mounts (needed here for SG updates?)
     # TODO: Add backups
-    # TODO: Implement explicit IP address

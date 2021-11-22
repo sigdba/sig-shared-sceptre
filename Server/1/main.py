@@ -4,6 +4,15 @@ import os.path
 from troposphere import Ref, Sub, GetAtt, Tags
 from troposphere.iam import Role, Policy
 from troposphere.ec2 import SecurityGroup, Instance, Volume, MountPoint
+from troposphere.backup import (
+    BackupPlan,
+    BackupPlanResourceType,
+    BackupRuleResourceType,
+    BackupSelection,
+    BackupSelectionResourceType,
+    BackupVault,
+    LifecycleResourceType,
+)
 
 from model import *
 from util import *
@@ -61,10 +70,10 @@ def ebs_volume(inst_name, vol):
 
 
 def ebs_volumes(user_data):
-    return [ebs_volume(user_data.instance_name, v) for v in user_data.ebs_volumes]
+    return [(v, ebs_volume(user_data.instance_name, v)) for v in user_data.ebs_volumes]
 
 
-def instance(user_data):
+def instance(user_data, ebs_mods_vols):
     opts = {}
 
     if user_data.private_ip_address:
@@ -87,13 +96,91 @@ def instance(user_data):
             Tags=Tags(Name=user_data.instance_name, **user_data.instance_tags),
             Volumes=[
                 MountPoint(
-                    Device=f"/dev/xvd{v.device_letter}",
-                    VolumeId=Ref(ebs_volume(user_data.instance_name, v)),
+                    Device=f"/dev/xvd{m.device_letter}",
+                    VolumeId=Ref(v),
                 )
-                for v in user_data.ebs_volumes
+                for m, v in ebs_mods_vols
             ],
             **opts,
             **user_data.instance_extra_props,
+        )
+    )
+
+
+def backup_plan_rule(rule):
+    lifecycle_opts = {}
+    if rule.cold_storage_after_days:
+        lifecycle_opts["MoveToColdStorageAfterDays"] = rule.cold_storage_after_days
+
+    return BackupRuleResourceType(
+        RuleName=rule.name,
+        ScheduleExpression=rule.schedule,
+        TargetBackupVault="Default",  # TODO: Finish vault support
+        Lifecycle=LifecycleResourceType(
+            DeleteAfterDays=rule.retain_days, **lifecycle_opts
+        ),
+        **rule.rule_extra_props,
+    )
+
+
+def backup_plan(backups):
+    plan_name = backups.plan_name if backups.plan_name else Ref("AWS::StackName")
+
+    return add_resource(
+        BackupPlan(
+            "BackupPlan",
+            BackupPlan=BackupPlanResourceType(
+                AdvancedBackupSettings=backups.advanced_backup_settings,
+                BackupPlanName=plan_name,
+                BackupPlanRule=[backup_plan_rule(r) for r in backups.rules],
+            ),
+            BackupPlanTags=backups.plan_tags,
+        )
+    )
+
+
+def backup_role():
+    return add_resource(
+        Role(
+            "BackupRole",
+            AssumeRolePolicyDocument={
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Principal": {"Service": ["backup.amazonaws.com"]},
+                        "Action": ["sts:AssumeRole"],
+                    }
+                ],
+            },
+            ManagedPolicyArns=[
+                "arn:aws:iam::aws:policy/service-role/AWSBackupServiceRolePolicyForBackup"
+            ],
+        )
+    )
+
+
+def backup_selection(backups, plan, ebs_mods_vols):
+    return add_resource(
+        BackupSelection(
+            "BackupSelection",
+            BackupPlanId=Ref(plan),
+            BackupSelection=BackupSelectionResourceType(
+                SelectionName=Ref("AWS::StackName"),
+                IamRoleArn=GetAtt(backup_role(), "Arn"),
+                Resources=[
+                    Sub(
+                        "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:instance/${Instance}"
+                    ),
+                    *[
+                        Sub(
+                            "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:volume/${%s}"
+                            % v.title
+                        )
+                        for _, v in ebs_mods_vols
+                    ],
+                ],
+            ),
         )
     )
 
@@ -107,6 +194,11 @@ def sceptre_handler(sceptre_user_data):
 
     user_data = UserDataModel(**sceptre_user_data)
 
-    instance(user_data)
+    ebs_models_and_volumes = ebs_volumes(user_data)
+    ec2_inst = instance(user_data, ebs_models_and_volumes)
+
+    if user_data.backups_enabled:
+        plan = backup_plan(user_data.backups)
+        backup_selection(user_data.backups, plan, ebs_models_and_volumes)
 
     return TEMPLATE.to_json()

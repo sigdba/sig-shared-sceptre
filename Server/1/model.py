@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Union
 from pydantic import BaseModel, ValidationError, validator, root_validator
 
 #
@@ -20,8 +20,6 @@ class EbsVolumeModel(BaseModel):
     iops: Optional[int]
     throughput_mbs: Optional[int]
     extra_props: List[dict] = []
-
-    # TODO: Validate iops
 
 
 class SecurityGroupAllowModel(BaseModel):
@@ -82,11 +80,43 @@ class AmiModel(BaseModel):
     user_data: Optional[str]
 
 
+class BackupVaultModel(BaseModel):
+    name: Optional[str]
+    tags: Dict[str, str] = {}
+    encryption_key_arn: Optional[str]
+    vault_extra_props = {}
+
+
+class BackupRuleModel(BaseModel):
+    name: str
+    retain_days: int
+    cold_storage_after_days: Optional[int]
+    schedule: str
+    rule_extra_props = {}
+
+    # TODO: Validate retain > cold_storage
+
+
+class BackupsModel(BaseModel):
+    vault: Optional[BackupVaultModel]
+    vault_name: Optional[str]
+    plan_name: Optional[str]
+    plan_tags: Dict[str, str] = {}
+    rules: List[BackupRuleModel] = [
+        BackupRuleModel(name="Daily", retain_days=30, schedule="cron(0 0 * * ? *)")
+    ]
+    advanced_backup_settings: list = []
+
+    # TODO: Require at least one rule
+    # TODO: Add "shortcut" rules
+
+
 class UserDataModel(BaseModel):
     instance_name: str
     ami: AmiModel
     erpRole: str
-    backups_enabled = True
+    backups_enabled: bool
+    backups = BackupsModel()
     private_ip_address: Optional[str]
     allow_api_termination = False
     ebs_volumes: List[EbsVolumeModel] = []
@@ -104,3 +134,4 @@ class UserDataModel(BaseModel):
 
     # TODO: Add EFS mounts (needed here for SG updates?)
     # TODO: Add backups
+    # TODO: Add instance profile and role

@@ -28,7 +28,7 @@ class SecurityGroupAllowModel(BaseModel):
     cidr: str
     description: str
     protocol = "tcp"
-    from_port: Optional[int]
+    from_port: Optional[int]  # TODO: Should these be optional?
     to_port: Optional[int]
 
     def parse_port(port):
@@ -95,6 +95,13 @@ class UserDataModel(BaseModel):
     instance_extra_props = {}
     instance_tags: Dict[str, str] = {}
 
-    # TODO: Add check for duplicate drive letters
+    @validator("ebs_volumes")
+    def check_for_duplicate_drive_letters(cls, v):
+        letters = [m.device_letter for m in v]
+        if len(set(letters)) < len(letters):
+            raise ValueError("Duplicate device_letters specified in ebs_volumes")
+        return v
+
     # TODO: Add EFS mounts (needed here for SG updates?)
     # TODO: Add backups
+    # TODO: Implement explicit IP address

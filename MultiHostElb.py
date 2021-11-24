@@ -22,6 +22,8 @@ from troposphere.elasticloadbalancingv2 import (
     Condition,
     HostHeaderConfig,
     PathPatternConfig,
+    QueryStringConfig,
+    QueryStringKeyValue
 )
 from troposphere.s3 import (
     Bucket,
@@ -116,6 +118,10 @@ class HealthCheckModel(BaseModel):
     interval_seconds: Optional[int]
     path: Optional[str]
     timeout_seconds: Optional[int]
+    interval_seconds: Optional[int]
+    protocol: Optional[str]
+    healthy_threshold_count: Optional[int]
+    unhealth_threshold_count: Optional[int]
 
 
 class FixedResponseModel(BaseModel):
@@ -161,10 +167,17 @@ class ActionModel(BaseModel):
         return v
 
 
+class QueryStringMatchModel(BaseModel):
+    key: str
+    value: str
+
+
 class RuleModel(RetainInputsModel, ActionModel):
     paths: List[str] = []
     hosts: List[str] = []
+    match_query_string: List[QueryStringMatchModel] = []
     priority: Optional[int]
+    # TODO: Document priority
 
     @root_validator(pre=True)
     def path_alias(cls, values):
@@ -512,6 +525,9 @@ def health_check_options(hc_data):
         "interval_seconds": "HealthCheckIntervalSeconds",
         "timeout_seconds": "HealthCheckTimeoutSeconds",
         "path": "HealthCheckPath",
+        "protocol": "HealthCheckProtocol",
+        "healthy_threshold_count": "HealthyThresholdCount",
+        "unhealth_threshold_count": "UnhealthyThresholdCount"
     }
     hc_data = hc_data.dict()
     return {
@@ -579,7 +595,7 @@ def redirect_action(**redirect_data):
                 **{
                     camel_case(k): str(redirect_data[k])
                     for k in args
-                    if k in redirect_data
+                    if k in redirect_data and redirect_data[k] is not None
                 },
             }
         ),
@@ -624,6 +640,8 @@ def normalize_condition_data(user_data, rule_data):
         ret["hosts"] = hosts
     if len(paths) > 0:
         ret["paths"] = paths
+    if len(rule_data.match_query_string) > 0:
+        ret["query_string_matches"] = rule_data.match_query_string
     return ret
 
 
@@ -643,8 +661,17 @@ def conditions_with(user_data, cond_data):
             Condition(
                 Field="path-pattern",
                 PathPatternConfig=PathPatternConfig(
-                    Values=list(paths_with(cond_data.paths))
+                    Values=list(paths_with(cond_data["paths"]))
                 ),
+            )
+        )
+    if "query_string_matches" in cond_data:
+        conditions.append(
+            Condition(
+                Field="query-string",
+                QueryStringConfig=QueryStringConfig(
+                    Values=[QueryStringKeyValue(Key=q.key, Value=q.value) for q in cond_data["query_string_matches"]]
+                )
             )
         )
     return conditions
@@ -795,7 +822,7 @@ def ns_entry_fn(user_data):
 def elb_cnames(user_data):
     efn = ns_entry_fn(user_data)
     for fqdn in get_all_fqdns(user_data):
-        efn("CNAME", fqdn, GetAtt("LoadBalancer", "DNSName"))
+        efn("CNAME", fqdn, Sub("${LoadBalancer.DNSName}."))
 
 
 def sceptre_handler(user_data):

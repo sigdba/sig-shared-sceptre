@@ -22,7 +22,7 @@ public_subnets_models_by_az = {}
 
 def r_vpc(user_data):
     name = user_data.vpc_name if user_data.vpc_name else Ref("AWS::StackName")
-    return add_resource(
+    ret = add_resource(
         VPC(
             "Vpc",
             CidrBlock=user_data.vpc_cidr,
@@ -30,6 +30,9 @@ def r_vpc(user_data):
             Tags=[Tag("Name", name)],
         )
     )
+    add_export("VpcId", Sub("${AWS::StackName}-vpcId"), Ref(ret))
+    add_export("VpcCidr", Sub("${AWS::StackName}-cidr"), user_data.vpc_cidr)
+    return ret
 
 
 def igw():
@@ -142,9 +145,14 @@ def connected_subnet(subnet_model):
         raise ValueError(f"Unknown subnet kind: {subnet_model.kind}")
 
     add_export(
-        clean_title(f"EXPORT{subnet_model.name}"),
+        dashed_to_camel_case(subnet_model.name) + "SubnetId",
         Sub("${AWS::StackName}-" + subnet_model.name + "-subnetId"),
         Ref(ret),
+    )
+    add_export(
+        dashed_to_camel_case(subnet_model.name) + "Cidr",
+        Sub("${AWS::StackName}-" + subnet_model.name + "-cidr"),
+        subnet_model.cidr,
     )
 
     return ret

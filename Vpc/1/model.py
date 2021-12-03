@@ -21,6 +21,7 @@ class SubnetModel(BaseModel):
     nat_eip_allocation_id: Optional[str]
 
     # TODO: Allow nat_eip_allocation_id only on public subnets
+    # TODO: Allow only alphanumeric and dash in subnet name
 
     @validator("kind")
     def subnet_kind(cls, v):

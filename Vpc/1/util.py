@@ -50,3 +50,7 @@ def add_param(name, **kwargs):
 
 def debug(*args):
     print(*args, file=sys.stderr)
+
+
+def dashed_to_camel_case(t):
+    return "".join([s[0].upper() + s[1:] for s in t.split("-")])

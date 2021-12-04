@@ -1,5 +1,5 @@
 import sys
-from troposphere import Template, Parameter
+from troposphere import Template, Parameter, AWSObject, Ref
 
 TEMPLATE = Template()
 
@@ -46,3 +46,20 @@ def add_param(name, **kwargs):
 
 def debug(*args):
     print(*args, file=sys.stderr)
+
+
+def opts_with(**kwargs):
+    def _eval(v):
+        if type(v) is tuple:
+            val, fn, *args = v
+            return _eval(fn(*args, val))
+        if isinstance(v, AWSObject):
+            return Ref(v)
+        return v
+
+    return {k: _eval(v) for k, v in kwargs.items() if v is not None}
+
+
+def opts_from(o, **kwargs):
+    d = dict(o)
+    return {k: d[v] for k, v in kwargs.items() if d[v]}

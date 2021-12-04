@@ -2,7 +2,7 @@ import hashlib
 import os.path
 
 from troposphere import Ref, Sub, GetAtt, Tags
-from troposphere.iam import Role, Policy
+from troposphere.iam import Role, Policy, InstanceProfile
 from troposphere.ec2 import SecurityGroup, Instance, Volume, MountPoint
 from troposphere.backup import (
     BackupPlan,
@@ -73,14 +73,54 @@ def ebs_volumes(user_data):
     return [(v, ebs_volume(user_data.instance_name, v)) for v in user_data.ebs_volumes]
 
 
+def r_instance_role(ip_model):
+    policies = []
+    if ip_model.policy_document:
+        policies.append(ip_model.policy_document)
+    if len(ip_model.allow) > 0:
+        policies.append(
+            Policy(
+                PolicyName="inline_allow",
+                PolicyDocument={
+                    "Version": "2012-10-17",
+                    "Statement": [allow_statement(a) for a in ip_model.allow],
+                },
+            )
+        )
+    return add_resource(
+        Role(
+            "InstanceRole",
+            Description=Sub("Instance profile role for ${AWS::StackName}"),
+            ManagedPolicyArns=ip_model.managed_policy_arns,
+            Policies=policies,
+            AssumeRolePolicyDocument={
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Principal": {"Service": "ec2.amazonaws.com"},
+                        "Action": "sts:AssumeRole",
+                    }
+                ],
+            },
+            Tags=Tags(**ip_model.role_tags),
+            **opts_with(Path=ip_model.role_path),
+            **ip_model.role_extra_opts,
+        )
+    )
+
+
+def r_instance_profile(ip_model):
+    return add_resource(
+        InstanceProfile(
+            "InstanceProfile",
+            Roles=[Ref(r_instance_role(ip_model))],
+            **opts_with(Path=ip_model.profile_path),
+        )
+    )
+
+
 def instance(user_data, ebs_mods_vols):
-    opts = {}
-
-    if user_data.private_ip_address:
-        opts["PrivateIpAddress"] = user_data.private_ip_address
-    if user_data.ami.user_data:
-        opts["UserData"] = user_data.ami.user_data
-
     return add_resource(
         Instance(
             "Instance",
@@ -101,7 +141,11 @@ def instance(user_data, ebs_mods_vols):
                 )
                 for m, v in ebs_mods_vols
             ],
-            **opts,
+            **opts_with(
+                PrivateIpAddress=user_data.private_ip_address,
+                UserData=user_data.ami.user_data,
+                IamInstanceProfile=(user_data.instance_profile, r_instance_profile),
+            ),
             **user_data.instance_extra_props,
         )
     )
@@ -209,6 +253,15 @@ def backup_selection(backups, plan, ebs_mods_vols):
             ),
         )
     )
+
+
+def allow_statement(allow):
+    return {
+        "Effect": "Allow",
+        "Action": allow.action,
+        "Resource": allow.resource,
+        **opts_with(Condition=allow.condition),
+    }
 
 
 def sceptre_handler(sceptre_user_data):

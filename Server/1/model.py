@@ -118,6 +118,22 @@ class BackupsModel(BaseModel):
     # TODO: create_vault=False excludes vault
 
 
+class IamAllowModel(BaseModel):
+    action: Union[str, List[str]]
+    resource: Union[str, List[str]]
+    condition: Optional[dict]
+
+
+class ProfileModel(BaseModel):
+    profile_path: Optional[str]
+    role_path: Optional[str]
+    allow: List[IamAllowModel] = []
+    managed_policy_arns: List[str] = []
+    policy_document: Optional[dict]
+    role_tags: dict = {}
+    role_extra_opts: dict = {}
+
+
 class UserDataModel(BaseModel):
     instance_name: str
     ami: AmiModel
@@ -130,6 +146,7 @@ class UserDataModel(BaseModel):
     security_group_ids: List[str] = []
     instance_extra_props = {}
     instance_tags: Dict[str, str] = {}
+    instance_profile: Optional[ProfileModel]
 
     @validator("ebs_volumes")
     def check_for_duplicate_drive_letters(cls, v):

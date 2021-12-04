@@ -143,7 +143,7 @@ def instance(user_data, ebs_mods_vols):
             ],
             **opts_with(
                 PrivateIpAddress=user_data.private_ip_address,
-                UserData=user_data.ami.user_data,
+                UserData=user_data.ami.user_data_b64,
                 IamInstanceProfile=(user_data.instance_profile, r_instance_profile),
             ),
             **user_data.instance_extra_props,

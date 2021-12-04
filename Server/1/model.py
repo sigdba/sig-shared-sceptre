@@ -1,3 +1,4 @@
+from base64 import b64encode
 from typing import List, Optional, Dict, Union
 from pydantic import BaseModel, ValidationError, validator, root_validator
 from util import debug
@@ -75,7 +76,21 @@ class SecurityGroupModel(BaseModel):
 
 class AmiModel(BaseModel):
     ami_id: str
-    user_data: Optional[str]
+    user_data_b64: Optional[str]
+    commands: Optional[List[str]]
+
+    @root_validator
+    def encode_user_data(cls, values):
+        cs = "utf-8"
+        if values.get("commands", None):
+            if values.get("user_data_b64", None):
+                raise ValueError(
+                    "user_data_b64 and commands cannot be specified together"
+                )
+            values["user_data_b64"] = b64encode(
+                "\n".join(["#!/bin/bash"] + values["commands"]).encode(cs)
+            ).decode(cs)
+        return values
 
 
 class BackupVaultModel(BaseModel):

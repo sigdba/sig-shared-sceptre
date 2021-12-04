@@ -1,6 +1,3 @@
-#!/usr/bin/env python3
-
-
 from typing import List, Optional, Dict, Union
 from pydantic import BaseModel, ValidationError, validator, root_validator
 from util import debug

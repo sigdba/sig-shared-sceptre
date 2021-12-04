@@ -1,6 +1,3 @@
-#!/usr/bin/env python3
-
-
 from typing import List, Optional, Dict, Union
 from pydantic import BaseModel, ValidationError, validator, root_validator
 from util import debug
@@ -124,7 +121,6 @@ class BackupsModel(BaseModel):
 class UserDataModel(BaseModel):
     instance_name: str
     ami: AmiModel
-    erpRole: str
     backups_enabled: bool
     backups = BackupsModel()
     private_ip_address: Optional[str]
@@ -145,3 +141,4 @@ class UserDataModel(BaseModel):
     # TODO: Add EFS mounts (needed here for SG updates?)
     # TODO: Add backups
     # TODO: Add instance profile and role
+    # TODO: Route53 integration

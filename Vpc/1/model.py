@@ -29,4 +29,5 @@ class SubnetModel(BaseModel):
 class UserDataModel(BaseModel):
     vpc_cidr: str
     vpc_name: Optional[str]
+    vpc_extra_opts: dict = {}
     subnets: List[SubnetModel] = []

@@ -28,6 +28,7 @@ def r_vpc(user_data):
             CidrBlock=user_data.vpc_cidr,
             EnableDnsSupport=True,
             Tags=[Tag("Name", name)],
+            **user_data.vpc_extra_opts,
         )
     )
     add_export("VpcId", Sub("${AWS::StackName}-vpcId"), Ref(ret))

@@ -67,27 +67,6 @@ def cluster_bucket():
     )
 
 
-def service_role():
-    return add_resource(
-        Role(
-            "ServiceRole",
-            AssumeRolePolicyDocument={
-                "Version": "2012-10-17",
-                "Statement": [
-                    {
-                        "Effect": "Allow",
-                        "Principal": {"Service": ["ecs.amazonaws.com"]},
-                        "Action": ["sts:AssumeRole"],
-                    }
-                ],
-            },
-            ManagedPolicyArns=[
-                "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceRole"
-            ],
-        )
-    )
-
-
 def node_instance_role():
     return add_resource(
         Role(
@@ -233,7 +212,7 @@ def lambda_fn_for_asg():
             Runtime="python3.6",
             MemorySize=128,
             Timeout=60,
-            Code=Code(ZipFile=Sub(read_resource("EcsCluster_TerminationLambda.py"))),
+            Code=Code(ZipFile=Sub(read_resource("TerminationLambda.py"))),
         )
     )
 
@@ -251,7 +230,8 @@ def lambda_invoke_permission(fn, source):
     )
 
 
-def asg_sns_topic(lambda_fn):
+def asg_sns_topic():
+    lambda_fn = lambda_fn_for_asg()
     return add_resource(
         Topic(
             "ASGSNSTopic",
@@ -272,36 +252,72 @@ def launch_config(user_data, sg_model):
             InstanceType=sg_model.node_type,
             IamInstanceProfile=Ref("NodeInstanceProfile"),
             KeyName=sg_model.key_name,
-            UserData=Base64(Sub(read_resource("EcsCluster_UserData.txt"))),
+            UserData=Base64(Sub(read_resource("UserData.txt"))),
         )
     )
 
 
-def auto_scaling_group(user_data, sg_model):
+def lambda_subs_to_topic():
     return add_resource(
-        AutoScalingGroup(
-            clean_title("Asg" + sg_model.name),
-            VPCZoneIdentifier=Ref("Subnets"),
-            LaunchConfigurationName=Ref(launch_config(user_data, sg_model)),
-            MinSize=0,
-            MaxSize=sg_model.max_size,
-            DesiredCapacity=sg_model.desired_size,
-            MetricsCollection=[MetricsCollection(Granularity="1Minute")],
-            NotificationConfigurations=[
-                NotificationConfigurations(
-                    TopicARN=Ref("ASGSNSTopic"),
-                    NotificationTypes=["autoscaling:EC2_INSTANCE_TERMINATE"],
-                )
+        SubscriptionResource(
+            "LambdaSubscriptionToSNSTopic",
+            Endpoint=GetAtt(lambda_fn_for_asg(), "Arn"),
+            Protocol="lambda",
+            TopicArn=Ref(asg_sns_topic()),
+        )
+    )
+
+
+def sns_lambda_role():
+    return add_resource_once(
+        "SNSLambdaRole",
+        lambda name: Role(
+            name,
+            AssumeRolePolicyDocument={
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Principal": {"Service": ["autoscaling.amazonaws.com"]},
+                        "Action": ["sts:AssumeRole"],
+                    }
+                ],
+            },
+            ManagedPolicyArns=[
+                "arn:aws:iam::aws:policy/service-role/AutoScalingNotificationAccessRole"
             ],
-            Tags=ASTags(Name=Sub("ecs-node-${AWS::StackName}")),
-            UpdatePolicy=UpdatePolicy(
-                AutoScalingRollingUpdate=AutoScalingRollingUpdate(
-                    MaxBatchSize=1,
-                    MinInstancesInService=1,
-                    MinSuccessfulInstancesPercent=100,
-                    PauseTime="PT0M",
-                )
-            ),
+            Path="/",
+        ),
+    )
+
+
+def lambda_fn_for_cps():
+    return add_resource(
+        Function(
+            "LambdaFunctionForCpsReset",
+            Description="Updates services in the cluster to use the new default CapacityProviderStrategy",
+            Handler="index.lambda_handler",
+            Role=GetAtt("LambdaExecutionRole", "Arn"),
+            Runtime="python3.6",
+            MemorySize=128,
+            Timeout=60,
+            Code=Code(ZipFile=Sub(read_resource("ResetCapacityProvidersLambda.py"))),
+        )
+    )
+
+
+class CpsReset(AWSCustomObject):
+    resource_type = "Custom::CpsReset"
+    props = {"ServiceToken": (str, True), "StrategyHash": (str, True)}
+
+
+def cps_reset_resource(sg_model):
+    return add_resource(
+        CpsReset(
+            "CpsReset",
+            ServiceToken=GetAtt("LambdaFunctionForCpsReset", "Arn"),
+            StrategyHash=md5(str(sg_model.dict())),
+            DependsOn="CapacityProviderAssoc",
         )
     )
 
@@ -321,3 +337,121 @@ def ecs_cluster(user_data):
             ],
         )
     )
+
+
+def asg_terminate_hook(asg):
+    sns_topic = "ASGSNSTopic"
+    return add_resource(
+        LifecycleHook(
+            asg.title + "ASGTerminateHook",
+            AutoScalingGroupName=Ref(asg),
+            DefaultResult="TERMINATE",
+            HeartbeatTimeout="1800",
+            LifecycleTransition="autoscaling:EC2_INSTANCE_TERMINATING",
+            NotificationTargetARN=Ref(sns_topic),
+            RoleARN=GetAtt(sns_lambda_role(), "Arn"),
+            DependsOn=sns_topic,
+        )
+    )
+
+
+def auto_scaling_group(user_data, sg_model):
+    ret = add_resource(
+        AutoScalingGroup(
+            clean_title("Asg" + sg_model.name),
+            VPCZoneIdentifier=user_data.subnets,
+            LaunchConfigurationName=Ref(launch_config(user_data, sg_model)),
+            MinSize=0,
+            MaxSize=sg_model.max_size,
+            DesiredCapacity=sg_model.desired_size,
+            MetricsCollection=[MetricsCollection(Granularity="1Minute")],
+            NotificationConfigurations=[
+                NotificationConfigurations(
+                    TopicARN=Ref(asg_sns_topic()),
+                    NotificationTypes=["autoscaling:EC2_INSTANCE_TERMINATE"],
+                )
+            ],
+            Tags=ASTags(Name=Sub("ecs-node-${AWS::StackName}")),
+            UpdatePolicy=UpdatePolicy(
+                AutoScalingRollingUpdate=AutoScalingRollingUpdate(
+                    MaxBatchSize=1,
+                    MinInstancesInService=1,
+                    MinSuccessfulInstancesPercent=100,
+                    PauseTime="PT0M",
+                )
+            ),
+        )
+    )
+
+    asg_terminate_hook(ret)
+    return ret
+
+
+def capacity_provider(sg_model, asg):
+    return add_resource(
+        CapacityProvider(
+            clean_title(sg_model.name + "CapacityProvider"),
+            AutoScalingGroupProvider=AutoScalingGroupProvider(
+                AutoScalingGroupArn=Ref(asg),
+                ManagedTerminationProtection="DISABLED",  # For now, this is handled by our lifecycle Lambda
+                ManagedScaling=ManagedScaling(Status="ENABLED", TargetCapacity=100),
+            ),
+        )
+    )
+
+
+def capacity_provider_assoc(asg_props):
+    return ClusterCapacityProviderAssociations(
+        "CapacityProviderAssoc",
+        Cluster=Ref("EcsCluster"),
+        CapacityProviders=[Ref(p["capacity_provider"]) for p in asg_props],
+        DefaultCapacityProviderStrategy=[
+            CapacityProviderStrategy(
+                CapacityProvider=Ref(p["capacity_provider"]), Weight=p.get("weight", 1)
+            )
+            for p in asg_props
+            if p.get("in_default_cps", True)
+        ],
+    )
+
+
+def sceptre_handler(sceptre_user_data):
+    user_data = UserDataModel(**sceptre_user_data)
+
+    add_param("VpcId", Type="String", Description="VPC to launch cluster in")
+    add_param("EnvName", Type="String", Description="The name of the environment")
+
+    TEMPLATE.add_mapping(REGION_MAP, region_map())
+
+    # node_profile = r(node_instance_profile(node_role))
+    # fn_ex_role = r(lambda_execution_role())
+    # asg_lambda = r(lambda_fn_for_asg(fn_ex_role))
+    # sns_topic = r(asg_sns_topic(asg_lambda))
+    # sns_fn_role = r(sns_lambda_role())
+    # node_sg = r(node_security_group(vpc_id, sceptre_user_data['ingress_cidrs']))
+    ecs_cluster(user_data)
+
+    # r(lambda_invoke_permission(asg_lambda, sns_topic))
+    # r(lambda_subs_to_topic(asg_lambda, sns_topic))
+    # r(cluster_bucket())
+
+    # template.add_output(Output("ClusterArnOutput",
+    #                            Value=Ref(cluster),
+    #                            Export=Export(Sub("${EnvName}-EcsEnv-EcsCluster"))))
+
+    # template.add_output(Output("ClusterBucketOutput",
+    #                            Value=Ref('ClusterBucket'),
+    #                            Export=Export(Sub("${EnvName}-EcsEnv-ClusterBucket"))))
+    #
+
+    asgs_with_models = [
+        (auto_scaling_group(user_data, g), g) for g in user_data.scaling_groups
+    ]
+
+    # if sceptre_user_data.get('auto_scaling_enabled', False):
+    #     r(capacity_provider_assoc([capacity_provider(r, p) for p in asgs]))
+    #     if sceptre_user_data.get('force_default_cps', False):
+    #         r(lambda_fn_for_cps())
+    #         r(cps_reset_resource(scaling_group_props))
+
+    return TEMPLATE.to_json()

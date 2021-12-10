@@ -270,9 +270,10 @@ def sns_lambda_role():
 
 
 def lambda_execution_role():
-    return add_resource(
-        Role(
-            "LambdaExecutionRole",
+    return add_resource_once(
+        "LambdaExecutionRole",
+        lambda name: Role(
+            name,
             Policies=[
                 Policy(
                     PolicyName="lambda-inline",
@@ -315,7 +316,7 @@ def lambda_execution_role():
                 "arn:aws:iam::aws:policy/service-role/AutoScalingNotificationAccessRole"
             ],
             Path="/",
-        )
+        ),
     )
 
 
@@ -347,7 +348,7 @@ def asg_terminate_hook(asg, sns_topic, sns_fn_role):
         LifecycleHook(
             asg.title + "ASGTerminateHook",
             AutoScalingGroupName=Ref(asg),
-            DefaultResult="ABANDON",  # TODO: Maybe this should be TERMINATE?
+            DefaultResult="CONTINUE",
             HeartbeatTimeout="1800",
             LifecycleTransition="autoscaling:EC2_INSTANCE_TERMINATING",
             NotificationTargetARN=Ref(sns_topic),
@@ -357,13 +358,13 @@ def asg_terminate_hook(asg, sns_topic, sns_fn_role):
     )
 
 
-def lambda_fn_for_asg(fn_ex_role):
+def lambda_fn_for_asg():
     return add_resource(
         Function(
             "LambdaFunctionForASG",
             Description="Gracefully drain ECS tasks from EC2 instances before the instances are terminated by autoscaling.",
             Handler="index.lambda_handler",
-            Role=GetAtt(fn_ex_role, "Arn"),
+            Role=GetAtt(lambda_execution_role(), "Arn"),
             Runtime="python3.6",
             MemorySize=128,
             Timeout=60,
@@ -465,18 +466,10 @@ def sceptre_handler(sceptre_user_data):
 
     TEMPLATE.add_mapping(REGION_MAP, region_map())
 
-    node_role = node_instance_role()
-    node_profile = node_instance_profile(node_role)
-    fn_ex_role = lambda_execution_role()
-    asg_lambda = lambda_fn_for_asg(fn_ex_role)
-    sns_topic = asg_sns_topic(asg_lambda)
-    sns_fn_role = sns_lambda_role()
-    node_sg = node_security_group(user_data.ingress_cidrs)
+    # fn_ex_role = lambda_execution_role()
     cluster = ecs_cluster(user_data.container_insights_enabled)
 
     service_role()
-    lambda_invoke_permission(asg_lambda, sns_topic)
-    lambda_subs_to_topic(asg_lambda, sns_topic)
     cluster_bucket()
 
     TEMPLATE.add_output(
@@ -495,26 +488,37 @@ def sceptre_handler(sceptre_user_data):
         )
     )
 
-    all_security_groups = [Ref(node_sg)] + user_data.node_security_groups
-    asgs_with_models = [
-        (
-            scaling_group_with_resources(
-                all_security_groups,
-                node_profile,
-                user_data.subnet_ids,
-                sns_topic,
-                sns_fn_role,
-                g,
-            ),
-            g,
-        )
-        for g in user_data.scaling_groups
-    ]
+    if len(user_data.scaling_groups) > 0:
+        node_sg = node_security_group(user_data.ingress_cidrs)
+        node_role = node_instance_role()
+        node_profile = node_instance_profile(node_role)
+        all_security_groups = [Ref(node_sg)] + user_data.node_security_groups
+        asg_lambda = lambda_fn_for_asg()
+        sns_topic = asg_sns_topic(asg_lambda)
+        sns_fn_role = sns_lambda_role()
 
-    if user_data.auto_scaling_enabled:
-        capacity_provider_assoc(asgs_with_models)
-        if user_data.force_default_cps:
-            lambda_fn_for_cps()
-            cps_reset_resource(user_data)
+        lambda_invoke_permission(asg_lambda, sns_topic)
+        lambda_subs_to_topic(asg_lambda, sns_topic)
+
+        asgs_with_models = [
+            (
+                scaling_group_with_resources(
+                    all_security_groups,
+                    node_profile,
+                    user_data.subnet_ids,
+                    sns_topic,
+                    sns_fn_role,
+                    g,
+                ),
+                g,
+            )
+            for g in user_data.scaling_groups
+        ]
+
+        if user_data.auto_scaling_enabled:
+            capacity_provider_assoc(asgs_with_models)
+            if user_data.force_default_cps:
+                lambda_fn_for_cps()
+                cps_reset_resource(user_data)
 
     return TEMPLATE.to_json()

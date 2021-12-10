@@ -392,81 +392,69 @@ class CpsReset(AWSCustomObject):
     props = {"ServiceToken": (str, True), "StrategyHash": (str, True)}
 
 
-def cps_reset_resource(scaling_group_props):
+def cps_reset_resource(user_data):
     return add_resource(
         CpsReset(
             "CpsReset",
             ServiceToken=GetAtt("LambdaFunctionForCpsReset", "Arn"),
-            StrategyHash=md5(str(scaling_group_props)),
+            StrategyHash=md5(str(user_data.scaling_groups)),
             DependsOn="CapacityProviderAssoc",
         )
     )
 
 
-# TODO: Rewrite this
-def capacity_provider(asg_props):
-    asg = asg_props["asg"]
-    return {
-        **asg_props,
-        "capacity_provider": add_resource(
-            CapacityProvider(
-                asg.title + "CapacityProvider",
-                AutoScalingGroupProvider=AutoScalingGroupProvider(
-                    AutoScalingGroupArn=Ref(asg),
-                    ManagedTerminationProtection="DISABLED",  # For now, this is handled by our lifecycle Lambda
-                    ManagedScaling=ManagedScaling(Status="ENABLED", TargetCapacity=100),
-                ),
-            )
-        ),
-    }
+def capacity_provider(asg):
+    return add_resource(
+        CapacityProvider(
+            asg.title + "CapacityProvider",
+            AutoScalingGroupProvider=AutoScalingGroupProvider(
+                AutoScalingGroupArn=Ref(asg),
+                ManagedTerminationProtection="DISABLED",  # For now, this is handled by our lifecycle Lambda
+                ManagedScaling=ManagedScaling(Status="ENABLED", TargetCapacity=100),
+            ),
+        )
+    )
 
 
-def capacity_provider_assoc(asg_props):
+def capacity_provider_assoc(asgs_with_models):
+    cps_with_models = [(capacity_provider(a), m) for a, m in asgs_with_models]
     return add_resource(
         ClusterCapacityProviderAssociations(
             "CapacityProviderAssoc",
             Cluster=Ref("EcsCluster"),
-            CapacityProviders=[Ref(p["capacity_provider"]) for p in asg_props],
+            CapacityProviders=[Ref(cp) for cp, _ in cps_with_models],
             DefaultCapacityProviderStrategy=[
                 CapacityProviderStrategy(
-                    CapacityProvider=Ref(p["capacity_provider"]),
-                    Weight=p.get("weight", 1),
+                    CapacityProvider=Ref(cp),
+                    Weight=sg_model.weight,
                 )
-                for p in asg_props
-                if p.get("in_default_cps", True)
+                for cp, sg_model in cps_with_models
+                if sg_model.in_default_cps
             ],
         )
     )
 
 
-# TODO: Rewrite this
-def scaling_groups(
-    scaling_group_data,
-    security_groups,
-    node_profile,
-    subnets,
-    sns_topic,
-    sns_fn_role,
+def scaling_group_with_resources(
+    security_groups, node_profile, subnets, sns_topic, sns_fn_role, sg_model
 ):
-    for asg_props in scaling_group_data:
-        name = asg_props["name"]
-        c = launch_config(
-            name,
-            security_groups,
-            asg_props["node_type"],
-            node_profile,
-            asg_props["key_name"],
-        )
-        asg = auto_scaling_group(
-            name,
-            subnets,
-            c,
-            asg_props["max_size"],
-            asg_props["desired_size"],
-            sns_topic,
-        )
-        asg_terminate_hook(asg, sns_topic, sns_fn_role)
-        yield {**asg_props, "asg": asg}
+    lc = launch_config(
+        sg_model.name,
+        security_groups,
+        sg_model.node_type,
+        node_profile,
+        sg_model.key_name,
+    )
+    asg = auto_scaling_group(
+        sg_model.name,
+        subnets,
+        lc,
+        sg_model.max_size,
+        sg_model.desired_size,
+        sns_topic,
+    )
+    asg_terminate_hook(asg, sns_topic, sns_fn_role)
+    return asg
 
 
 def sceptre_handler(sceptre_user_data):
@@ -507,23 +495,26 @@ def sceptre_handler(sceptre_user_data):
         )
     )
 
-    # TODO: Rewrite this
-    scaling_group_props = [g.dict() for g in user_data.scaling_groups]
-    asgs = list(
-        scaling_groups(
-            scaling_group_props,
-            [Ref(node_sg)] + user_data.node_security_groups,
-            node_profile,
-            user_data.subnet_ids,
-            sns_topic,
-            sns_fn_role,
+    all_security_groups = [Ref(node_sg)] + user_data.node_security_groups
+    asgs_with_models = [
+        (
+            scaling_group_with_resources(
+                all_security_groups,
+                node_profile,
+                user_data.subnet_ids,
+                sns_topic,
+                sns_fn_role,
+                g,
+            ),
+            g,
         )
-    )
+        for g in user_data.scaling_groups
+    ]
 
     if user_data.auto_scaling_enabled:
-        capacity_provider_assoc([capacity_provider(p) for p in asgs])
+        capacity_provider_assoc(asgs_with_models)
         if user_data.force_default_cps:
             lambda_fn_for_cps()
-            cps_reset_resource(scaling_group_props)
+            cps_reset_resource(user_data)
 
     return TEMPLATE.to_json()

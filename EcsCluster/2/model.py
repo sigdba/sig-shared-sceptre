@@ -27,4 +27,4 @@ class UserDataModel(BaseModel):
     container_insights_enabled = False
     force_default_cps = False
     subnet_ids: List[str] = []
-    scaling_groups = List[ScalingGroupModel]
+    scaling_groups: List[ScalingGroupModel] = []

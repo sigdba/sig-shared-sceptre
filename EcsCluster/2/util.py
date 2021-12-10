@@ -1,4 +1,5 @@
 import sys
+import os.path
 from troposphere import Template, Parameter, AWSObject, Ref
 
 TEMPLATE = Template()

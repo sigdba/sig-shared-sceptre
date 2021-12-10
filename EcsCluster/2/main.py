@@ -37,6 +37,9 @@ from troposphere.policies import UpdatePolicy, AutoScalingRollingUpdate
 from troposphere.sns import Topic, Subscription, SubscriptionResource
 from troposphere.s3 import Bucket, PublicAccessBlockConfiguration
 
+from model import *
+from util import *
+
 REGION_MAP = "RegionMap"
 
 
@@ -68,9 +71,10 @@ def cluster_bucket():
 
 
 def node_instance_role():
-    return add_resource(
-        Role(
-            "NodeInstanceRole",
+    return add_resource_once(
+        "NodeInstanceRole",
+        lambda name: Role(
+            name,
             AssumeRolePolicyDocument={
                 "Version": "2012-10-17",
                 "Statement": [
@@ -125,29 +129,31 @@ def node_instance_role():
                     },
                 )
             ],
-        )
+        ),
     )
 
 
 def node_instance_profile():
-    return add_resource(
-        InstanceProfile("NodeInstanceProfile", Roles=[Ref(node_instance_role())])
+    return add_resource_once(
+        "NodeInstanceProfile",
+        lambda name: InstanceProfile(name, Roles=[Ref(node_instance_role())]),
     )
 
 
-def node_security_group(ingress_cidrs):
-    return add_resource(
-        SecurityGroup(
-            "NodeSecurityGroup",
+def node_security_group(user_data):
+    return add_resource_once(
+        "NodeSecurityGroup",
+        lambda name: SecurityGroup(
             GroupDescription="Security group for ECS nodes",
             VpcId=Ref("VpcId"),
             SecurityGroupEgress=[
                 SecurityGroupRule(CidrIp="0.0.0.0/0", IpProtocol="-1")
             ],
             SecurityGroupIngress=[
-                SecurityGroupRule(CidrIp=c, IpProtocol="-1") for c in ingress_cidrs
+                SecurityGroupRule(CidrIp=c, IpProtocol="-1")
+                for c in user_data.ingress_cidrs
             ],
-        )
+        ),
     )
 
 
@@ -203,9 +209,10 @@ def lambda_execution_role():
 
 
 def lambda_fn_for_asg():
-    return add_resource(
-        Function(
-            "LambdaFunctionForASG",
+    return add_resource_once(
+        "LambdaFunctionForASG",
+        lambda name: Function(
+            name,
             Description="Gracefully drain ECS tasks from EC2 instances before the instances are terminated by autoscaling.",
             Handler="index.lambda_handler",
             Role=GetAtt(lambda_execution_role(), "Arn"),
@@ -213,7 +220,7 @@ def lambda_fn_for_asg():
             MemorySize=128,
             Timeout=60,
             Code=Code(ZipFile=Sub(read_resource("TerminationLambda.py"))),
-        )
+        ),
     )
 
 
@@ -248,9 +255,12 @@ def launch_config(user_data, sg_model):
         LaunchConfiguration(
             "LaunchConf" + sg_model.name,
             ImageId=FindInMap(REGION_MAP, Ref("AWS::Region"), "AMIID"),
-            SecurityGroups=user_data.node_security_groups,
+            SecurityGroups=[
+                Ref(node_security_group(user_data)),
+                *user_data.node_security_groups,
+            ],
             InstanceType=sg_model.node_type,
-            IamInstanceProfile=Ref("NodeInstanceProfile"),
+            IamInstanceProfile=Ref(node_instance_profile()),
             KeyName=sg_model.key_name,
             UserData=Base64(Sub(read_resource("UserData.txt"))),
         )
@@ -258,13 +268,14 @@ def launch_config(user_data, sg_model):
 
 
 def lambda_subs_to_topic():
-    return add_resource(
-        SubscriptionResource(
-            "LambdaSubscriptionToSNSTopic",
+    return add_resource_once(
+        "LambdaSubscriptionToSNSTopic",
+        lambda name: SubscriptionResource(
+            name,
             Endpoint=GetAtt(lambda_fn_for_asg(), "Arn"),
             Protocol="lambda",
             TopicArn=Ref(asg_sns_topic()),
-        )
+        ),
     )
 
 
@@ -384,6 +395,7 @@ def auto_scaling_group(user_data, sg_model):
     )
 
     asg_terminate_hook(ret)
+    lambda_subs_for_sns_topic()
     return ret
 
 
@@ -415,6 +427,34 @@ def capacity_provider_assoc(asg_props):
     )
 
 
+def service_role():
+    return add_resource(
+        Role(
+            "ServiceRole",
+            AssumeRolePolicyDocument={
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Principal": {"Service": ["ecs.amazonaws.com"]},
+                        "Action": ["sts:AssumeRole"],
+                    }
+                ],
+            },
+            ManagedPolicyArns=[
+                "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceRole"
+            ],
+        )
+    )
+
+
+def scaling_groups(user_data):
+    asgs_with_models = [
+        (auto_scaling_group(user_data, g), g) for g in user_data.scaling_groups
+    ]
+    lambda_invoke_permission()
+
+
 def sceptre_handler(sceptre_user_data):
     user_data = UserDataModel(**sceptre_user_data)
 
@@ -423,16 +463,11 @@ def sceptre_handler(sceptre_user_data):
 
     TEMPLATE.add_mapping(REGION_MAP, region_map())
 
-    # node_profile = r(node_instance_profile(node_role))
-    # fn_ex_role = r(lambda_execution_role())
-    # asg_lambda = r(lambda_fn_for_asg(fn_ex_role))
-    # sns_topic = r(asg_sns_topic(asg_lambda))
-    # sns_fn_role = r(sns_lambda_role())
-    # node_sg = r(node_security_group(vpc_id, sceptre_user_data['ingress_cidrs']))
     ecs_cluster(user_data)
+    service_role()  # TODO: Is this needed?
+    scaling_groups(user_data)
 
     # r(lambda_invoke_permission(asg_lambda, sns_topic))
-    # r(lambda_subs_to_topic(asg_lambda, sns_topic))
     # r(cluster_bucket())
 
     # template.add_output(Output("ClusterArnOutput",
@@ -443,10 +478,6 @@ def sceptre_handler(sceptre_user_data):
     #                            Value=Ref('ClusterBucket'),
     #                            Export=Export(Sub("${EnvName}-EcsEnv-ClusterBucket"))))
     #
-
-    asgs_with_models = [
-        (auto_scaling_group(user_data, g), g) for g in user_data.scaling_groups
-    ]
 
     # if sceptre_user_data.get('auto_scaling_enabled', False):
     #     r(capacity_provider_assoc([capacity_provider(r, p) for p in asgs]))

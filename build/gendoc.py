@@ -100,24 +100,40 @@ def get_parameters_in_order(module):
     return [{**params[k], "title": k} for k in keys]
 
 
-def render_field(fp, **kwargs):
-    field = {k.lower(): v for k, v in kwargs.items()}
-    if "default" in field and field["default"]:
-        req = ""
-        def_line = "  - **Default:** `{}`\n".format(field["default"])
-    else:
-        req = " - **required**"
-        def_line = ""
+def field_default_str(field):
+    if field.get("omit_default", False):
+        return None
+    desc = field.get("default_description", None)
+    if desc is not None:
+        return desc
+    val = field.get("default", None)
+    if val is not None:
+        if val == [] or val == {}:
+            return None
+        return f"`{val}`"
+    return None
+
+
+def render_field(fp, spec={}, **kwargs):
+    field = {**spec, **{k.lower(): v for k, v in kwargs.items()}}
+    req = " - **required**" if "required" in field and field["required"] else ""
     fp.write("- `{}` ({}){}".format(field["title"], field["type"], req))
+
     if "description" in field and field["description"]:
         fp.write(" - ")
         fp.write(field["description"])
     fp.write("\n")
-    fp.write(def_line)
+
+    default = field_default_str(field)
+    if default:
+        fp.write(f"  - **Default:** {default}\n")
+
+    for note in field.get("notes", []):
+        fp.write(f"  - {note}\n")
 
 
 def render_parameter(fp, param):
-    render_field(fp, **param)
+    render_field(fp, **param, required="Default" not in param)
 
 
 def render_parameters(fp, module):
@@ -146,14 +162,18 @@ def schema_prop_type_str(p):
     return p["type"]
 
 
+def schema_prop_default_str(p):
+    return p.get("default", None)
+
+
 def render_schema_prop(fp, name, prop):
     try:
         render_field(
             fp,
+            prop,
             title=name,
             type=schema_prop_type_str(prop),
-            default=prop.get("default", None),
-            description=prop.get("description", None),
+            default=schema_prop_default_str(prop),
         )
     except Exception as e:
         print(f"Error rendering schema prop '{name}':{prop}")
@@ -164,9 +184,10 @@ def render_schema_def(fp, sdef):
     heading_leader = "#" * (2 + sdef["indent_level"])
     title = sdef["title"]
     title = "sceptre_user_data" if title == TOP_MODEL else title
+    required = sdef.get("required", [])
     fp.write(f"\n\n{heading_leader} {title}\n\n")
     for k, v in sdef["properties"].items():
-        render_schema_prop(fp, k, v)
+        render_schema_prop(fp, k, {"required": k in required, **v})
 
 
 def render_schema_defs(fp, schema):

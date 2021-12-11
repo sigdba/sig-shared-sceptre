@@ -153,10 +153,21 @@ class UserDataModel(BaseModel):
     instance_name: str
     ami: AmiModel
     backups_enabled: bool
-    backups = BackupsModel()
-    private_ip_address: Optional[str]
+    backups = Field(
+        BackupsModel(),
+        description="Additional backup configuration",
+        default_description="If `backups_enabled` is `True` and `backups` is unspecified, then a simple daily backup plan will be created with 30-day retention.",
+    )
+    private_ip_address: Optional[str] = Field(
+        description="Provide a fixed private IP address for the instance. If unspecified the instance will receive a random address within its subnet.",
+        notes=[
+            "**See Also:** (AWS::EC2::Instance - PrivateIpAddress)[https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-instance.html#cfn-ec2-instance-privateipaddress]"
+        ],
+    )
     allow_api_termination = False
-    ebs_volumes: List[EbsVolumeModel] = []
+    ebs_volumes: List[EbsVolumeModel] = Field(
+        [], description="Additional EBS volumes to attach to the instance."
+    )
     security_group = SecurityGroupModel()
     security_group_ids: List[str] = []
     instance_extra_props = {}

@@ -147,13 +147,13 @@ def schema_prop_type_str(p):
         return f"[{p['$ref']}](#{p['$ref']})"
     if "anyOf" in p:
         return " or ".join([schema_prop_type_str(o) for o in p["anyOf"]])
-    if "allOf" in p:
-        return f"List of {schema_prop_type_str({'anyOf':p['allOf']})}"
     if "items" in p:
         items = p["items"]
         if items == {}:
             return "List"
-        return schema_prop_type_str({"allOf": [items]})
+        return "List of " + schema_prop_type_str({"allOf": [items]})
+    if "allOf" in p:
+        return schema_prop_type_str({"anyOf": p["allOf"]})
     if p["type"] == "object":
         v_type = p.get("additionalProperties", {}).get("type", None)
         if v_type:

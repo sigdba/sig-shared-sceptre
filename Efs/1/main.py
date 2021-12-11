@@ -96,6 +96,10 @@ def r_mount_target(filesystem, mt_model):
 def sceptre_handler(sceptre_user_data):
     add_param("VpcId", Type="AWS::EC2::VPC::Id")
 
+    if sceptre_user_data is None:
+        # We're generating documetation. Return the template with just parameters.
+        return TEMPLATE
+
     user_data = UserDataModel(**sceptre_user_data)
 
     name = (

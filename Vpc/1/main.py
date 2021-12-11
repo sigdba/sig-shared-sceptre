@@ -168,6 +168,10 @@ def subnets(models):
 
 
 def sceptre_handler(sceptre_user_data):
+    if sceptre_user_data is None:
+        # We're generating documetation. Return the template with just parameters.
+        return TEMPLATE
+
     user_data = UserDataModel(**sceptre_user_data)
 
     r_vpc(user_data)

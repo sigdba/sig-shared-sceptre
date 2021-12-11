@@ -672,6 +672,10 @@ def scheduling_rule(rule_props):
 def sceptre_handler(sceptre_user_data):
     add_params(TEMPLATE)
 
+    if sceptre_user_data is None:
+        # We're generating documetation. Return the template with just parameters.
+        return TEMPLATE
+
     user_data = UserDataModel(**sceptre_user_data)
     efs_volumes = user_data.efs_volumes
 

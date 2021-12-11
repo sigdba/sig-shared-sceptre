@@ -459,12 +459,16 @@ def scaling_group_with_resources(
 
 
 def sceptre_handler(sceptre_user_data):
-    user_data = UserDataModel(**sceptre_user_data)
-
     add_param("VpcId", Type="String", Description="VPC to launch cluster in")
     add_param("EnvName", Type="String", Description="The name of the environment")
 
+    if sceptre_user_data is None:
+        # We're generating documetation. Return the template with just parameters.
+        return TEMPLATE
+
     TEMPLATE.add_mapping(REGION_MAP, region_map())
+
+    user_data = UserDataModel(**sceptre_user_data)
 
     # fn_ex_role = lambda_execution_role()
     cluster = ecs_cluster(user_data.container_insights_enabled)

@@ -23,7 +23,7 @@ from troposphere.elasticloadbalancingv2 import (
     HostHeaderConfig,
     PathPatternConfig,
     QueryStringConfig,
-    QueryStringKeyValue
+    QueryStringKeyValue,
 )
 from troposphere.s3 import (
     Bucket,
@@ -527,7 +527,7 @@ def health_check_options(hc_data):
         "path": "HealthCheckPath",
         "protocol": "HealthCheckProtocol",
         "healthy_threshold_count": "HealthyThresholdCount",
-        "unhealth_threshold_count": "UnhealthyThresholdCount"
+        "unhealth_threshold_count": "UnhealthyThresholdCount",
     }
     hc_data = hc_data.dict()
     return {
@@ -670,8 +670,11 @@ def conditions_with(user_data, cond_data):
             Condition(
                 Field="query-string",
                 QueryStringConfig=QueryStringConfig(
-                    Values=[QueryStringKeyValue(Key=q.key, Value=q.value) for q in cond_data["query_string_matches"]]
-                )
+                    Values=[
+                        QueryStringKeyValue(Key=q.key, Value=q.value)
+                        for q in cond_data["query_string_matches"]
+                    ]
+                ),
             )
         )
     return conditions
@@ -827,6 +830,9 @@ def elb_cnames(user_data):
 
 def sceptre_handler(user_data):
     add_params(TEMPLATE)
+    if user_data is None:
+        # We're generating documetation. Return the template with just parameters.
+        return TEMPLATE
 
     data = UserDataModel.parse_obj(user_data)
 

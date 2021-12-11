@@ -551,6 +551,10 @@ def elb_cnames(user_data):
 def sceptre_handler(user_data):
     add_param("VpcId", Type="String")
 
+    if user_data is None:
+        # We're generating documetation. Return the template with just parameters.
+        return TEMPLATE
+
     data = UserDataModel.parse_obj(user_data)
 
     load_balancer(data)

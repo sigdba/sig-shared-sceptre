@@ -79,9 +79,9 @@ def get_parameters(module):
     try:
         template = module.sceptre_handler(None)
         if type(template) is dict:
-            return template["Parameters"]
+            return template.get("Parameters", {})
         elif type(template) is Template:
-            return template.to_dict()["Parameters"]
+            return template.to_dict().get("Parameters", {})
         else:
             print(
                 "WARNING: Calling scepture_handler() with None returned a non-dict:\n",

@@ -1,6 +1,6 @@
 from base64 import b64encode
 from typing import List, Optional, Dict, Union
-from pydantic import BaseModel, ValidationError, validator, root_validator
+from pydantic import BaseModel, ValidationError, validator, root_validator, Field
 from util import debug
 
 #

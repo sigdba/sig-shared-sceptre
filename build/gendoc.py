@@ -131,6 +131,8 @@ def render_field(fp, spec={}, **kwargs):
     for note in field.get("notes", []):
         fp.write(f"  - {note}\n")
 
+    fp.write("\n")
+
 
 def render_parameter(fp, param):
     render_field(fp, **param, required="Default" not in param)
@@ -184,8 +186,13 @@ def render_schema_def(fp, sdef):
     heading_leader = "#" * (2 + sdef["indent_level"])
     title = sdef["title"]
     title = "sceptre_user_data" if title == TOP_MODEL else title
-    required = sdef.get("required", [])
     fp.write(f"\n\n{heading_leader} {title}\n\n")
+
+    desc = sdef.get("description", None)
+    if desc:
+        fp.write(f"{desc}\n\n")
+
+    required = sdef.get("required", [])
     for k, v in sdef["properties"].items():
         render_schema_prop(fp, k, {"required": k in required, **v})
 

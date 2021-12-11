@@ -459,8 +459,12 @@ def scaling_group_with_resources(
 
 
 def sceptre_handler(sceptre_user_data):
-    add_param("VpcId", Type="String", Description="VPC to launch cluster in")
-    add_param("EnvName", Type="String", Description="The name of the environment")
+    add_param(
+        "VpcId",
+        Type="String",
+        Description="The ID of the VPC where the ECS cluster will be created.",
+    )
+    add_param("EnvName", Type="String", Description="The name of the ECS cluster.")
 
     if sceptre_user_data is None:
         # We're generating documetation. Return the template with just parameters.

@@ -549,7 +549,11 @@ def elb_cnames(user_data):
 
 
 def sceptre_handler(user_data):
-    add_param("VpcId", Type="String")
+    add_param(
+        "VpcId",
+        Type="String",
+        Description="The ID of the VPC where the ECS cluster will be created.",
+    )
 
     if user_data is None:
         # We're generating documetation. Return the template with just parameters.

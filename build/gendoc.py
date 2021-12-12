@@ -114,9 +114,18 @@ def field_default_str(field):
     return None
 
 
+def field_requirement_str(field):
+    req = field.get("requirement_description", None)
+    if req:
+        return f" - **{req}**"
+    if field.get("required", False):
+        return " - **required**"
+    return ""
+
+
 def render_field(fp, spec={}, **kwargs):
     field = {**spec, **{k.lower(): v for k, v in kwargs.items()}}
-    req = " - **required**" if "required" in field and field["required"] else ""
+    req = field_requirement_str(field)
     fp.write("- `{}` ({}){}".format(field["title"], field["type"], req))
 
     if "description" in field and field["description"]:

@@ -46,7 +46,9 @@
 
 ### AmiModel
 
-- `ami_id` (string) - **required**
+- `ami_id` (string)
+
+- `ami_map` (Dict[string:string])
 
 - `user_data_b64` (string)
 
@@ -81,7 +83,7 @@
 
 - `role_path` (string)
 
-- `allow` (List of [IamAllowModel](#IamAllowModel))
+- `allow` (List of [IamAllowModel](#IamAllowModel) or List of [IamAllowModel](#IamAllowModel))
 
 - `managed_policy_arns` (List of string)
 
@@ -90,16 +92,6 @@
 - `role_tags` (Dict)
 
 - `role_extra_opts` (Dict)
-
-
-
-#### IamAllowModel
-
-- `action` (string or List of string) - **required**
-
-- `resource` (string or List of string) - **required**
-
-- `condition` (Dict)
 
 
 

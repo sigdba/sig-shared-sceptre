@@ -79,6 +79,7 @@ class AmiModel(BaseModel):
     ami_map: Optional[Dict[str, str]]
     user_data_b64: Optional[str]
     commands: Optional[List[str]]
+    instance_tags: Dict[str, str] = {}
 
     @root_validator
     def require_ami_or_map(cls, values):

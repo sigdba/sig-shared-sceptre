@@ -143,7 +143,10 @@ def instance(user_data, ebs_mods_vols):
                 *user_data.security_group_ids,
             ],
             SubnetId=Ref("SubnetId"),
-            Tags=Tags(Name=user_data.instance_name, **user_data.instance_tags),
+            Tags=Tags(
+                Name=user_data.instance_name,
+                **{**user_data.ami.instance_tags, **user_data.instance_tags},
+            ),
             Volumes=[
                 MountPoint(
                     Device=f"/dev/xvd{m.device_letter}",

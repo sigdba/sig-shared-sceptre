@@ -1,7 +1,7 @@
 import hashlib
 import os.path
 
-from troposphere import Ref, Sub, GetAtt, Tags
+from troposphere import Ref, Sub, GetAtt, Tags, FindInMap
 from troposphere.iam import Role, Policy, InstanceProfile
 from troposphere.ec2 import SecurityGroup, Instance, Volume, MountPoint
 from troposphere.backup import (
@@ -120,12 +120,22 @@ def r_instance_profile(ip_model):
     )
 
 
+def ami_id(ami_model):
+    if ami_model.ami_id:
+        return ami_model.ami_id
+
+    add_mapping(
+        "AmiMap", {region: {"Ami": ami} for region, ami in ami_model.ami_map.items()}
+    )
+    return FindInMap("AmiMap", Ref("AWS::Region"), "Ami")
+
+
 def instance(user_data, ebs_mods_vols):
     return add_resource(
         Instance(
             "Instance",
             DisableApiTermination=not user_data.allow_api_termination,
-            ImageId=user_data.ami.ami_id,
+            ImageId=ami_id(user_data.ami),
             InstanceType=Ref("InstanceType"),
             KeyName=Ref("KeyPairName"),
             SecurityGroupIds=[

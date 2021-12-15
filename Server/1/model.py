@@ -75,9 +75,18 @@ class SecurityGroupModel(BaseModel):
 
 
 class AmiModel(BaseModel):
-    ami_id: str
+    ami_id: Optional[str]
+    ami_map: Optional[Dict[str, str]]
     user_data_b64: Optional[str]
     commands: Optional[List[str]]
+
+    @root_validator
+    def require_ami_or_map(cls, values):
+        if values["ami_id"] is None and values["ami_map"] is None:
+            raise ValueError("One of ami_id or ami_map is required")
+        if values["ami_id"] and values["ami_map"]:
+            raise ValueError("ami_id and ami_map are mutually exclusive")
+        return values
 
     @root_validator
     def encode_user_data(cls, values):

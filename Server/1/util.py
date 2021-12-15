@@ -44,6 +44,10 @@ def add_param(name, **kwargs):
     return TEMPLATE.add_parameter(Parameter(name, **kwargs))
 
 
+def add_mapping(name, mapping):
+    return TEMPLATE.add_mapping(name, mapping)
+
+
 def debug(*args):
     print(*args, file=sys.stderr)
 

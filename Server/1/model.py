@@ -142,11 +142,24 @@ class IamAllowModel(BaseModel):
 class ProfileModel(BaseModel):
     profile_path: Optional[str]
     role_path: Optional[str]
-    allow: List[IamAllowModel] = []
+    allow: List[Union[IamAllowModel, List[IamAllowModel]]] = []
     managed_policy_arns: List[str] = []
     policy_document: Optional[dict]
     role_tags: dict = {}
     role_extra_opts: dict = {}
+
+    @validator("allow")
+    def flatten_allow_list(cls, v):
+        def f(v):
+            queue = v
+            while len(queue) > 0:
+                item = queue.pop(0)
+                if type(item) is list:
+                    queue.extend(item)
+                else:
+                    yield item
+
+        return list(f(v))
 
 
 class UserDataModel(BaseModel):

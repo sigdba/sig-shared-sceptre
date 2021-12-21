@@ -67,3 +67,16 @@ def opts_with(**kwargs):
 def opts_from(o, **kwargs):
     d = dict(o)
     return {k: d[v] for k, v in kwargs.items() if d[v]}
+
+
+def flatten(lst):
+    def f(v):
+        queue = v
+        while len(queue) > 0:
+            item = queue.pop(0)
+            if type(item) is list:
+                queue.extend(item)
+            else:
+                yield item
+
+    return list(f(lst))

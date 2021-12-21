@@ -1,7 +1,7 @@
 from base64 import b64encode
-from typing import List, Optional, Dict, Union
+from typing import List, Optional, Dict, Union, TypeVar
 from pydantic import BaseModel, ValidationError, validator, root_validator, Field
-from util import debug
+from util import debug, flatten
 
 #
 # IMPORTANT: The following classes are DATA CLASSES using pydantic.
@@ -22,11 +22,17 @@ class EbsVolumeModel(BaseModel):
 
 
 class SecurityGroupAllowModel(BaseModel):
-    cidr: str
+    cidr: Union[str, List[str]]
     description: str
     protocol = "tcp"
     from_port: int
     to_port: int
+
+    @validator("cidr")
+    def make_cidr_a_list(cls, v):
+        if type(v) is list:
+            return v
+        return [v]
 
     def parse_port(port):
         if isinstance(port, int):
@@ -71,7 +77,11 @@ class SecurityGroupModel(BaseModel):
             "IpProtocol": "-1",
         }
     ]
-    allow: List[SecurityGroupAllowModel] = []
+    allow: List[Union[SecurityGroupAllowModel, List[SecurityGroupAllowModel]]] = []
+
+    @validator("allow")
+    def flatten_allow_list(cls, v):
+        return flatten(v)
 
 
 class AmiModel(BaseModel):
@@ -160,16 +170,7 @@ class ProfileModel(BaseModel):
 
     @validator("allow")
     def flatten_allow_list(cls, v):
-        def f(v):
-            queue = v
-            while len(queue) > 0:
-                item = queue.pop(0)
-                if type(item) is list:
-                    queue.extend(item)
-                else:
-                    yield item
-
-        return list(f(v))
+        return flatten(v)
 
 
 class NsUpdateModel(BaseModel):

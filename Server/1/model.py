@@ -172,6 +172,34 @@ class ProfileModel(BaseModel):
         return list(f(v))
 
 
+class NsUpdateModel(BaseModel):
+    lambda_arn: Optional[str] = Field(
+        description="ARN of the Lambda function which provides NS update functionality.",
+        notes=["One of `lambda_arn` or `lambda_arn_export_name` must be specified."],
+    )
+    lambda_arn_export_name: Optional[str] = Field(
+        description="Export name for the ARN of the Lambda function which provides NS update functionality.",
+        notes=["One of `lambda_arn` or `lambda_arn_export_name` must be specified."],
+    )
+    lambda_props: Dict[str, str] = {}
+    lambda_record_type_key = "RecordType"
+    lambda_record_key: str
+    lambda_zone_key: str
+    lambda_value_key = "Value"
+    zone_splits_at = 1
+    domain: str = Field(
+        description="Server's DNS entry will be `<instance_name>.<ns_update.domain>`"
+    )
+
+    @root_validator()
+    def require_lambda_arn_or_export(cls, values):
+        if "lambda_arn" not in values and "lambda_arn_export_name" not in values:
+            raise ValueError(
+                "one of lambda_arn or lambda_arn_export_name must be specified"
+            )
+        return values
+
+
 class UserDataModel(BaseModel):
     instance_name: str
     ami: AmiModel
@@ -197,6 +225,10 @@ class UserDataModel(BaseModel):
     instance_tags: Dict[str, str] = {}
     instance_profile: Optional[ProfileModel]
 
+    ns_update: Optional[NsUpdateModel] = Field(
+        description="Specifies how DNS entries should be updated when not using Route53."
+    )
+
     @validator("ebs_volumes")
     def check_for_duplicate_drive_letters(cls, v):
         letters = [m.device_letter for m in v]
@@ -204,7 +236,4 @@ class UserDataModel(BaseModel):
             raise ValueError("Duplicate device_letters specified in ebs_volumes")
         return v
 
-    # TODO: Add EFS mounts (needed here for SG updates?)
-    # TODO: Add backups
-    # TODO: Add instance profile and role
     # TODO: Route53 integration

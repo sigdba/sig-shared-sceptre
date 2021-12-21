@@ -1,7 +1,10 @@
 import hashlib
 import os.path
 
-from troposphere import Ref, Sub, GetAtt, Tags, FindInMap
+from functools import partial
+
+from troposphere import Ref, Sub, GetAtt, Tags, FindInMap, ImportValue
+from troposphere.cloudformation import AWSCustomObject
 from troposphere.iam import Role, Policy, InstanceProfile
 from troposphere.ec2 import SecurityGroup, Instance, Volume, MountPoint
 from troposphere.backup import (
@@ -277,6 +280,56 @@ def allow_statement(allow):
     }
 
 
+class NsUpdate(AWSCustomObject):
+    resource_type = "Custom::NsUpdate"
+    props = {
+        "ServiceToken": (str, True),
+    }
+
+
+def ns_entry_nsupdate(nsu_model, record_type, name, value):
+    lambda_arn = (
+        nsu_model.lambda_arn
+        if nsu_model.lambda_arn is not None
+        else ImportValue(nsu_model.lambda_arn_export_name)
+    )
+
+    name = f"{name}.{nsu_model.domain}"
+    parts = name.split(".", nsu_model.zone_splits_at)
+    zone = parts[-1]
+    record = ".".join(parts[:-1])
+
+    args = {
+        nsu_model.lambda_record_type_key: record_type,
+        nsu_model.lambda_record_key: record,
+        nsu_model.lambda_zone_key: zone,
+        nsu_model.lambda_value_key: value,
+        **nsu_model.lambda_props,
+    }
+
+    return add_resource(
+        NsUpdate(
+            clean_title("NsUpdateFor{}".format(name)),
+            validation=False,
+            ServiceToken=lambda_arn,
+            **args,
+        )
+    )
+
+
+def ns_entry_fn(user_data):
+    # zone_id = user_data.hosted_zone_id
+    # if zone_id is not None:
+    #     return partial(ns_entry_route53, zone_id)
+
+    nsupdate_model = user_data.ns_update
+    if nsupdate_model is not None:
+        return partial(ns_entry_nsupdate, nsupdate_model)
+
+    # If no DNS configuration was provided, return a no-op function
+    return lambda t, n, v: None
+
+
 def sceptre_handler(sceptre_user_data):
     add_param("VpcId", Type="AWS::EC2::VPC::Id")
     add_param("SubnetId", Type="AWS::EC2::Subnet::Id")
@@ -300,5 +353,7 @@ def sceptre_handler(sceptre_user_data):
     if user_data.backups_enabled:
         plan = backup_plan(user_data.backups)
         backup_selection(user_data.backups, plan, ebs_models_and_volumes)
+
+    ns_entry_fn(user_data)("A", user_data.instance_name, GetAtt(ec2_inst, "PrivateIp"))
 
     return TEMPLATE.to_json()

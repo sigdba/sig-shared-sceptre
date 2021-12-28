@@ -31,6 +31,10 @@
 
 - `instance_profile` ([ProfileModel](#ProfileModel))
 
+- `route53` ([Route53Model](#Route53Model))
+
+- `ns_update` ([NsUpdateModel](#NsUpdateModel)) - Specifies how DNS entries should be updated when not using Route53.
+
 - `backups` ([BackupsModel](#BackupsModel)) - Additional backup configuration
   - **Default:** If `backups_enabled` is `True` and `backups` is unspecified, then a simple daily backup plan will be created with 30-day retention.
 
@@ -53,6 +57,8 @@
 - `user_data_b64` (string)
 
 - `commands` (List of string)
+
+- `instance_tags` (Dict[string:string])
 
 
 
@@ -92,6 +98,41 @@
 - `role_tags` (Dict)
 
 - `role_extra_opts` (Dict)
+
+
+
+### Route53Model
+
+- `hosted_zone_id` (string)
+
+- `domain` (string) - **required**
+
+
+
+### NsUpdateModel
+
+- `lambda_arn` (string) - ARN of the Lambda function which provides NS update functionality.
+  - One of `lambda_arn` or `lambda_arn_export_name` must be specified.
+
+- `lambda_arn_export_name` (string) - Export name for the ARN of the Lambda function which provides NS update functionality.
+  - One of `lambda_arn` or `lambda_arn_export_name` must be specified.
+
+- `lambda_props` (Dict[string:string])
+
+- `lambda_record_key` (string) - **required**
+
+- `lambda_zone_key` (string) - **required**
+
+- `domain` (string) - **required** - Server's DNS entry will be `<instance_name>.<ns_update.domain>`
+
+- `lambda_record_type_key` (string)
+  - **Default:** `RecordType`
+
+- `lambda_value_key` (string)
+  - **Default:** `Value`
+
+- `zone_splits_at` (integer)
+  - **Default:** `1`
 
 
 
@@ -144,20 +185,5 @@
 - `egress` (List of Dict[string:string])
   - **Default:** `[{'CidrIp': '0.0.0.0/0', 'Description': 'Allow all outbound', 'FromPort': '-1', 'ToPort': '-1', 'IpProtocol': '-1'}]`
 
-- `allow` (List of [SecurityGroupAllowModel](#SecurityGroupAllowModel))
-
-
-
-#### SecurityGroupAllowModel
-
-- `cidr` (string) - **required**
-
-- `description` (string) - **required**
-
-- `from_port` (integer) - **required**
-
-- `to_port` (integer) - **required**
-
-- `protocol` (string)
-  - **Default:** `tcp`
+- `allow` (List of [SecurityGroupAllowModel](#SecurityGroupAllowModel) or List of [SecurityGroupAllowModel](#SecurityGroupAllowModel))
 

@@ -201,6 +201,17 @@ class NsUpdateModel(BaseModel):
         return values
 
 
+class Route53Model(BaseModel):
+    hosted_zone_id: Optional[str]
+    domain: str
+
+    @validator("domain")
+    def force_trailing_dot(cls, v):
+        if v[-1] != ".":
+            return v + "."
+        return v
+
+
 class UserDataModel(BaseModel):
     instance_name: str
     ami: AmiModel
@@ -226,6 +237,7 @@ class UserDataModel(BaseModel):
     instance_tags: Dict[str, str] = {}
     instance_profile: Optional[ProfileModel]
 
+    route53: Optional[Route53Model]
     ns_update: Optional[NsUpdateModel] = Field(
         description="Specifies how DNS entries should be updated when not using Route53."
     )

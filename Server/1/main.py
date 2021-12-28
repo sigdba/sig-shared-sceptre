@@ -7,6 +7,7 @@ from troposphere import Ref, Sub, GetAtt, Tags, FindInMap, ImportValue
 from troposphere.cloudformation import AWSCustomObject
 from troposphere.iam import Role, Policy, InstanceProfile
 from troposphere.ec2 import SecurityGroup, Instance, Volume, MountPoint
+from troposphere.route53 import RecordSet, RecordSetType
 from troposphere.backup import (
     BackupPlan,
     BackupPlanResourceType,
@@ -320,10 +321,27 @@ def ns_entry_nsupdate(nsu_model, record_type, name, value):
     )
 
 
+def ns_entry_route53(r53_model, record_type, name, value):
+    if r53_model.hosted_zone_id:
+        opts = {"HostedZoneId": r53_model.hosted_zone_id}
+    else:
+        opts = {"HostedZoneName": r53_model.domain}
+    return add_resource(
+        RecordSetType(
+            clean_title("RecordSetFor{}".format(name)),
+            Name=f"{name}.{r53_model.domain}",
+            Type=record_type,
+            TTL="300",
+            ResourceRecords=[value],
+            **opts,
+        )
+    )
+
+
 def ns_entry_fn(user_data):
-    # zone_id = user_data.hosted_zone_id
-    # if zone_id is not None:
-    #     return partial(ns_entry_route53, zone_id)
+    r53 = user_data.route53
+    if r53:
+        return partial(ns_entry_route53, r53)
 
     nsupdate_model = user_data.ns_update
     if nsupdate_model is not None:

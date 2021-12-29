@@ -358,11 +358,18 @@ class UserDataModel(BaseModel):
         description="Specifies how DNS entries should be updated when not using Route53."
     )
 
-    @root_validator
-    def require_listeners(cls, values):
-        if len(values["listeners"]) < 1:
+    @validator("listeners")
+    def require_listeners(cls, v):
+        if not v or len(v) < 1:
             raise ValueError("at least one listener is required")
-        return values
+        return v
+
+    # @root_validator
+    # def require_listeners(cls, values):
+    #     debug("values:", values)
+    #     if len(values["listeners"]) < 1:
+    #         raise ValueError("at least one listener is required")
+    #     return values
 
     @root_validator
     def require_subnet_ids(cls, values):

@@ -20,6 +20,7 @@ from troposphere.ecs import (
     MountPoint,
     Secret,
     PlacementStrategy,
+    LinuxParameters,
 )
 from troposphere.elasticloadbalancingv2 import (
     ListenerRule,
@@ -313,6 +314,20 @@ class ContainerModel(BaseModel):
                        externally-defined target group. This is normally used to
                        assign a container to the default target group of an
                        ELB."""
+    )
+    linux_parameters: Dict = Field(
+        {},
+        description="Linux-specific options that are applied to the container",
+        notes=[
+            "**See Also:** [AWS::ECS::TaskDefinition LinuxParameters](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-linuxparameters.html#cfn-ecs-taskdefinition-linuxparameters-sharedmemorysize)"
+        ],
+    )
+    container_extra_props: Dict = Field(
+        {},
+        description="Additional options to include in the ContainerDefinition",
+        notes=[
+            "**See Also:** [AWS::ECS::TaskDefinition ContainerDefinition](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-containerdefinitions.html)"
+        ],
     )
 
     @validator("protocol")
@@ -650,6 +665,10 @@ def container_def(container):
     else:
         image = container.image
 
+    extra_args = {}
+    if len(container.linux_parameters) > 0:
+        extra_args["LinuxParameters"] = LinuxParameters(**container.linux_parameters)
+
     return ContainerDefinition(
         Name=container.name,
         Environment=environment,
@@ -673,6 +692,7 @@ def container_def(container):
                 "awslogs-create-group": True,
             },
         ),
+        **container.container_extra_props
     )
 
 

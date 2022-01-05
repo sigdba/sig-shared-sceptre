@@ -805,6 +805,10 @@ def listener_rule(tg, rule):
 
 
 def service(tags, listener_rules, lb_mappings, placement_strategies):
+    opts = {}
+    if len(tags) > 0:
+        opts["Tags"] = Tags(**tags)
+
     return add_resource(
         Service(
             "Service",
@@ -821,7 +825,7 @@ def service(tags, listener_rules, lb_mappings, placement_strategies):
                 MinimumHealthyPercent=Ref("MinimumHealthyPercent"),
             ),
             LoadBalancers=lb_mappings,
-            Tags=Tags(**tags),
+            **opts
         )
     )
 

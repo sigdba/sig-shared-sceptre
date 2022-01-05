@@ -23,16 +23,27 @@ from util import *
 
 
 def ingress_for_allow(allow):
-    return [
-        {
-            "CidrIp": cidr,
-            "Description": allow.description,
-            "FromPort": allow.from_port,
-            "ToPort": allow.to_port,
-            "IpProtocol": "-1" if allow.protocol == "any" else allow.protocol,
-        }
-        for cidr in allow.cidr
-    ]
+    base_opts = {
+        "Description": allow.description,
+        "FromPort": allow.from_port,
+        "ToPort": allow.to_port,
+        "IpProtocol": "-1" if allow.protocol == "any" else allow.protocol,
+    }
+
+    def gen():
+        for cidr in allow.cidr:
+            yield {
+                **base_opts,
+                "CidrIp": cidr,
+            }
+        if allow.sg_id:
+            yield {
+                **base_opts,
+                "SourceSecurityGroupId": allow.sg_id,
+                **opts_with(SourceSecurityGroupOwnerId=allow.sg_owner),
+            }
+
+    return list(gen())
 
 
 def instance_sg(user_data):

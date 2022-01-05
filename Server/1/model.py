@@ -22,11 +22,31 @@ class EbsVolumeModel(BaseModel):
 
 
 class SecurityGroupAllowModel(BaseModel):
-    cidr: Union[str, List[str]]
+    cidr: Union[str, List[str]] = Field(
+        [],
+        description="The IPv4 address range(s), in CIDR format. May be specified as a single string or a list of strings.",
+        notes=["You must specify one of `cidr` or `sg_id` but not both."],
+    )
+    sg_id: Optional[str] = Field(
+        description="The ID of a security group whose members are allowed.",
+        notes=["You must specify one of `cidr` or `sg_id` but not both."],
+    )
+    sg_owner: Optional[str] = Field(
+        description="The AWS account ID that owns the security group specified in `sg_id`. This value is required if the SG is in another account."
+    )
     description: str
     protocol = "tcp"
     from_port: int
     to_port: int
+
+    @root_validator(pre=True)
+    def require_cidr_or_sg_id(cls, values):
+        if "cidr" in values and values["cidr"] and len(values["cidr"]) > 0:
+            if "sg_id" in values:
+                raise ValueError("cidr and sg_id cannot be specified together")
+        elif "sg_id" not in values:
+            raise ValueError("one of cidr or sg_id must be specified")
+        return values
 
     @validator("cidr")
     def make_cidr_a_list(cls, v):

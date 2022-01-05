@@ -4,7 +4,7 @@ import sys
 import json
 import re
 
-from troposphere import Template, Ref, Sub, Parameter, GetAtt
+from troposphere import Template, Ref, Sub, Parameter, GetAtt, Tags
 from troposphere.cloudformation import AWSCustomObject
 from troposphere.ecs import (
     TaskDefinition,
@@ -370,6 +370,7 @@ class ContainerModel(BaseModel):
 
 
 class UserDataModel(BaseModel):
+    service_tags: Dict[str, str] = {}
     containers: List[ContainerModel] = Field(
         description="Defines the containers for this service."
     )
@@ -803,7 +804,7 @@ def listener_rule(tg, rule):
     )
 
 
-def service(listener_rules, lb_mappings, placement_strategies):
+def service(tags, listener_rules, lb_mappings, placement_strategies):
     return add_resource(
         Service(
             "Service",
@@ -820,6 +821,7 @@ def service(listener_rules, lb_mappings, placement_strategies):
                 MinimumHealthyPercent=Ref("MinimumHealthyPercent"),
             ),
             LoadBalancers=lb_mappings,
+            Tags=Tags(**tags),
         )
     )
 
@@ -973,7 +975,12 @@ def sceptre_handler(sceptre_user_data):
             )
 
     task_def(containers, efs_volumes, exec_role)
-    service(listener_rules, lb_mappings, user_data.placement_strategies)
+    service(
+        user_data.service_tags,
+        listener_rules,
+        lb_mappings,
+        user_data.placement_strategies,
+    )
 
     schedule = user_data.schedule
     if len(schedule) > 0:

@@ -19,6 +19,8 @@
 
 ## sceptre_user_data
 
+- `service_tags` (Dict[string:string])
+
 - `containers` (List of [ContainerModel](#ContainerModel)) - **required** - Defines the containers for this service.
 
 - `efs_volumes` (List of [EfsVolumeModel](#EfsVolumeModel)) - Set of EFS volumes to make available to containers within this service.
@@ -86,6 +88,12 @@
                        externally-defined target group. This is normally used to
                        assign a container to the default target group of an
                        ELB.
+
+- `linux_parameters` (Dict) - Linux-specific options that are applied to the container
+  - **See Also:** [AWS::ECS::TaskDefinition LinuxParameters](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-linuxparameters.html#cfn-ecs-taskdefinition-linuxparameters-sharedmemorysize)
+
+- `container_extra_props` (Dict) - Additional options to include in the ContainerDefinition
+  - **See Also:** [AWS::ECS::TaskDefinition ContainerDefinition](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-containerdefinitions.html)
 
 - `container_memory` (integer) - The amount (in MiB) of memory to present to the container. If your container
                        attempts to exceed the memory specified here, the

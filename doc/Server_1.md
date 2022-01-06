@@ -48,64 +48,77 @@
 
 
 
-### AmiModel
+### SecurityGroupModel
 
-- `ami_id` (string)
+- `egress` (List of Dict[string:string])
+  - **Default:** `[{'CidrIp': '0.0.0.0/0', 'Description': 'Allow all outbound', 'FromPort': '-1', 'ToPort': '-1', 'IpProtocol': '-1'}]`
 
-- `ami_map` (Dict[string:string])
-
-- `user_data_b64` (string)
-
-- `commands` (List of string)
-
-- `instance_tags` (Dict[string:string])
+- `allow` (List of [SecurityGroupAllowModel](#SecurityGroupAllowModel) or List of [SecurityGroupAllowModel](#SecurityGroupAllowModel))
 
 
 
-### EbsVolumeModel
+#### SecurityGroupAllowModel
 
-- `size_gb` (integer) - **required**
+- `cidr` (string or List of string) - The IPv4 address range(s), in CIDR format. May be specified as a single string or a list of strings.
+  - You must specify one of `cidr` or `sg_id` but not both.
 
-- `mount_point` (string) - **required**
+- `sg_id` (string) - The ID of a security group whose members are allowed.
+  - You must specify one of `cidr` or `sg_id` but not both.
 
-- `device_letter` (string) - **required**
+- `sg_owner` (string) - The AWS account ID that owns the security group specified in `sg_id`. This value is required if the SG is in another account.
+
+- `description` (string) - **required**
+
+- `from_port` (integer) - **required**
+
+- `to_port` (integer) - **required**
+
+- `protocol` (string)
+  - **Default:** `tcp`
+
+
+
+### BackupsModel
+
+- `vault` ([BackupVaultModel](#BackupVaultModel))
+
+- `plan_name` (string)
+
+- `plan_tags` (Dict[string:string])
+
+- `rules` (List of [BackupRuleModel](#BackupRuleModel))
+  - **Default:** `[{'name': 'Daily', 'retain_days': 30, 'cold_storage_after_days': None, 'schedule': 'cron(0 0 * * ? *)', 'rule_extra_props': {}}]`
+
+- `advanced_backup_settings` (List)
+
+
+
+#### BackupRuleModel
+
+- `name` (string) - **required**
+
+- `retain_days` (integer) - **required**
+
+- `cold_storage_after_days` (integer)
+
+- `schedule` (string) - **required**
+
+- `rule_extra_props` (Dict)
+
+
+
+#### BackupVaultModel
+
+- `name` (string)
 
 - `tags` (Dict[string:string])
 
-- `iops` (integer)
+- `encryption_key_arn` (string)
 
-- `throughput_mbs` (integer)
+- `create` (boolean)
+  - **Default:** `False`
 
-- `extra_props` (List of Dict)
-
-- `vol_type` (string)
-  - **Default:** `gp3`
-
-
-
-### ProfileModel
-
-- `profile_path` (string)
-
-- `role_path` (string)
-
-- `allow` (List of [IamAllowModel](#IamAllowModel) or List of [IamAllowModel](#IamAllowModel))
-
-- `managed_policy_arns` (List of string)
-
-- `policy_document` (Dict)
-
-- `role_tags` (Dict)
-
-- `role_extra_opts` (Dict)
-
-
-
-### Route53Model
-
-- `hosted_zone_id` (string)
-
-- `domain` (string) - **required**
+- `vault_extra_props` (Dict)
 
 
 
@@ -136,54 +149,72 @@
 
 
 
-### BackupsModel
+### Route53Model
 
-- `vault` ([BackupVaultModel](#BackupVaultModel))
+- `hosted_zone_id` (string)
 
-- `plan_name` (string)
-
-- `plan_tags` (Dict[string:string])
-
-- `rules` (List of [BackupRuleModel](#BackupRuleModel))
-  - **Default:** `[{'name': 'Daily', 'retain_days': 30, 'cold_storage_after_days': None, 'schedule': 'cron(0 0 * * ? *)', 'rule_extra_props': {}}]`
-
-- `advanced_backup_settings` (List)
+- `domain` (string) - **required**
 
 
 
-#### BackupVaultModel
+### ProfileModel
 
-- `name` (string)
+- `profile_path` (string)
+
+- `role_path` (string)
+
+- `allow` (List of [IamAllowModel](#IamAllowModel) or List of [IamAllowModel](#IamAllowModel))
+
+- `managed_policy_arns` (List of string)
+
+- `policy_document` (Dict)
+
+- `role_tags` (Dict)
+
+- `role_extra_opts` (Dict)
+
+
+
+#### IamAllowModel
+
+- `action` (string or List of string) - **required**
+
+- `resource` (string or List of string) - **required**
+
+- `condition` (Dict)
+
+
+
+### EbsVolumeModel
+
+- `size_gb` (integer) - **required**
+
+- `mount_point` (string) - **required**
+
+- `device_letter` (string) - **required**
 
 - `tags` (Dict[string:string])
 
-- `encryption_key_arn` (string)
+- `iops` (integer)
 
-- `create` (boolean)
-  - **Default:** `False`
+- `throughput_mbs` (integer)
 
-- `vault_extra_props` (Dict)
+- `extra_props` (List of Dict)
 
-
-
-#### BackupRuleModel
-
-- `name` (string) - **required**
-
-- `retain_days` (integer) - **required**
-
-- `cold_storage_after_days` (integer)
-
-- `schedule` (string) - **required**
-
-- `rule_extra_props` (Dict)
+- `vol_type` (string)
+  - **Default:** `gp3`
 
 
 
-### SecurityGroupModel
+### AmiModel
 
-- `egress` (List of Dict[string:string])
-  - **Default:** `[{'CidrIp': '0.0.0.0/0', 'Description': 'Allow all outbound', 'FromPort': '-1', 'ToPort': '-1', 'IpProtocol': '-1'}]`
+- `ami_id` (string)
 
-- `allow` (List of [SecurityGroupAllowModel](#SecurityGroupAllowModel) or List of [SecurityGroupAllowModel](#SecurityGroupAllowModel))
+- `ami_map` (Dict[string:string])
+
+- `user_data_b64` (string)
+
+- `commands` (List of string)
+
+- `instance_tags` (Dict[string:string])
 

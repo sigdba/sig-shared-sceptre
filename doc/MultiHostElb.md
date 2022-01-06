@@ -37,6 +37,29 @@
 
 
 
+### NsUpdateModel
+
+- `lambda_arn` (string)
+
+- `lambda_arn_export_name` (string)
+
+- `lambda_props` (Dict[string:string])
+
+- `lambda_record_key` (string) - **required**
+
+- `lambda_zone_key` (string) - **required**
+
+- `lambda_record_type_key` (string)
+  - **Default:** `RecordType`
+
+- `lambda_value_key` (string)
+  - **Default:** `Value`
+
+- `zone_splits_at` (integer)
+  - **Default:** `1`
+
+
+
 ### ListenerModel
 
 - `hostnames` (List of [HostnameModel](#HostnameModel))
@@ -54,11 +77,76 @@
 
 
 
-#### HostnameModel
+#### ActionModel
 
-- `hostname` (string) - **required**
+- `fixed_response` ([FixedResponseModel](#FixedResponseModel))
 
-- `certificate_arn` (string)
+- `health_check` ([HealthCheckModel](#HealthCheckModel))
+
+- `redirect` ([RedirectModel](#RedirectModel))
+
+- `target_group_attributes` (Dict[string:string])
+
+- `targets` (List of [TargetModel](#TargetModel))
+
+- `target_port` (integer)
+  - **Default:** `8080`
+
+- `target_protocol` (string)
+  - **Default:** `HTTP`
+
+
+
+##### TargetModel
+
+- `id` (string) - **required**
+
+- `port` (integer)
+
+
+
+##### RedirectModel
+
+- `host` (string)
+
+- `path` (string)
+
+- `port` (integer)
+
+- `protocol` (string)
+
+- `query` (string)
+
+- `status_code` (integer)
+  - **Default:** `302`
+
+
+
+##### HealthCheckModel
+
+- `interval_seconds` (integer)
+
+- `path` (string)
+
+- `timeout_seconds` (integer)
+
+- `protocol` (string)
+
+- `healthy_threshold_count` (integer)
+
+- `unhealth_threshold_count` (integer)
+
+
+
+##### FixedResponseModel
+
+- `message_body` (string)
+
+- `content_type` (string)
+  - **Default:** `text/plain`
+
+- `status_code` (integer)
+  - **Default:** `200`
 
 
 
@@ -92,59 +180,6 @@
 
 
 
-##### FixedResponseModel
-
-- `message_body` (string)
-
-- `content_type` (string)
-  - **Default:** `text/plain`
-
-- `status_code` (integer)
-  - **Default:** `200`
-
-
-
-##### HealthCheckModel
-
-- `interval_seconds` (integer)
-
-- `path` (string)
-
-- `timeout_seconds` (integer)
-
-- `protocol` (string)
-
-- `healthy_threshold_count` (integer)
-
-- `unhealth_threshold_count` (integer)
-
-
-
-##### RedirectModel
-
-- `host` (string)
-
-- `path` (string)
-
-- `port` (integer)
-
-- `protocol` (string)
-
-- `query` (string)
-
-- `status_code` (integer)
-  - **Default:** `302`
-
-
-
-##### TargetModel
-
-- `id` (string) - **required**
-
-- `port` (integer)
-
-
-
 ##### QueryStringMatchModel
 
 - `key` (string) - **required**
@@ -153,44 +188,9 @@
 
 
 
-#### ActionModel
+#### HostnameModel
 
-- `fixed_response` ([FixedResponseModel](#FixedResponseModel))
+- `hostname` (string) - **required**
 
-- `health_check` ([HealthCheckModel](#HealthCheckModel))
-
-- `redirect` ([RedirectModel](#RedirectModel))
-
-- `target_group_attributes` (Dict[string:string])
-
-- `targets` (List of [TargetModel](#TargetModel))
-
-- `target_port` (integer)
-  - **Default:** `8080`
-
-- `target_protocol` (string)
-  - **Default:** `HTTP`
-
-
-
-### NsUpdateModel
-
-- `lambda_arn` (string)
-
-- `lambda_arn_export_name` (string)
-
-- `lambda_props` (Dict[string:string])
-
-- `lambda_record_key` (string) - **required**
-
-- `lambda_zone_key` (string) - **required**
-
-- `lambda_record_type_key` (string)
-  - **Default:** `RecordType`
-
-- `lambda_value_key` (string)
-  - **Default:** `Value`
-
-- `zone_splits_at` (integer)
-  - **Default:** `1`
+- `certificate_arn` (string)
 

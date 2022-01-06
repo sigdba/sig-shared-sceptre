@@ -20,6 +20,14 @@
 
 
 
+### MountTargetModel
+
+- `subnet_id` (string) - **required**
+
+- `ip_address` (string)
+
+
+
 ### AllowModel
 
 - `cidr` (string)
@@ -27,12 +35,4 @@
 - `sg_id` (string)
 
 - `description` (string)
-
-
-
-### MountTargetModel
-
-- `subnet_id` (string) - **required**
-
-- `ip_address` (string)
 

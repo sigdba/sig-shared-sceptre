@@ -12,6 +12,12 @@ from troposphere import Template
 
 TOP_MODEL = "UserDataModel"
 
+flatten = (
+    lambda i: [element for item in i for element in flatten(item)]
+    if type(i) is list
+    else [i]
+)
+
 
 def load_template_module(path):
     sys.path.insert(0, os.path.dirname(path))
@@ -42,19 +48,18 @@ def is_ref(r):
     return type(r) is dict and "$ref" in r
 
 
-def ref_type_of_def(r):
+def ref_types_of_def(r):
     if is_ref(r):
-        return r["$ref"]
+        return [r["$ref"]]
+    if type(r) is list:
+        return flatten([ref_types_of_def(i) for i in r])
     if not type(r) is dict:
-        return None
+        return []
     if "items" in r:
-        return ref_type_of_def(r["items"])
-    if "allOf" in r:
-        ao = r["allOf"]
-        if len(ao) != 1:
-            raise ValueError("don't know what to do with allOf: %s" % ao)
-        return ref_type_of_def(ao[0])
-    return None
+        return ref_types_of_def(r["items"])
+    if "allOf" or "anyOf" in r:
+        return flatten([ref_types_of_def(r.get(k, [])) for k in ["allOf", "anyOf"]])
+    return []
 
 
 def get_schema_defs_in_order(schema):
@@ -68,11 +73,9 @@ def get_schema_defs_in_order(schema):
         done.append(name)
         d = defs[name]
         yield {**d, "indent_level": indent_level}
-        queue = [
-            (q, indent_level + 1)
-            for q in [ref_type_of_def(r) for r in d["properties"].values()]
-            if q
-        ] + queue
+        for prop_val in d["properties"].values():
+            for rt in ref_types_of_def(prop_val):
+                queue.insert(0, (rt, indent_level + 1))
 
 
 def get_parameters(module):

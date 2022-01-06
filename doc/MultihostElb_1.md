@@ -54,6 +54,47 @@
 
 
 
+### NsUpdateModel
+
+- `lambda_arn` (string) - ARN of the Lambda function which provides NS update functionality.
+  - One of `lambda_arn` or `lambda_arn_export_name` must be specified.
+
+- `lambda_arn_export_name` (string) - Export name for the ARN of the Lambda function which provides NS update functionality.
+  - One of `lambda_arn` or `lambda_arn_export_name` must be specified.
+
+- `lambda_props` (Dict[string:string])
+
+- `lambda_record_key` (string) - **required**
+
+- `lambda_zone_key` (string) - **required**
+
+- `lambda_record_type_key` (string)
+  - **Default:** `RecordType`
+
+- `lambda_value_key` (string)
+  - **Default:** `Value`
+
+- `zone_splits_at` (integer)
+  - **Default:** `1`
+
+
+
+### AccessLogsModel
+
+- `bucket` (string) - Name of the bucket to store access logs.
+  - **Default:** A dedicated bucket will be created.
+
+- `enabled` (boolean)
+  - **Default:** `True`
+
+- `retain_days` (integer) - ELB access logs will be purged from S3 after this many days.
+  - **Default:** `90`
+
+- `prefix_expr` (string)
+  - **Default:** `${AWS::StackName}-access.`
+
+
+
 ### ListenerModel
 
 - `hostnames` (List of [HostnameModel](#HostnameModel)) - **Required for HTTPS listeners** - A list of hostnames this listener will answer to. This value is used for
@@ -74,16 +115,98 @@
 
 
 
-#### HostnameModel
+#### ActionModel
 
-- `hostname` (string) - **required** - Short hostname or FQDN.
-  - Hostnames which do not contain a dot (.) will be treated as "short" and the
-               value specified in `domain` will be appended. If a short hostname
-               is specified and `domain` has not been provided then an error
-               will occur.
+An action may be a listener's `default_action` or it may be part of a
+[RuleModel](#RuleModel). The default action when none of these properties
+is specified is to create an empty target group. This may be useful in
+cases where requests are handled by an ECS service.
 
-- `certificate_arn` (string) - ARN of the certificate to associate with this hostname
-  - **Default:** If this value is not specified, then a certificate will be generated as part of the stack.
+- `fixed_response` ([FixedResponseModel](#FixedResponseModel)) - Provide a fixed response to all requests.
+  - **See Also:** [AWS::ElasticLoadBalancingV2::ListenerRule FixedResponseConfig](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-fixedresponseconfig.html)
+
+- `health_check` ([HealthCheckModel](#HealthCheckModel)) - Configures the behavior of the target group health check
+
+- `redirect` ([RedirectModel](#RedirectModel)) - Specifies an HTTP 301 or 302 redirect
+
+- `target_group_attributes` (Dict[string:string]) - Specifies target group attributes
+  - The following attributes are defined by default but can be overriden:
+    * `'stickiness.enabled' = 'true'`
+    * `'stickiness.type' = 'lb_cookie'`
+  - **See Also:** [AWS::ElasticLoadBalancingV2::TargetGroup TargetGroupAttribute](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-targetgroup-targetgroupattribute.html)
+
+- `targets` (List of [TargetModel](#TargetModel)) - Members of the target group
+
+- `target_port` (integer) - Default traffic port for members of the target group.
+  - **Default:** `8080`
+  - This value is overridden if a traffic port has been specified for the target.
+
+- `target_protocol` (string) - Protocol for backend communication with the targets.
+  - **Default:** `HTTP`
+
+
+
+##### TargetModel
+
+- `id` (string) - **required** - Instance ID of the target
+
+- `port` (integer) - Traffic port of the target
+  - **Default:** If `port` is not specified then the default `port` of the target group will be used.
+
+
+
+##### RedirectModel
+
+**See Also:** [AWS::ElasticLoadBalancingV2::ListenerRule RedirectConfig](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-redirectconfig.html)
+
+- `host` (string)
+
+- `path` (string) - The absolute path, starting with the leading "/"
+
+- `port` (integer)
+
+- `protocol` (string)
+  - **Allowed Values:** `HTTP`, `HTTPS`, `#{protocol}`
+
+- `query` (string) - The query parameters, URL-encoded when necessary, but not percent-encoded.
+
+- `status_code` (integer)
+  - **Default:** `302`
+  - **Allowed Values:** `301` or `302`
+
+
+
+##### HealthCheckModel
+
+- `interval_seconds` (integer)
+  - **Default:** The default value depends on the type of target group.
+  - **See Also:** [AWS::ElasticLoadBalancingV2::TargetGroup](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-targetgroup.html#cfn-elasticloadbalancingv2-targetgroup-healthcheckintervalseconds)
+
+- `path` (string) - Path the health check will query
+
+- `timeout_seconds` (integer) - Timeout period for health check requests
+  - **See Also:** [AWS::ElasticLoadBalancingV2::TargetGroup](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-targetgroup.html#cfn-elasticloadbalancingv2-targetgroup-healthchecktimeoutseconds)
+
+- `protocol` (string)
+
+- `healthy_threshold_count` (integer)
+
+- `unhealth_threshold_count` (integer)
+
+
+
+##### FixedResponseModel
+
+**See Also:** [AWS::ElasticLoadBalancingV2::ListenerRule FixedResponseConfig](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-fixedresponseconfig.html)
+
+- `message_body` (string)
+
+- `content_type` (string)
+  - **Default:** `text/plain`
+  - **Allowed Values:** `text/plain`, `text/css`, `text/html`, `application/javascript`, `application/json`
+
+- `status_code` (integer)
+  - **Default:** `200`
 
 
 
@@ -126,70 +249,6 @@ specify a condition. At least one of these options must be specified.
 
 
 
-##### FixedResponseModel
-
-**See Also:** [AWS::ElasticLoadBalancingV2::ListenerRule FixedResponseConfig](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-fixedresponseconfig.html)
-
-- `message_body` (string)
-
-- `content_type` (string)
-  - **Default:** `text/plain`
-  - **Allowed Values:** `text/plain`, `text/css`, `text/html`, `application/javascript`, `application/json`
-
-- `status_code` (integer)
-  - **Default:** `200`
-
-
-
-##### HealthCheckModel
-
-- `interval_seconds` (integer)
-  - **Default:** The default value depends on the type of target group.
-  - **See Also:** [AWS::ElasticLoadBalancingV2::TargetGroup](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-targetgroup.html#cfn-elasticloadbalancingv2-targetgroup-healthcheckintervalseconds)
-
-- `path` (string) - Path the health check will query
-
-- `timeout_seconds` (integer) - Timeout period for health check requests
-  - **See Also:** [AWS::ElasticLoadBalancingV2::TargetGroup](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-targetgroup.html#cfn-elasticloadbalancingv2-targetgroup-healthchecktimeoutseconds)
-
-- `protocol` (string)
-
-- `healthy_threshold_count` (integer)
-
-- `unhealth_threshold_count` (integer)
-
-
-
-##### RedirectModel
-
-**See Also:** [AWS::ElasticLoadBalancingV2::ListenerRule RedirectConfig](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-redirectconfig.html)
-
-- `host` (string)
-
-- `path` (string) - The absolute path, starting with the leading "/"
-
-- `port` (integer)
-
-- `protocol` (string)
-  - **Allowed Values:** `HTTP`, `HTTPS`, `#{protocol}`
-
-- `query` (string) - The query parameters, URL-encoded when necessary, but not percent-encoded.
-
-- `status_code` (integer)
-  - **Default:** `302`
-  - **Allowed Values:** `301` or `302`
-
-
-
-##### TargetModel
-
-- `id` (string) - **required** - Instance ID of the target
-
-- `port` (integer) - Traffic port of the target
-  - **Default:** If `port` is not specified then the default `port` of the target group will be used.
-
-
-
 ##### QueryStringMatchModel
 
 - `key` (string) - **required**
@@ -198,73 +257,14 @@ specify a condition. At least one of these options must be specified.
 
 
 
-#### ActionModel
+#### HostnameModel
 
-An action may be a listener's `default_action` or it may be part of a
-[RuleModel](#RuleModel). The default action when none of these properties
-is specified is to create an empty target group. This may be useful in
-cases where requests are handled by an ECS service.
+- `hostname` (string) - **required** - Short hostname or FQDN.
+  - Hostnames which do not contain a dot (.) will be treated as "short" and the
+               value specified in `domain` will be appended. If a short hostname
+               is specified and `domain` has not been provided then an error
+               will occur.
 
-- `fixed_response` ([FixedResponseModel](#FixedResponseModel)) - Provide a fixed response to all requests.
-  - **See Also:** [AWS::ElasticLoadBalancingV2::ListenerRule FixedResponseConfig](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-fixedresponseconfig.html)
-
-- `health_check` ([HealthCheckModel](#HealthCheckModel)) - Configures the behavior of the target group health check
-
-- `redirect` ([RedirectModel](#RedirectModel)) - Specifies an HTTP 301 or 302 redirect
-
-- `target_group_attributes` (Dict[string:string]) - Specifies target group attributes
-  - The following attributes are defined by default but can be overriden:
-    * `'stickiness.enabled' = 'true'`
-    * `'stickiness.type' = 'lb_cookie'`
-  - **See Also:** [AWS::ElasticLoadBalancingV2::TargetGroup TargetGroupAttribute](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-targetgroup-targetgroupattribute.html)
-
-- `targets` (List of [TargetModel](#TargetModel)) - Members of the target group
-
-- `target_port` (integer) - Default traffic port for members of the target group.
-  - **Default:** `8080`
-  - This value is overridden if a traffic port has been specified for the target.
-
-- `target_protocol` (string) - Protocol for backend communication with the targets.
-  - **Default:** `HTTP`
-
-
-
-### AccessLogsModel
-
-- `bucket` (string) - Name of the bucket to store access logs.
-  - **Default:** A dedicated bucket will be created.
-
-- `enabled` (boolean)
-  - **Default:** `True`
-
-- `retain_days` (integer) - ELB access logs will be purged from S3 after this many days.
-  - **Default:** `90`
-
-- `prefix_expr` (string)
-  - **Default:** `${AWS::StackName}-access.`
-
-
-
-### NsUpdateModel
-
-- `lambda_arn` (string) - ARN of the Lambda function which provides NS update functionality.
-  - One of `lambda_arn` or `lambda_arn_export_name` must be specified.
-
-- `lambda_arn_export_name` (string) - Export name for the ARN of the Lambda function which provides NS update functionality.
-  - One of `lambda_arn` or `lambda_arn_export_name` must be specified.
-
-- `lambda_props` (Dict[string:string])
-
-- `lambda_record_key` (string) - **required**
-
-- `lambda_zone_key` (string) - **required**
-
-- `lambda_record_type_key` (string)
-  - **Default:** `RecordType`
-
-- `lambda_value_key` (string)
-  - **Default:** `Value`
-
-- `zone_splits_at` (integer)
-  - **Default:** `1`
+- `certificate_arn` (string) - ARN of the certificate to associate with this hostname
+  - **Default:** If this value is not specified, then a certificate will be generated as part of the stack.
 

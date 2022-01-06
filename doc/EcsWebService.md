@@ -33,6 +33,46 @@
 
 
 
+### ScheduleModel
+
+- `cron` (string) - **required** - Cron expression for when this schedule fires. Only cron expressions are
+                       supported and the `cron()` clause is implied. So values
+                       should be specified like `0 0 * * ? *` instead of `cron(0
+                       12 * * ? *)`.
+  - AWS requires that all cron expressions be in UTC. It is not possible at this
+               time to specify a local timezone. You will therefore need to
+               adjust your cron expressions appropriately.
+  - **See Also:** [Schedule Expressions for Rules](https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/ScheduledEvents.html#CronExpressions)
+
+- `desired_count` (integer) - **required** - Desired number of tasks to set for the service at the specified time.
+
+- `description` (string) - Description of the schedule
+
+
+
+### PlacementStrategyModel
+
+**See:** [AWS::ECS::Service PlacementStrategy](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-placementstrategy.html)
+for more information.
+
+- `field` (string) - **required** - The field to apply the placement strategy against
+
+- `type` (string) - **required** - The type of placement strategy
+
+
+
+### EfsVolumeModel
+
+- `name` (string) - **required** - This is the name which will be referred to by `source_volume` values defined in the
+                       `mount_points` settings of a container.
+
+- `fs_id` (string) - **required** - The ID of the EFS volume
+
+- `root_directory` (string) - The directory within the EFS volume which will mounted by containers
+  - **Default:** By default the root directory of the volume will be used.
+
+
+
 ### ContainerModel
 
 - `image` (string) - The URI of the container image.
@@ -119,34 +159,38 @@
 
 
 
-#### ImageBuildModel
+#### TargetGroupModel
 
-- `codebuild_project_name` (string) - **required** - Name of the CodeBuild project which builds the image.
-
-- `ecr_repo_name` (string) - **required** - Name of the ECR repo into which the build image will be pushed.
-
-- `env_vars` (List of [EnvironmentVariableModel](#EnvironmentVariableModel)) - Environment variable overrides for the build.
-
-
-
-##### EnvironmentVariableModel
-
-- `name` (string) - **required**
-
-- `value` (string) - **required**
-
-- `type` (string)
-  - **Default:** `PLAINTEXT`
-  - **Allowed Values:** `PLAINTEXT`, `PARAMETER_STORE`, `SECRETS_MANAGER`
+- `attributes` (Dict[string:string]) - Sets target group attributes
+  - **Default:** The following attributes are defined by default:
+    * `'stickiness.enabled' = 'true'`
+    * `'stickiness.type' = 'lb_cookie'`
+  - **See Also:** [AWS::ElasticLoadBalancingV2::TargetGroup TargetGroupAttribute](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-targetgroup-targetgroupattribute.html)
 
 
 
-#### PortMappingModel
+#### RuleModel
 
-- `container_port` (integer) - **required** - The port exposed by the container
-  - You may specify more than one port mapping object per container, but the
-               target group will always route its traffic to the
-               `container_port` of the first port mapping.
+- `path` (string) - **required** - The context path for the listener rule. The path should start with a `/`. Two
+                       listener rules will be created, one matching `path` and
+                       one matching `path + '/*'`.
+
+- `host` (string) - Pattern to match against the request's host header. Wildcards `?` and `*` are supported.
+  - For this setting to work properly, the ELB will need to be set up to for multiple hostnames.
+  - **See Also:** [AWS::ElasticLoadBalancingV2::ListenerRule HostHeaderConfig](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-hostheaderconfig.html)
+
+- `priority` (integer) - The priority value for the listener rule. If undefined, a hash-based value will be generated.
+
+
+
+#### MountPointModel
+
+- `container_path` (string) - **required** - The mount point for the volume within the container
+
+- `source_volume` (string) - **required** - The `name` value specified for the volume in `sceptre_user_data.efs_volumes`.
+
+- `read_only` (boolean) - If true, the volume will not be writable to the container.
+  - **Default:** `False`
 
 
 
@@ -175,76 +219,32 @@
 
 
 
-#### MountPointModel
+#### PortMappingModel
 
-- `container_path` (string) - **required** - The mount point for the volume within the container
-
-- `source_volume` (string) - **required** - The `name` value specified for the volume in `sceptre_user_data.efs_volumes`.
-
-- `read_only` (boolean) - If true, the volume will not be writable to the container.
-  - **Default:** `False`
+- `container_port` (integer) - **required** - The port exposed by the container
+  - You may specify more than one port mapping object per container, but the
+               target group will always route its traffic to the
+               `container_port` of the first port mapping.
 
 
 
-#### RuleModel
+#### ImageBuildModel
 
-- `path` (string) - **required** - The context path for the listener rule. The path should start with a `/`. Two
-                       listener rules will be created, one matching `path` and
-                       one matching `path + '/*'`.
+- `codebuild_project_name` (string) - **required** - Name of the CodeBuild project which builds the image.
 
-- `host` (string) - Pattern to match against the request's host header. Wildcards `?` and `*` are supported.
-  - For this setting to work properly, the ELB will need to be set up to for multiple hostnames.
-  - **See Also:** [AWS::ElasticLoadBalancingV2::ListenerRule HostHeaderConfig](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-hostheaderconfig.html)
+- `ecr_repo_name` (string) - **required** - Name of the ECR repo into which the build image will be pushed.
 
-- `priority` (integer) - The priority value for the listener rule. If undefined, a hash-based value will be generated.
+- `env_vars` (List of [EnvironmentVariableModel](#EnvironmentVariableModel)) - Environment variable overrides for the build.
 
 
 
-#### TargetGroupModel
+##### EnvironmentVariableModel
 
-- `attributes` (Dict[string:string]) - Sets target group attributes
-  - **Default:** The following attributes are defined by default:
-    * `'stickiness.enabled' = 'true'`
-    * `'stickiness.type' = 'lb_cookie'`
-  - **See Also:** [AWS::ElasticLoadBalancingV2::TargetGroup TargetGroupAttribute](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-targetgroup-targetgroupattribute.html)
+- `name` (string) - **required**
 
+- `value` (string) - **required**
 
-
-### EfsVolumeModel
-
-- `name` (string) - **required** - This is the name which will be referred to by `source_volume` values defined in the
-                       `mount_points` settings of a container.
-
-- `fs_id` (string) - **required** - The ID of the EFS volume
-
-- `root_directory` (string) - The directory within the EFS volume which will mounted by containers
-  - **Default:** By default the root directory of the volume will be used.
-
-
-
-### PlacementStrategyModel
-
-**See:** [AWS::ECS::Service PlacementStrategy](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-placementstrategy.html)
-for more information.
-
-- `field` (string) - **required** - The field to apply the placement strategy against
-
-- `type` (string) - **required** - The type of placement strategy
-
-
-
-### ScheduleModel
-
-- `cron` (string) - **required** - Cron expression for when this schedule fires. Only cron expressions are
-                       supported and the `cron()` clause is implied. So values
-                       should be specified like `0 0 * * ? *` instead of `cron(0
-                       12 * * ? *)`.
-  - AWS requires that all cron expressions be in UTC. It is not possible at this
-               time to specify a local timezone. You will therefore need to
-               adjust your cron expressions appropriately.
-  - **See Also:** [Schedule Expressions for Rules](https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/ScheduledEvents.html#CronExpressions)
-
-- `desired_count` (integer) - **required** - Desired number of tasks to set for the service at the specified time.
-
-- `description` (string) - Description of the schedule
+- `type` (string)
+  - **Default:** `PLAINTEXT`
+  - **Allowed Values:** `PLAINTEXT`, `PARAMETER_STORE`, `SECRETS_MANAGER`
 

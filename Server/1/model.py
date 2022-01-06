@@ -105,10 +105,34 @@ class SecurityGroupModel(BaseModel):
 
 
 class AmiModel(BaseModel):
-    ami_id: Optional[str]
-    ami_map: Optional[Dict[str, str]]
-    user_data_b64: Optional[str]
-    commands: Optional[List[str]]
+    ami_id: Optional[str] = Field(
+        description="ID of the AMI the server will be created from.",
+        notes=[
+            "You must specify either `ami_id` or `ami_map` but not both.",
+            "**Warning** - Changing this value after the instance is created will trigger its replacement.",
+        ],
+    )
+    ami_map: Optional[Dict[str, str]] = Field(
+        description="A mapping of AWS regions to AMI-IDs",
+        notes=[
+            "You must specify either `ami_id` or `ami_map` but not both.",
+            "**Warning:** Changing an AMI ID after instance creation will trigger replacement.",
+        ],
+    )
+    user_data_b64: Optional[str] = Field(
+        description="""The user data to make available to the instance, base64-encoded. This is
+                       typically commands to run on first boot.""",
+        notes=[
+            "**Warning:** Changing this value after the instance is created may trigger a reboot.",
+            "If `commands` is specified, this value will be ignored.",
+        ],
+    )
+    commands: Optional[List[str]] = Field(
+        description="List of commands to encode as user data",
+        notes=[
+            "**Warning:** Changing this value after the instance is created may trigger a reboot.",
+        ],
+    )
     instance_tags: Dict[str, str] = {}
 
     @root_validator

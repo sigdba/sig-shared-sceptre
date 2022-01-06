@@ -137,6 +137,10 @@ def log_bucket_policy():
 
 
 def load_balancer_security_groups(user_data):
+    if user_data.elb_type == "network":
+        # Network load balancers do not support security groups
+        return []
+
     sg_arns = [*user_data.elb_security_groups]
     allow_cidrs = user_data.allow_cidrs
     if allow_cidrs is None:
@@ -201,7 +205,7 @@ def load_balancer(user_data):
             SecurityGroups=load_balancer_security_groups(user_data),
             Subnets=user_data.subnet_ids,
             Tags=[Tag(k, v) for k, v in user_data.elb_tags],
-            Type="application",
+            Type=user_data.elb_type,
             DependsOn=elb_depends_on,
         )
     )
@@ -269,25 +273,40 @@ def target_desc(t):
     )
 
 
-def target_group_with(title, default_hc_path, tg_data):
+def target_group_with(user_data, title, default_hc_path, tg_data):
     attrs = tg_data.target_group_attributes
 
-    if "stickiness.enabled" not in attrs:
-        attrs["stickiness.enabled"] = "true"
-    if "stickiness.type" not in attrs:
-        attrs["stickiness.type"] = "lb_cookie"
+    if user_data.elb_type == "application":
+        if "stickiness.enabled" not in attrs:
+            attrs["stickiness.enabled"] = "true"
+        if "stickiness.type" not in attrs:
+            attrs["stickiness.type"] = "lb_cookie"
+
+    if tg_data.target_protocol:
+        protocol = tg_data.target_protocol
+    elif user_data.elb_type == "network":
+        protocol = "TCP"
+    else:
+        protocol = "HTTP"
 
     args = {
-        "HealthCheckPath": default_hc_path,
-        "Matcher": Matcher(HttpCode="200-399"),
         "Port": tg_data.target_port,
-        "Protocol": tg_data.target_protocol,
+        "Protocol": protocol,
         "TargetGroupAttributes": [
             TargetGroupAttribute(Key=k, Value=str(v)) for k, v in attrs.items()
         ],
         "Targets": [target_desc(t) for t in tg_data.targets],
         "VpcId": Ref("VpcId"),
     }
+
+    if user_data.elb_type == "application":
+        args = {
+            {
+                **args,
+                "HealthCheckPath": default_hc_path,
+                "Matcher": Matcher(HttpCode="200-399"),
+            }
+        }
 
     if tg_data.health_check:
         args = {**args, **health_check_options(tg_data.health_check)}
@@ -323,13 +342,15 @@ def redirect_action(**redirect_data):
     )
 
 
-def action_with(title_context, action_data):
+def action_with(user_data, title_context, action_data):
     if action_data.fixed_response:
         return fixed_response_action(action_data.fixed_response)
     if action_data.redirect:
         return redirect_action(**action_data.redirect.dict())
 
-    tg = target_group_with("{}TargetGroup".format(title_context), "/", action_data)
+    tg = target_group_with(
+        user_data, "{}TargetGroup".format(title_context), "/", action_data
+    )
     return Action(TargetGroupArn=Ref(tg), Type="forward")
 
 
@@ -403,7 +424,7 @@ def conditions_with(user_data, cond_data):
 def listener_rule(user_data, listener_ref, rule_data):
     rule_title = "Rule{}".format(md5(listener_ref.data, rule_data.input_values)[:7])
     cond_data = normalize_condition_data(user_data, rule_data)
-    action = action_with(rule_title, rule_data)
+    action = action_with(user_data, rule_title, rule_data)
 
     return add_resource(
         ListenerRule(
@@ -420,7 +441,7 @@ def listener(user_data, listener_data):
     port = listener_data.port
     protocol = listener_data.protocol
 
-    if protocol == "HTTPS":
+    if protocol in ["HTTPS", "TLS"]:
         cert_arns = list(
             map(partial(certificate_arn, user_data), listener_data.hostnames)
         )
@@ -440,7 +461,7 @@ def listener(user_data, listener_data):
         )
     else:
         default_action = action_with(
-            "DefaultPort{}".format(port), listener_data.default_action
+            user_data, "DefaultPort{}".format(port), listener_data.default_action
         )
 
     ret = add_resource(

@@ -1,5 +1,12 @@
 from typing import List, Optional, Dict
-from pydantic import BaseModel, ValidationError, validator, root_validator, Field
+from pydantic import (
+    BaseModel,
+    ValidationError,
+    validator,
+    root_validator,
+    Field,
+    constr,
+)
 
 from util import *
 
@@ -138,28 +145,21 @@ class ActionModel(BaseModel):
             "This value is overridden if a traffic port has been specified for the target."
         ],
     )
-    target_protocol = Field(
-        "HTTP", description="Protocol for backend communication with the targets."
+    target_protocol: Optional[str] = Field(
+        description="Protocol for backend communication with the targets.",
+        default_description="`HTTP` for Application Load Balancers, `TCP` for Network Load Balancers",
     )
     target_group_attributes: Dict[str, str] = Field(
         {},
         description="Specifies target group attributes",
         notes=[
-            """The following attributes are defined by default but can be overriden:
+            """The following attributes are defined by default on Application Load Balancers but can be overriden:
     * `'stickiness.enabled' = 'true'`
     * `'stickiness.type' = 'lb_cookie'`""",
             "**See Also:** [AWS::ElasticLoadBalancingV2::TargetGroup TargetGroupAttribute](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-targetgroup-targetgroupattribute.html)",
         ],
     )
     targets: List[TargetModel] = Field([], description="Members of the target group")
-
-    @validator("target_group_attributes", always=True)
-    def include_defaults_in_target_group_attributes(cls, v):
-        return {**{"stickiness.enabled": "true", "stickiness.type": "lb_cookie"}, **v}
-
-    @validator("target_protocol")
-    def check_target_protocol(cls, v):
-        return model_limit_values(["HTTP", "HTTPS"], v)
 
     @validator("targets", pre=True, each_item=True)
     def coerce_targets(cls, v):
@@ -208,7 +208,7 @@ class ListenerModel(BaseModel):
                        certificate generation and DNS entry creation.""",
         requirement_description="Required for HTTPS listeners",
     )
-    protocol: str
+    protocol: constr(regex="[A-Z_]+")
     port: int
     default_action = Field(
         ActionModel(),
@@ -248,6 +248,9 @@ class ListenerModel(BaseModel):
 
     @root_validator
     def require_hostnames_for_https(cls, values):
+        if "protocol" not in values:
+            # We're already in an error state. Don't do further checking.
+            return values
         if values["protocol"] == "HTTPS" and (
             "hostnames" not in values or len(values["hostnames"]) < 1
         ):
@@ -309,6 +312,7 @@ class UserDataModel(BaseModel):
                then an error will occur."""
         ],
     )
+    elb_type = "application"
     internet_facing: bool = Field(
         description="""If `true` the ELB will be created accessible externally, otherwise it will be
                        created as an "internal" ELB.""",
@@ -364,15 +368,10 @@ class UserDataModel(BaseModel):
             raise ValueError("at least one listener is required")
         return v
 
-    # @root_validator
-    # def require_listeners(cls, values):
-    #     debug("values:", values)
-    #     if len(values["listeners"]) < 1:
-    #         raise ValueError("at least one listener is required")
-    #     return values
-
     @root_validator
     def require_subnet_ids(cls, values):
         if len(values["subnet_ids"]) < 2:
             raise ValueError("at least two subnet_ids are required")
         return values
+
+    # TODO: Add error if security groups are specified for network LBs

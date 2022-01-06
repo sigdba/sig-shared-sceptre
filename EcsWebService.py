@@ -330,15 +330,6 @@ class ContainerModel(BaseModel):
         ],
     )
 
-    @validator("protocol")
-    def protocol_one_of(cls, v):
-        allowed = ["HTTP", "HTTPS"]
-        if v not in allowed:
-            raise ValueError(
-                "invalid protocol '{}' must be one of {}".format(v, allowed)
-            )
-        return v
-
     @validator("image_build", always=True)
     def image_or_build(cls, v, values):
         if v is None:

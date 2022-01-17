@@ -208,13 +208,21 @@
 
 ### AmiModel
 
-- `ami_id` (string)
+- `ami_id` (string) - ID of the AMI the server will be created from.
+  - You must specify either `ami_id` or `ami_map` but not both.
+  - **Warning** - Changing this value after the instance is created will trigger its replacement.
 
-- `ami_map` (Dict[string:string])
+- `ami_map` (Dict[string:string]) - A mapping of AWS regions to AMI-IDs
+  - You must specify either `ami_id` or `ami_map` but not both.
+  - **Warning:** Changing an AMI ID after instance creation will trigger replacement.
 
-- `user_data_b64` (string)
+- `user_data_b64` (string) - The user data to make available to the instance, base64-encoded. This is
+                       typically commands to run on first boot.
+  - **Warning:** Changing this value after the instance is created may trigger a reboot.
+  - If `commands` is specified, this value will be ignored.
 
-- `commands` (List of string)
+- `commands` (List of string) - List of commands to encode as user data
+  - **Warning:** Changing this value after the instance is created may trigger a reboot.
 
 - `instance_tags` (Dict[string:string])
 

@@ -45,6 +45,9 @@
 - `name` (string)
   - **Default:** `${AWS::StackName}`
 
+- `elb_type` (string)
+  - **Default:** `application`
+
 - `certificate_validation_method` (string) - The method by which AWS Certificate Manager (ACM) will validate generated certificates.
   - **Default:** `DNS`
   - **Allowed Values:** `DNS`, `EMAIL`
@@ -129,8 +132,11 @@ cases where requests are handled by an ECS service.
 
 - `redirect` ([RedirectModel](#RedirectModel)) - Specifies an HTTP 301 or 302 redirect
 
+- `target_protocol` (string) - Protocol for backend communication with the targets.
+  - **Default:** `HTTP` for Application Load Balancers, `TCP` for Network Load Balancers
+
 - `target_group_attributes` (Dict[string:string]) - Specifies target group attributes
-  - The following attributes are defined by default but can be overriden:
+  - The following attributes are defined by default on Application Load Balancers but can be overriden:
     * `'stickiness.enabled' = 'true'`
     * `'stickiness.type' = 'lb_cookie'`
   - **See Also:** [AWS::ElasticLoadBalancingV2::TargetGroup TargetGroupAttribute](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-targetgroup-targetgroupattribute.html)
@@ -141,14 +147,17 @@ cases where requests are handled by an ECS service.
   - **Default:** `8080`
   - This value is overridden if a traffic port has been specified for the target.
 
-- `target_protocol` (string) - Protocol for backend communication with the targets.
-  - **Default:** `HTTP`
-
 
 
 ##### TargetModel
 
-- `id` (string) - **required** - Instance ID of the target
+- `id` (string) - Instance ID of the target
+
+- `import_id` (string) - CloudFormation export name containing the instance ID of the target.
+
+- `sg_id` (string) - ID of target's security group. If provided, a rule will be added to allow the ELB access on `port`.
+
+- `import_sg` (string) - CloudFormation export name containing the ID of target's security group. If provided, a rule will be added to allow the ELB access on `port`.
 
 - `port` (integer) - Traffic port of the target
   - **Default:** If `port` is not specified then the default `port` of the target group will be used.
@@ -222,8 +231,11 @@ specify a condition. At least one of these options must be specified.
 
 - `redirect` ([RedirectModel](#RedirectModel)) - Specifies an HTTP 301 or 302 redirect
 
+- `target_protocol` (string) - Protocol for backend communication with the targets.
+  - **Default:** `HTTP` for Application Load Balancers, `TCP` for Network Load Balancers
+
 - `target_group_attributes` (Dict[string:string]) - Specifies target group attributes
-  - The following attributes are defined by default but can be overriden:
+  - The following attributes are defined by default on Application Load Balancers but can be overriden:
     * `'stickiness.enabled' = 'true'`
     * `'stickiness.type' = 'lb_cookie'`
   - **See Also:** [AWS::ElasticLoadBalancingV2::TargetGroup TargetGroupAttribute](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-targetgroup-targetgroupattribute.html)
@@ -233,9 +245,6 @@ specify a condition. At least one of these options must be specified.
 - `target_port` (integer) - Default traffic port for members of the target group.
   - **Default:** `8080`
   - This value is overridden if a traffic port has been specified for the target.
-
-- `target_protocol` (string) - Protocol for backend communication with the targets.
-  - **Default:** `HTTP`
 
 - `input_values` (Dict)
 

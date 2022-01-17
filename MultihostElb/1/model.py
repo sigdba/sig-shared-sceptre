@@ -67,11 +67,25 @@ class RedirectModel(BaseModel):
 
 
 class TargetModel(BaseModel):
-    id: str = Field(description="Instance ID of the target")
+    id: Optional[str] = Field(description="Instance ID of the target")
+    import_id: Optional[str] = Field(
+        description="CloudFormation export name containing the instance ID of the target."
+    )
+    sg_id: Optional[str] = Field(
+        description="ID of target's security group. If provided, a rule will be added to allow the ELB access on `port`."
+    )
+    import_sg: Optional[str] = Field(
+        description="CloudFormation export name containing the ID of target's security group. If provided, a rule will be added to allow the ELB access on `port`."
+    )
     port: Optional[int] = Field(
         description="Traffic port of the target",
         default_description="If `port` is not specified then the default `port` of the target group will be used.",
     )
+
+    @root_validator(pre=True)
+    def check_exclusives(cls, values):
+        model_exclusive(values, "id", "import_id", required=True)
+        model_exclusive(values, "sg_id", "import_sg")
 
 
 class HealthCheckModel(BaseModel):

@@ -1,5 +1,5 @@
 import sys
-from troposphere import Template, Parameter, AWSObject, Ref
+from troposphere import Template, Parameter, AWSObject, Ref, Output, Export
 
 TEMPLATE = Template()
 
@@ -42,6 +42,10 @@ def clean_title(s):
 
 def add_param(name, **kwargs):
     return TEMPLATE.add_parameter(Parameter(name, **kwargs))
+
+
+def add_export(title, key, value, **kwargs):
+    return TEMPLATE.add_output(Output(title, Value=value, Export=Export(key), **kwargs))
 
 
 def debug(*args):
@@ -90,3 +94,11 @@ def model_limit_values(allowed, v):
     if v not in allowed:
         raise ValueError("value must be one of {}", allowed)
     return v
+
+
+def model_exclusive(value, *keys, required=False):
+    has = [k for k in keys if k in values]
+    if required and len(has) < 1:
+        raise ValueError(f"One of {', '.join(keys)} must be specified.")
+    if len(has) > 1:
+        raise ValueError(f"Only one of {', '.join(keys)} may be specified.")

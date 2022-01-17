@@ -262,14 +262,8 @@ def health_check_options(hc_data):
 
 
 def target_desc(t):
-    t_data = t.dict()
-    args = {"id": "Id", "port": "Port"}
     return TargetDescription(
-        **{
-            arg: t_data[key]
-            for key, arg in args.items()
-            if key in t_data and t_data[key] is not None
-        }
+        Id=ImportValue(t.import_id) if t.import_id else t.id, **opts_with(Port=t.port)
     )
 
 
@@ -545,7 +539,7 @@ def ns_entry_nsupdate(nsu_model, record_type, name, value):
             clean_title("NsUpdateFor{}".format(name)),
             validation=False,
             ServiceToken=lambda_arn,
-            **args
+            **args,
         )
     )
 
@@ -569,6 +563,26 @@ def elb_cnames(user_data):
         efn("CNAME", fqdn, Sub("${LoadBalancer.DNSName}."))
 
 
+def target_ingress_rules(user_data):
+    for listener in user_data.listeners:
+        for action in listener.rules + [listener.default_action]:
+            for target in action.targets:
+                if target.sg_id or target.import_sg:
+                    port = target.port or listener.port
+                    add_resource(
+                        SecurityGroupIngress(
+                            clean_title(
+                                f"IngressTO{port}FOR{target.id or target.import_id}"
+                            ),
+                            Description=Ref("AWS::StackName"),
+                            FromPort=port,
+                            ToPort=port,
+                            GroupId=target.sg_id or ImportValue(target.import_sg),
+                            SourceSecurityGroupId=Ref("DefaultSecurityGroup"),
+                        )
+                    )
+
+
 def sceptre_handler(user_data):
     add_param(
         "VpcId",
@@ -588,6 +602,7 @@ def sceptre_handler(user_data):
         listener(data, l)
 
     elb_cnames(data)
+    target_ingress_rules(data)
 
     TEMPLATE.add_mapping(
         "ElbAccountMap",
@@ -618,6 +633,10 @@ def sceptre_handler(user_data):
             "cn-north-1": {"AccountId": "638102146993"},
             "cn-northwest-1": {"AccountId": "037604701340"},
         },
+    )
+
+    add_export(
+        "ElbSecurityGroup", Sub("${AWS::StackName}-sgid"), Ref("DefaultSecurityGroup")
     )
 
     return TEMPLATE.to_json()

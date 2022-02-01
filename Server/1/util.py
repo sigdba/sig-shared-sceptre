@@ -69,6 +69,20 @@ def opts_from(o, **kwargs):
     return {k: d[v] for k, v in kwargs.items() if d[v]}
 
 
+def troposphere_opt(cls, k, v):
+    # TODO: Make this recursive
+    if "props" not in dir(cls) or k not in cls.props:
+        return v
+    typ = cls.props[k][0]
+    if type(typ) is list:
+        return [typ[0](**i) for i in v]
+    return typ(**v)
+
+
+def troposphere_opts(cls, **kwargs):
+    return {k: troposphere_opt(cls, k, v) for k, v in kwargs.items()}
+
+
 def flatten(lst):
     def f(v):
         queue = v

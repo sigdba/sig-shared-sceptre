@@ -6,7 +6,14 @@ from functools import partial
 from troposphere import Ref, Sub, GetAtt, Tags, FindInMap, ImportValue
 from troposphere.cloudformation import AWSCustomObject
 from troposphere.iam import Role, Policy, InstanceProfile
-from troposphere.ec2 import SecurityGroup, Instance, Volume, MountPoint
+from troposphere.ec2 import (
+    SecurityGroup,
+    Instance,
+    Volume,
+    MountPoint,
+    EIP,
+    EIPAssociation,
+)
 from troposphere.route53 import RecordSet, RecordSetType
 from troposphere.backup import (
     BackupPlan,
@@ -177,7 +184,7 @@ def instance(user_data, ebs_mods_vols):
                 UserData=user_data.ami.user_data_b64,
                 IamInstanceProfile=(user_data.instance_profile, r_instance_profile),
             ),
-            **user_data.instance_extra_props,
+            **troposphere_opts(Instance, **user_data.instance_extra_props),
         )
     )
 
@@ -362,6 +369,19 @@ def ns_entry_fn(user_data):
     return lambda t, n, v: None
 
 
+def attach_eip(user_data, inst):
+    if not user_data.allocate_eip:
+        return
+    eip = add_resource(
+        EIP(
+            "Eip",
+            Domain="vpc",
+            InstanceId=Ref(inst),
+            Tags=Tags(Name=Ref("AWS::StackName")),
+        )
+    )
+
+
 def sceptre_handler(sceptre_user_data):
     add_param("VpcId", Type="AWS::EC2::VPC::Id")
     add_param("SubnetId", Type="AWS::EC2::Subnet::Id")
@@ -387,5 +407,6 @@ def sceptre_handler(sceptre_user_data):
         backup_selection(user_data.backups, plan, ebs_models_and_volumes)
 
     ns_entry_fn(user_data)("A", user_data.instance_name, GetAtt(ec2_inst, "PrivateIp"))
+    attach_eip(user_data, ec2_inst)
 
     return TEMPLATE.to_json()

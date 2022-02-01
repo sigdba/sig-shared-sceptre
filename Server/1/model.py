@@ -286,6 +286,8 @@ class UserDataModel(BaseModel):
         description="Specifies how DNS entries should be updated when not using Route53."
     )
 
+    allocate_eip = False
+
     @validator("ebs_volumes")
     def check_for_duplicate_drive_letters(cls, v):
         letters = [m.device_letter for m in v]

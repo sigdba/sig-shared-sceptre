@@ -102,8 +102,8 @@ def model_limit_values(allowed, v):
     return v
 
 
-def model_exclusive(value, *keys, required=False):
-    has = [k for k in keys if k in values]
+def model_exclusive(values, *keys, required=False):
+    has = [k for k in keys if k in values and values[k] is not None]
     if required and len(has) < 1:
         raise ValueError(f"One of {', '.join(keys)} must be specified.")
     if len(has) > 1:

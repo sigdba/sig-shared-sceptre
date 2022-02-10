@@ -327,7 +327,7 @@ class WafIpSetModel(BaseModel):
     addresses: List[str]
     ip_address_version: Optional[Literal["IPV4", "IPV6"]]
 
-    @root_validator
+    @root_validator(pre=True)
     def detect_address_version(cls, values):
         if "ip_address_version" in values:
             return values
@@ -401,6 +401,7 @@ class WafAclRuleModel(HasWafVisibility):
 
     # TODO: Make statement properties mutually exclusive
     # TODO: Auto-generate rule priorities
+    # TODO: action is required except for managed_rule_set
 
 
 class WafAclModel(HasWafVisibility):

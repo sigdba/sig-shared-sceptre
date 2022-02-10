@@ -623,12 +623,13 @@ def waf_visibility_conf(obj):
 
 
 def waf_ip_set(rule):
+    debug("ip_address_version:", rule.ip_address_version)
     return add_resource(
         IPSet(
-            clean_title("IPSet{rule.name}"),
+            clean_title(f"IPSet{rule.name}"),
             Name=rule.name,
             Addresses=rule.addresses,
-            IpAddressVersion=rule.ip_address_version,
+            IPAddressVersion=rule.ip_address_version,
             Scope="REGIONAL",
             **opts_with(Description=rule.description),
         )

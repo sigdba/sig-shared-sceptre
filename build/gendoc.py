@@ -5,6 +5,7 @@ import inspect
 import json
 import sys
 import os.path
+import yaml
 from pydantic import BaseModel
 from pydantic.schema import schema
 from troposphere import Template
@@ -136,6 +137,11 @@ def render_field(fp, spec={}, **kwargs):
         fp.write(field["description"])
     fp.write("\n")
 
+    allowed = field.get("enum")
+    if allowed:
+        allowed = ", ".join(map(lambda v: f"={v}=", allowed))
+        fp.write(f"  - **Allowed Values:** {allowed}\n")
+
     default = field_default_str(field)
     if default:
         fp.write(f"  - **Default:** {default}\n")
@@ -228,6 +234,8 @@ if __name__ == "__main__":
     module = load_template_module(args.template)
     model_classes = get_model_classes(module)
     schema = get_schema(model_classes)
+
+    # print(yaml.dump(schema))
 
     with open(args.output, "w") as fp:
         render_parameters(fp, module)

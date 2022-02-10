@@ -623,7 +623,6 @@ def waf_visibility_conf(obj):
 
 
 def waf_ip_set(rule):
-    debug("ip_address_version:", rule.ip_address_version)
     return add_resource(
         IPSet(
             clean_title(f"IPSet{rule.name}"),

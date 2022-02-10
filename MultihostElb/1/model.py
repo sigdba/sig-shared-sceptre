@@ -387,10 +387,12 @@ class WafAclRuleModel(HasWafVisibility):
                        individual rule action settings. This is used only for
                        rules whose statements reference a rule group.""",
     )
-    priority: int = Field(
+    priority: Optional[int] = Field(
         description="AWS WAF processes rules with lower priority first.",
+        default_description="Rules without explicit priority values will be prioritized in the order they appear.",
         notes=[
-            "The priorities don't need to be consecutive, but they must all be different."
+            "The priorities don't need to be consecutive, but they must all be different.",
+            "It is not recommended to mix rules with and without priorities specified.",
         ],
     )
     ip_set: Optional[Union[str, WafIpSetModel]] = Field(
@@ -400,7 +402,6 @@ class WafAclRuleModel(HasWafVisibility):
     managed_rule_set: Optional[WafManagedRulesetModel]
 
     # TODO: Make statement properties mutually exclusive
-    # TODO: Auto-generate rule priorities
     # TODO: action is required except for managed_rule_set
 
 
@@ -412,6 +413,17 @@ class WafAclModel(HasWafVisibility):
     )
     rules: List[WafAclRuleModel]
     acl_tags: Dict[str, str] = {}
+
+    @root_validator
+    def generate_rule_priorities(cls, values):
+        p = 200
+        for r in values["rules"]:
+            if r.priority:
+                p = r.priority + 100
+            else:
+                r.priority = p
+                p = p + 10
+        return values
 
 
 class UserDataModel(BaseModel):

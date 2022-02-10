@@ -76,7 +76,7 @@
 
 - `rules` (List of [WafAclRuleModel](#WafAclRuleModel)) - **required**
 
-- `model_tags` (Dict[string:string])
+- `acl_tags` (Dict[string:string])
 
 
 
@@ -98,8 +98,10 @@
                        rules whose statements reference a rule group.
   - **Default:** `none`
 
-- `priority` (integer) - **required** - AWS WAF processes rules with lower priority first.
+- `priority` (integer) - AWS WAF processes rules with lower priority first.
+  - **Default:** Rules without explicit priority values will be prioritized in the order they appear.
   - The priorities don't need to be consecutive, but they must all be different.
+  - It is not recommended to mix rules with and without priorities specified.
 
 - `ip_set` (string or [WafIpSetModel](#WafIpSetModel)) - ARN of an IP set or a WafIpSetModel
 

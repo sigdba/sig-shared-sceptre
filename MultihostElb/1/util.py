@@ -108,6 +108,7 @@ def model_exclusive(values, *keys, required=False):
         raise ValueError(f"One of {', '.join(keys)} must be specified.")
     if len(has) > 1:
         raise ValueError(f"Only one of {', '.join(keys)} may be specified.")
+    return has[0]
 
 
 def md5(*s):

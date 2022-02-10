@@ -362,8 +362,12 @@ class WafRegexSetModel(BaseModel):
     )
     text_transformations: List[WafTextTransformationModel] = []
 
-    # TODO: arn is exclusive with regexes, regexes is required when arn is not specified
-    # TODO: name is required when arn is not provided
+    @root_validator
+    def ref_or_new(cls, values):
+        kind = model_exclusive(values, "arn", "regexes", required=True)
+        if kind == "regexes" and not values.get("name"):
+            raise ValueError("name is required when building a new RegexPatternSet")
+        return values
 
 
 class WafManagedRulesetModel(BaseModel):

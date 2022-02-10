@@ -1,4 +1,5 @@
 import sys
+import hashlib
 from troposphere import Template, Parameter, AWSObject, Ref, Output, Export
 
 TEMPLATE = Template()
@@ -102,3 +103,8 @@ def model_exclusive(value, *keys, required=False):
         raise ValueError(f"One of {', '.join(keys)} must be specified.")
     if len(has) > 1:
         raise ValueError(f"Only one of {', '.join(keys)} may be specified.")
+
+
+def md5(*s):
+    hs = "".join(map(str, s))
+    return hashlib.md5(hs.encode("utf-8")).hexdigest()

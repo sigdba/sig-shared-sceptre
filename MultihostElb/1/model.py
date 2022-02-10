@@ -401,8 +401,19 @@ class WafAclRuleModel(HasWafVisibility):
     regex_set: Optional[WafRegexSetModel]
     managed_rule_set: Optional[WafManagedRulesetModel]
 
-    # TODO: Make statement properties mutually exclusive
-    # TODO: action is required except for managed_rule_set
+    @root_validator
+    def exclusive_statements(cls, values):
+        model_exclusive(
+            values, "ip_set", "regex_set", "managed_rule_set", required=True
+        )
+
+        return values
+
+    @root_validator
+    def require_action(cls, values):
+        if not values.get("managed_rule_set") and not values.get("action"):
+            raise ValueError("action is required except when using managed_rule_set")
+        return values
 
 
 class WafAclModel(HasWafVisibility):
@@ -416,6 +427,10 @@ class WafAclModel(HasWafVisibility):
 
     @root_validator
     def generate_rule_priorities(cls, values):
+        if "rules" not in values:
+            # Rules must have failed validation
+            return values
+
         p = 200
         for r in values["rules"]:
             if r.priority:

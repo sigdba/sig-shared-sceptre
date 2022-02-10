@@ -65,7 +65,7 @@ def log_bucket(user_data):
             LifecycleConfiguration=LifecycleConfiguration(
                 Rules=[
                     LifecycleRule(
-                        ExpirationInDays=user_data.access_log_retain_days,
+                        ExpirationInDays=user_data.access_logs.retain_days,
                         Status="Enabled",
                     )
                 ]
@@ -177,7 +177,7 @@ def load_balancer_security_groups(user_data):
 def load_balancer(user_data):
     attributes = {}
     elb_depends_on = []
-    if user_data.access_logs and user_data.access_logs.enabed:
+    if user_data.access_logs and user_data.access_logs.enabled:
         al = user_data.access_logs
         if al.bucket:
             bucket = al.bucket
@@ -295,11 +295,9 @@ def target_group_with(user_data, title, default_hc_path, tg_data):
 
     if user_data.elb_type == "application":
         args = {
-            {
-                **args,
-                "HealthCheckPath": default_hc_path,
-                "Matcher": Matcher(HttpCode="200-399"),
-            }
+            **args,
+            "HealthCheckPath": default_hc_path,
+            "Matcher": Matcher(HttpCode="200-399"),
         }
 
     if tg_data.health_check:

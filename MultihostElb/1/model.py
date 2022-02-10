@@ -1,4 +1,4 @@
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Union, Literal
 from pydantic import (
     BaseModel,
     ValidationError,
@@ -309,6 +309,109 @@ class AccessLogsModel(BaseModel):
     )
 
 
+class HasWafVisibility(BaseModel):
+    metric_name: Optional[str] = Field(
+        description="If defined, CloudWatch metrics for this ACL or rule will be enabled."
+    )
+    sample_requests_enabled = Field(
+        False,
+        description="""A boolean indicating whether AWS WAF should store a sampling of the web
+                       requests that match the rules. You can view the sampled
+                       requests through the AWS WAF console.""",
+    )
+
+
+class WafIpSetModel(BaseModel):
+    name: str
+    description: Optional[str]
+    addresses: List[str]
+    ip_address_version: Optional[Literal["IPV4", "IPV6"]]
+
+    @root_validator
+    def detect_address_version(cls, values):
+        if "ip_address_version" in values:
+            return values
+        addrs = values["addresses"]
+        check = lambda s: any(filter(lambda a: s in a, addrs))
+        has4 = check(".")
+        has6 = check(":")
+        if has4 and has6:
+            raise ValueError("addresses cannot contain both IPv4 and IPv6 entries")
+        values["ip_address_version"] = "IPV6" if has6 else "IPV4"
+        return values
+
+
+class WafTextTransformationModel(BaseModel):
+    priority: int
+    transform_type: str = Field(
+        description="See the [TextTransformation spec](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-texttransformation.html) for valid values."
+    )
+
+
+class WafRegexSetModel(BaseModel):
+    arn: Optional[str]
+    name: Optional[str]
+    description: Optional[str]
+    regexes: Optional[List[str]]
+    field_to_match: Union[str, dict] = Field(
+        description="""The part of a web request that you want AWS WAF to inspect. Refer to the
+                       [FieldToMatch spec](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-fieldtomatch.html)
+                       for valid values. For fields which do not require
+                       arguments (like UriPath) you can specify the field name
+                       as a string."""
+    )
+    text_transformations: List[WafTextTransformationModel] = []
+
+    # TODO: arn is exclusive with regexes, regexes is required when arn is not specified
+    # TODO: name is required when arn is not provided
+
+
+class WafManagedRulesetModel(BaseModel):
+    name: str
+    vendor_name: str
+    version: Optional[str]
+    excluded_rules: List[str] = Field(
+        [],
+        description="""The rules whose actions are set to COUNT by the web ACL, regardless of the
+                       action that is configured in the rule. This effectively
+                       excludes the rule from acting on web requests.""",
+    )
+
+
+class WafAclRuleModel(HasWafVisibility):
+    name: str
+    action: Optional[Literal["allow", "deny"]]
+    override_action: Optional[Literal["count", "none"]] = Field(
+        "none",
+        description="""The override action to apply to the rules in a rule group, instead of the
+                       individual rule action settings. This is used only for
+                       rules whose statements reference a rule group.""",
+    )
+    priority: int = Field(
+        description="AWS WAF processes rules with lower priority first.",
+        notes=[
+            "The priorities don't need to be consecutive, but they must all be different."
+        ],
+    )
+    ip_set: Optional[Union[str, WafIpSetModel]] = Field(
+        description="ARN of an IP set or a WafIpSetModel"
+    )
+    regex_set: Optional[WafRegexSetModel]
+    managed_rule_set: Optional[WafManagedRulesetModel]
+
+    # TODO: Make statement properties mutually exclusive
+
+
+class WafAclModel(HasWafVisibility):
+    name: str
+    description: Optional[str]
+    default_action: Literal["allow", "block"] = Field(
+        description="The action to perform if none of the Rules contained in the WebACL match."
+    )
+    rules: List[WafAclRuleModel]
+    model_tags: Dict[str, str] = {}
+
+
 class UserDataModel(BaseModel):
     name = "${AWS::StackName}"
     listeners: List[ListenerModel] = Field(
@@ -374,6 +477,10 @@ class UserDataModel(BaseModel):
     )
     ns_update: Optional[NsUpdateModel] = Field(
         description="Specifies how DNS entries should be updated when not using Route53."
+    )
+    waf_acls: List[Union[str, WafAclModel]] = Field(
+        [],
+        description="List of WAF WebACL ARNs and/or WafAclModel objects to associate with this ELB.",
     )
 
     @validator("listeners")

@@ -1,6 +1,6 @@
 from functools import lru_cache, partial
 
-from troposphere import Ref, Sub, Parameter, GetAtt, Tag, ImportValue
+from troposphere import Ref, Sub, Parameter, GetAtt, Tag, ImportValue, Tags
 from troposphere.cloudformation import AWSCustomObject
 from troposphere.elasticloadbalancingv2 import (
     LoadBalancer,
@@ -34,6 +34,28 @@ from troposphere.s3 import (
 from troposphere.certificatemanager import Certificate, DomainValidationOption
 from troposphere.route53 import RecordSet, RecordSetType
 from troposphere.ec2 import SecurityGroup, SecurityGroupRule
+from troposphere.wafv2 import (
+    IPSet,
+    RegexPatternSet,
+    AllowAction,
+    BlockAction,
+    CountAction,
+    IPSetReferenceStatement,
+    ExcludedRule,
+    ManagedRuleGroupStatement,
+    RegexPatternSetReferenceStatement,
+    RuleGroupReferenceStatement,
+    VisibilityConfig,
+    RuleGroupRule,
+    RuleGroup,
+    DefaultAction,
+    OverrideAction,
+    WebACLRule,
+    WebACL,
+    WebACLAssociation,
+    FieldToMatch,
+    TextTransformation,
+)
 
 from model import *
 from util import *
@@ -581,6 +603,133 @@ def target_ingress_rules(user_data):
                     )
 
 
+def waf_acl_action(action):
+    action = action.capitalize()
+    return {action: globals()[f"{action}Action"]()}
+
+
+def waf_visibility_conf(obj):
+    return VisibilityConfig(
+        CloudWatchMetricsEnabled=obj.metric_name is not None,
+        MetricName=obj.metric_name or "Unused",
+        SampledRequestsEnabled=obj.sample_requests_enabled,
+    )
+
+
+def waf_ip_set(rule):
+    return add_resource(
+        IPSet(
+            clean_title("IPSet{rule.name}"),
+            Name=rule.name,
+            Addresses=rule.addresses,
+            IpAddressVersion=rule.ip_address_version,
+            Scope="REGIONAL",
+            **opts_with(Description=rule.description),
+        )
+    )
+
+
+def waf_rule_ip_set_statement(rule):
+    arn = rule if type(rule) is str else Ref(waf_ip_set(rule))
+    return Statement(IPSetReferenceStatement=IPSetReferenceStatement(Arn=arn))
+
+
+def waf_regex_set(rule):
+    return add_resource(
+        clean_title(f"WafRegexSet{rule.name}"),
+        Name=rule.name,
+        RegularExpressionList=rule.regexes,
+        Scope="REGIONAL",
+        **opts_with(Description=rule.description),
+    )
+
+
+def waf_rule_regex_set_statement(rule):
+    arn = rule.arn if rule.arn else Ref(waf_regex_set(rule))
+    match = (
+        {rule.field_to_match: {}}
+        if type(rule.field_to_match) is str
+        else rule.field_to_match
+    )
+    transforms = [
+        TextTransformation(Priority=t.priority, Type=t.transform_type)
+        for t in rule.text_transformations
+    ]
+    if len(transforms) < 1:
+        transforms = [TextTransformation(Priority=0, Type="NONE")]
+
+    return Statement(
+        RegexPatternSetReferenceStatement=RegexPatternSetReferenceStatement(
+            Arn=arn, FieldToMatch=FieldToMatch(**match), TextTransformations=transforms
+        )
+    )
+
+
+def waf_rule_managed_rule_set_statement(rule):
+    return Statement(
+        ManagedRuleGroupStatement=ManagedRuleGroupStatement(
+            Name=rule.name,
+            VendorName=rule.vendor_name,
+            ExcludedRules=[ExcludedRule(Name=n) for n in rule.excluded_rules],
+            **opts_with(Version=rule.version),
+        )
+    )
+
+
+def waf_rule_statement(rule):
+    rule_dict = rule.dict()
+    for k, v in rule_dict.items():
+        fn_name = f"waf_rule_{k}_statement"
+        fn = globals().get(fn_name)
+        if fn:
+            return fn(v)
+
+
+def waf_rule(rule):
+    return WebACLRule(
+        Name=rule.name,
+        Priority=rule.priority,
+        VisibilityConfig=waf_visibility_conf(rule),
+        Statement=waf_rule_statement(rule),
+        **opts_with(
+            Action=(rule.action, lambda a: RuleAction(waf_acl_action(a))),
+            OverrideAction=(
+                rule.override_action,
+                lambda a: OverrideAction(waf_acl_action(a)),
+            ),
+        ),
+    )
+
+
+def waf_acl(acl):
+    return add_resource(
+        WebACL(
+            clean_title(f"Acl{acl.name}"),
+            DefaultAction=DefaultAction(**waf_acl_action(acl.default_action)),
+            Tags=Tags(**acl.tags),
+            Scope="REGIONAL",
+            Rules=[waf_rule(r) for r in acl.rules],
+            VisibilityConfig=waf_visibility_conf(acl),
+            **opts_with(Description=acl.description, Name=acl.name),
+        )
+    )
+
+
+def waf_acl_assoc(acl_model):
+    if type(acl_model) is str:
+        acl_arn = acl_model
+        assoc_title = f"AclAssoc{md5(acl_arn)}"
+    else:
+        acl_arn = Ref(waf_acl(acl_model))
+        assoc_title = clean_title(f"AclAssocFor{acl_model.name}")
+
+    return add_resource(
+        WebACLAssociation(
+            assoc_title, ResourceArn=Ref("LoadBalancer"), WebACLArn=acl_arn
+        )
+    )
+
+
 def sceptre_handler(user_data):
     add_param(
         "VpcId",
@@ -601,6 +750,9 @@ def sceptre_handler(user_data):
 
     elb_cnames(data)
     target_ingress_rules(data)
+
+    for acl in data.waf_acls:
+        waf_acl_assoc(acl)
 
     TEMPLATE.add_mapping(
         "ElbAccountMap",

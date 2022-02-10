@@ -409,7 +409,7 @@ class WafAclModel(HasWafVisibility):
         description="The action to perform if none of the Rules contained in the WebACL match."
     )
     rules: List[WafAclRuleModel]
-    model_tags: Dict[str, str] = {}
+    acl_tags: Dict[str, str] = {}
 
 
 class UserDataModel(BaseModel):

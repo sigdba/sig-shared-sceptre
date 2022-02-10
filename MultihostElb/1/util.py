@@ -62,7 +62,12 @@ def opts_with(**kwargs):
             return Ref(v)
         return v
 
-    return {k: _eval(v) for k, v in kwargs.items() if v is not None}
+    def has_value(v):
+        if type(v) is tuple:
+            return v[0] is not None
+        return v is not None
+
+    return {k: _eval(v) for k, v in kwargs.items() if has_value(v)}
 
 
 def opts_from(o, **kwargs):

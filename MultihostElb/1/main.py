@@ -40,6 +40,7 @@ from troposphere.wafv2 import (
     AllowAction,
     BlockAction,
     CountAction,
+    NoneAction,
     IPSetReferenceStatement,
     ExcludedRule,
     ManagedRuleGroupStatement,
@@ -55,6 +56,8 @@ from troposphere.wafv2 import (
     WebACLAssociation,
     FieldToMatch,
     TextTransformation,
+    StatementOne as WafStatement,
+    RuleAction,
 )
 
 from model import *
@@ -603,9 +606,12 @@ def target_ingress_rules(user_data):
                     )
 
 
-def waf_acl_action(action):
+def waf_acl_action(constructor, action):
     action = action.capitalize()
-    return {action: globals()[f"{action}Action"]()}
+    # Some actions have an actual type defined in Troposphere. Others like Count
+    # and None in OverrideAction are just dicts.
+    fn = globals().get(f"{action}Action")
+    return constructor(**{action: fn() if fn else {}})
 
 
 def waf_visibility_conf(obj):
@@ -631,7 +637,7 @@ def waf_ip_set(rule):
 
 def waf_rule_ip_set_statement(rule):
     arn = rule if type(rule) is str else Ref(waf_ip_set(rule))
-    return Statement(IPSetReferenceStatement=IPSetReferenceStatement(Arn=arn))
+    return WafStatement(IPSetReferenceStatement=IPSetReferenceStatement(Arn=arn))
 
 
 def waf_regex_set(rule):
@@ -658,7 +664,7 @@ def waf_rule_regex_set_statement(rule):
     if len(transforms) < 1:
         transforms = [TextTransformation(Priority=0, Type="NONE")]
 
-    return Statement(
+    return WafStatement(
         RegexPatternSetReferenceStatement=RegexPatternSetReferenceStatement(
             Arn=arn, FieldToMatch=FieldToMatch(**match), TextTransformations=transforms
         )
@@ -666,7 +672,7 @@ def waf_rule_regex_set_statement(rule):
 
 
 def waf_rule_managed_rule_set_statement(rule):
-    return Statement(
+    return WafStatement(
         ManagedRuleGroupStatement=ManagedRuleGroupStatement(
             Name=rule.name,
             VendorName=rule.vendor_name,
@@ -677,12 +683,13 @@ def waf_rule_managed_rule_set_statement(rule):
 
 
 def waf_rule_statement(rule):
-    rule_dict = rule.dict()
+    rule_dict = rule.__dict__
     for k, v in rule_dict.items():
-        fn_name = f"waf_rule_{k}_statement"
-        fn = globals().get(fn_name)
-        if fn:
-            return fn(v)
+        if v:
+            fn_name = f"waf_rule_{k}_statement"
+            fn = globals().get(fn_name)
+            if fn:
+                return fn(v)
 
 
 def waf_rule(rule):
@@ -692,11 +699,8 @@ def waf_rule(rule):
         VisibilityConfig=waf_visibility_conf(rule),
         Statement=waf_rule_statement(rule),
         **opts_with(
-            Action=(rule.action, lambda a: RuleAction(waf_acl_action(a))),
-            OverrideAction=(
-                rule.override_action,
-                lambda a: OverrideAction(waf_acl_action(a)),
-            ),
+            Action=(rule.action, waf_acl_action, RuleAction),
+            OverrideAction=(rule.override_action, waf_acl_action, OverrideAction),
         ),
     )
 
@@ -705,8 +709,8 @@ def waf_acl(acl):
     return add_resource(
         WebACL(
             clean_title(f"Acl{acl.name}"),
-            DefaultAction=DefaultAction(**waf_acl_action(acl.default_action)),
-            Tags=Tags(**acl.tags),
+            DefaultAction=waf_acl_action(DefaultAction, acl.default_action),
+            Tags=Tags(**acl.acl_tags),
             Scope="REGIONAL",
             Rules=[waf_rule(r) for r in acl.rules],
             VisibilityConfig=waf_visibility_conf(acl),

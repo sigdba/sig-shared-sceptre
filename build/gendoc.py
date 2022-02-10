@@ -139,7 +139,7 @@ def render_field(fp, spec={}, **kwargs):
 
     allowed = field.get("enum")
     if allowed:
-        allowed = ", ".join(map(lambda v: f"={v}=", allowed))
+        allowed = ", ".join(map(lambda v: f"`{v}`", allowed))
         fp.write(f"  - **Allowed Values:** {allowed}\n")
 
     default = field_default_str(field)

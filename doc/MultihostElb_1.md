@@ -73,7 +73,7 @@
 - `description` (string)
 
 - `default_action` (string) - **required** - The action to perform if none of the Rules contained in the WebACL match.
-  - **Allowed Values:** =allow=, =block=
+  - **Allowed Values:** `allow`, `block`
 
 - `rules` (List of [WafAclRuleModel](#WafAclRuleModel)) - **required**
 
@@ -93,12 +93,12 @@
 - `name` (string) - **required**
 
 - `action` (string)
-  - **Allowed Values:** =allow=, =deny=
+  - **Allowed Values:** `allow`, `deny`
 
 - `override_action` (string) - The override action to apply to the rules in a rule group, instead of the
                        individual rule action settings. This is used only for
                        rules whose statements reference a rule group.
-  - **Allowed Values:** =count=, =none=
+  - **Allowed Values:** `count`, `none`
   - **Default:** `none`
 
 - `priority` (integer) - AWS WAF processes rules with lower priority first.
@@ -165,7 +165,7 @@
 - `addresses` (List of string) - **required**
 
 - `ip_address_version` (string)
-  - **Allowed Values:** =IPV4=, =IPV6=
+  - **Allowed Values:** `IPV4`, `IPV6`
 
 
 

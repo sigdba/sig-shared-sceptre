@@ -642,11 +642,13 @@ def waf_rule_ip_set_statement(rule):
 
 def waf_regex_set(rule):
     return add_resource(
-        clean_title(f"WafRegexSet{rule.name}"),
-        Name=rule.name,
-        RegularExpressionList=rule.regexes,
-        Scope="REGIONAL",
-        **opts_with(Description=rule.description),
+        RegexPatternSet(
+            clean_title(f"WafRegexSet{rule.name}"),
+            Name=rule.name,
+            RegularExpressionList=rule.regexes,
+            Scope="REGIONAL",
+            **opts_with(Description=rule.description),
+        )
     )
 
 
@@ -666,7 +668,9 @@ def waf_rule_regex_set_statement(rule):
 
     return WafStatement(
         RegexPatternSetReferenceStatement=RegexPatternSetReferenceStatement(
-            Arn=arn, FieldToMatch=FieldToMatch(**match), TextTransformations=transforms
+            Arn=arn,
+            FieldToMatch=FieldToMatch.from_dict(None, match),
+            TextTransformations=transforms,
         )
     )
 

@@ -400,6 +400,7 @@ class WafAclRuleModel(HasWafVisibility):
     managed_rule_set: Optional[WafManagedRulesetModel]
 
     # TODO: Make statement properties mutually exclusive
+    # TODO: Auto-generate rule priorities
 
 
 class WafAclModel(HasWafVisibility):

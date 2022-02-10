@@ -42,6 +42,8 @@
 
 - `ns_update` ([NsUpdateModel](#NsUpdateModel)) - Specifies how DNS entries should be updated when not using Route53.
 
+- `waf_acls` (List of string or [WafAclModel](#WafAclModel)) - List of WAF WebACL ARNs and/or WafAclModel objects to associate with this ELB.
+
 - `name` (string)
   - **Default:** `${AWS::StackName}`
 
@@ -54,6 +56,110 @@
   - If you do not wish the stack to generate certificates, then you must provide
                `certificate_arn` values for each `hostname` entry specified
                under `listeners`.
+
+
+
+### WafAclModel
+
+- `metric_name` (string) - If defined, CloudWatch metrics for this ACL or rule will be enabled.
+
+- `sample_requests_enabled` (boolean) - A boolean indicating whether AWS WAF should store a sampling of the web
+                       requests that match the rules. You can view the sampled
+                       requests through the AWS WAF console.
+  - **Default:** `False`
+
+- `name` (string) - **required**
+
+- `description` (string)
+
+- `default_action` (string) - **required** - The action to perform if none of the Rules contained in the WebACL match.
+
+- `rules` (List of [WafAclRuleModel](#WafAclRuleModel)) - **required**
+
+- `model_tags` (Dict[string:string])
+
+
+
+#### WafAclRuleModel
+
+- `metric_name` (string) - If defined, CloudWatch metrics for this ACL or rule will be enabled.
+
+- `sample_requests_enabled` (boolean) - A boolean indicating whether AWS WAF should store a sampling of the web
+                       requests that match the rules. You can view the sampled
+                       requests through the AWS WAF console.
+  - **Default:** `False`
+
+- `name` (string) - **required**
+
+- `action` (string)
+
+- `override_action` (string) - The override action to apply to the rules in a rule group, instead of the
+                       individual rule action settings. This is used only for
+                       rules whose statements reference a rule group.
+  - **Default:** `none`
+
+- `priority` (integer) - **required** - AWS WAF processes rules with lower priority first.
+  - The priorities don't need to be consecutive, but they must all be different.
+
+- `ip_set` (string or [WafIpSetModel](#WafIpSetModel)) - ARN of an IP set or a WafIpSetModel
+
+- `regex_set` ([WafRegexSetModel](#WafRegexSetModel))
+
+- `managed_rule_set` ([WafManagedRulesetModel](#WafManagedRulesetModel))
+
+
+
+##### WafManagedRulesetModel
+
+- `name` (string) - **required**
+
+- `vendor_name` (string) - **required**
+
+- `version` (string)
+
+- `excluded_rules` (List of string) - The rules whose actions are set to COUNT by the web ACL, regardless of the
+                       action that is configured in the rule. This effectively
+                       excludes the rule from acting on web requests.
+
+
+
+##### WafRegexSetModel
+
+- `arn` (string)
+
+- `name` (string)
+
+- `description` (string)
+
+- `regexes` (List of string)
+
+- `field_to_match` (string or Dict) - **required** - The part of a web request that you want AWS WAF to inspect. Refer to the
+                       [FieldToMatch spec](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-fieldtomatch.html)
+                       for valid values. For fields which do not require
+                       arguments (like UriPath) you can specify the field name
+                       as a string.
+
+- `text_transformations` (List of [WafTextTransformationModel](#WafTextTransformationModel))
+
+
+
+###### WafTextTransformationModel
+
+- `priority` (integer) - **required**
+
+- `transform_type` (string) - **required** - See the [TextTransformation spec](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-texttransformation.html) for valid values.
+
+
+
+##### WafIpSetModel
+
+- `name` (string) - **required**
+
+- `description` (string)
+
+- `addresses` (List of string) - **required**
+
+- `ip_address_version` (string)
 
 
 

@@ -46,6 +46,9 @@
 
 - `instance_extra_props` (Dict)
 
+- `allocate_eip` (boolean)
+  - **Default:** `False`
+
 
 
 ### SecurityGroupModel

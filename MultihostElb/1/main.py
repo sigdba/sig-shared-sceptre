@@ -636,7 +636,7 @@ def waf_ip_set(rule):
 
 
 def waf_rule_ip_set_statement(rule):
-    arn = rule if type(rule) is str else Ref(waf_ip_set(rule))
+    arn = rule if type(rule) is str else GetAtt(waf_ip_set(rule), "Arn")
     return WafStatement(IPSetReferenceStatement=IPSetReferenceStatement(Arn=arn))
 
 
@@ -653,7 +653,7 @@ def waf_regex_set(rule):
 
 
 def waf_rule_regex_set_statement(rule):
-    arn = rule.arn if rule.arn else Ref(waf_regex_set(rule))
+    arn = rule.arn if rule.arn else GetAtt(waf_regex_set(rule), "Arn")
     match = (
         {rule.field_to_match: {}}
         if type(rule.field_to_match) is str
@@ -728,7 +728,7 @@ def waf_acl_assoc(acl_model):
         acl_arn = acl_model
         assoc_title = f"AclAssoc{md5(acl_arn)}"
     else:
-        acl_arn = Ref(waf_acl(acl_model))
+        acl_arn = GetAtt(waf_acl(acl_model), "Arn")
         assoc_title = clean_title(f"AclAssocFor{acl_model.name}")
 
     return add_resource(

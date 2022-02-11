@@ -53,6 +53,14 @@ def debug(*args):
     print(*args, file=sys.stderr)
 
 
+def tags_with(tags, tags_key="Tags"):
+    if type(tags) is dict:
+        tags = [{"Key": k, "Value": v} for k, v in tags.items()]
+    if len(tags) < 1:
+        return {}
+    return {tags_key: tags}
+
+
 def opts_with(**kwargs):
     def _eval(v):
         if type(v) is tuple:

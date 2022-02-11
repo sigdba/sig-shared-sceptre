@@ -714,10 +714,10 @@ def waf_acl(acl):
         WebACL(
             clean_title(f"Acl{acl.name}"),
             DefaultAction=waf_acl_action(DefaultAction, acl.default_action),
-            Tags=Tags(**acl.acl_tags),
             Scope="REGIONAL",
             Rules=[waf_rule(r) for r in acl.rules],
             VisibilityConfig=waf_visibility_conf(acl),
+            **tags_with(acl.acl_tags),
             **opts_with(Description=acl.description, Name=acl.name),
         )
     )

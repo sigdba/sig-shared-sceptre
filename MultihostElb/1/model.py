@@ -386,10 +386,10 @@ class WafAclRuleModel(HasWafVisibility):
     name: str
     action: Optional[Literal["allow", "deny"]]
     override_action: Optional[Literal["count", "none"]] = Field(
-        "none",
         description="""The override action to apply to the rules in a rule group, instead of the
                        individual rule action settings. This is used only for
                        rules whose statements reference a rule group.""",
+        default_description="=none=",
     )
     priority: Optional[int] = Field(
         description="AWS WAF processes rules with lower priority first.",
@@ -417,6 +417,12 @@ class WafAclRuleModel(HasWafVisibility):
     def require_action(cls, values):
         if not values.get("managed_rule_set") and not values.get("action"):
             raise ValueError("action is required except when using managed_rule_set")
+        return values
+
+    @root_validator(pre=True)
+    def override_action_default(cls, values):
+        if values.get("managed_rule_set") and not values.get("override_action"):
+            values["override_action"] = "none"
         return values
 
 

@@ -99,7 +99,7 @@
                        individual rule action settings. This is used only for
                        rules whose statements reference a rule group.
   - **Allowed Values:** `count`, `none`
-  - **Default:** `none`
+  - **Default:** =none=
 
 - `priority` (integer) - AWS WAF processes rules with lower priority first.
   - **Default:** Rules without explicit priority values will be prioritized in the order they appear.

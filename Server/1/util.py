@@ -1,5 +1,8 @@
 import sys
+import hashlib
+import os
 from troposphere import Template, Parameter, AWSObject, Ref
+
 
 TEMPLATE = Template()
 
@@ -94,3 +97,11 @@ def flatten(lst):
                 yield item
 
     return list(f(lst))
+
+
+def read_resource(path):
+    return read_local_file(os.path.join("resources", path))
+
+
+def md5(s):
+    return hashlib.md5(s.encode("utf-8")).hexdigest()

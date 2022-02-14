@@ -275,6 +275,8 @@ class UserDataModel(BaseModel):
     ebs_volumes: List[EbsVolumeModel] = Field(
         [], description="Additional EBS volumes to attach to the instance."
     )
+    root_volume_tags: Dict[str, str] = {}
+    root_volume_size: Optional[int]
     security_group = SecurityGroupModel()
     security_group_ids: List[str] = []
     instance_extra_props = {}

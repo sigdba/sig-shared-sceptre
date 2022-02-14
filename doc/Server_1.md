@@ -25,6 +25,10 @@
 
 - `ebs_volumes` (List of [EbsVolumeModel](#EbsVolumeModel)) - Additional EBS volumes to attach to the instance.
 
+- `root_volume_tags` (Dict[string:string])
+
+- `root_volume_size` (integer)
+
 - `security_group_ids` (List of string)
 
 - `instance_tags` (Dict[string:string])

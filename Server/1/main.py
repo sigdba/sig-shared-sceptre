@@ -27,6 +27,7 @@ from troposphere.backup import (
 
 from model import *
 from util import *
+from root_vol import root_vol_props
 
 
 def ingress_for_allow(allow):
@@ -401,6 +402,7 @@ def sceptre_handler(sceptre_user_data):
 
     ebs_models_and_volumes = ebs_volumes(user_data)
     ec2_inst = instance(user_data, ebs_models_and_volumes)
+    root_vol_props(ec2_inst, user_data)
 
     if user_data.backups_enabled:
         plan = backup_plan(user_data.backups)

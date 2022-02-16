@@ -411,4 +411,7 @@ def sceptre_handler(sceptre_user_data):
     ns_entry_fn(user_data)("A", user_data.instance_name, GetAtt(ec2_inst, "PrivateIp"))
     attach_eip(user_data, ec2_inst)
 
+    add_export("InstanceId", Sub("${AWS::StackName}-InstanceId"), Ref(ec2_inst))
+    add_export("InstanceSg", Sub("${AWS::StackName}-InstanceSg"), Ref("InstanceSg"))
+
     return TEMPLATE.to_json()

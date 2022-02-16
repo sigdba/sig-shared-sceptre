@@ -1,7 +1,7 @@
 import sys
 import hashlib
 import os
-from troposphere import Template, Parameter, AWSObject, Ref
+from troposphere import AWSObject, Export, Output, Parameter, Ref, Template
 
 
 TEMPLATE = Template()
@@ -45,6 +45,10 @@ def clean_title(s):
 
 def add_param(name, **kwargs):
     return TEMPLATE.add_parameter(Parameter(name, **kwargs))
+
+
+def add_export(title, key, value, **kwargs):
+    return TEMPLATE.add_output(Output(title, Value=value, Export=Export(key), **kwargs))
 
 
 def add_mapping(name, mapping):

@@ -592,8 +592,11 @@ def target_ingress_rules(user_data):
             for action in listener.rules + [listener.default_action]:
                 for target in action.targets:
                     if target.sg_id or target.import_sg:
-                        port = target.port or listener.port
-                        yield (target.sg_id, target.import_sg, port)
+                        yield (
+                            target.sg_id,
+                            target.import_sg,
+                            target.port or action.target_port,
+                        )
 
     for sg_id, import_sg, port in set(_gen()):
         add_resource(

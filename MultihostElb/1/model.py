@@ -86,6 +86,7 @@ class TargetModel(BaseModel):
     def check_exclusives(cls, values):
         model_exclusive(values, "id", "import_id", required=True)
         model_exclusive(values, "sg_id", "import_sg")
+        return values
 
 
 class HealthCheckModel(BaseModel):

@@ -33,7 +33,7 @@ from troposphere.s3 import (
 )
 from troposphere.certificatemanager import Certificate, DomainValidationOption
 from troposphere.route53 import RecordSet, RecordSetType
-from troposphere.ec2 import SecurityGroup, SecurityGroupRule
+from troposphere.ec2 import SecurityGroup, SecurityGroupIngress, SecurityGroupRule
 from troposphere.wafv2 import (
     IPSet,
     RegexPatternSet,
@@ -587,23 +587,26 @@ def elb_cnames(user_data):
 
 
 def target_ingress_rules(user_data):
-    for listener in user_data.listeners:
-        for action in listener.rules + [listener.default_action]:
-            for target in action.targets:
-                if target.sg_id or target.import_sg:
-                    port = target.port or listener.port
-                    add_resource(
-                        SecurityGroupIngress(
-                            clean_title(
-                                f"IngressTO{port}FOR{target.id or target.import_id}"
-                            ),
-                            Description=Ref("AWS::StackName"),
-                            FromPort=port,
-                            ToPort=port,
-                            GroupId=target.sg_id or ImportValue(target.import_sg),
-                            SourceSecurityGroupId=Ref("DefaultSecurityGroup"),
-                        )
-                    )
+    def _gen():
+        for listener in user_data.listeners:
+            for action in listener.rules + [listener.default_action]:
+                for target in action.targets:
+                    if target.sg_id or target.import_sg:
+                        port = target.port or listener.port
+                        yield (target.sg_id, target.import_sg, port)
+
+    for sg_id, import_sg, port in set(_gen()):
+        add_resource(
+            SecurityGroupIngress(
+                clean_title(f"IngressTO{port}FOR{sg_id or import_sg}"),
+                Description=Ref("AWS::StackName"),
+                FromPort=port,
+                ToPort=port,
+                IpProtocol="tcp",
+                GroupId=sg_id or ImportValue(import_sg),
+                SourceSecurityGroupId=Ref("DefaultSecurityGroup"),
+            )
+        )
 
 
 def waf_acl_action(constructor, action):

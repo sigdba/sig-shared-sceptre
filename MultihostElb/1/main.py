@@ -195,6 +195,13 @@ def load_balancer_security_groups(user_data):
                 ],
             )
         )
+
+        add_export(
+            "ElbSecurityGroup",
+            Sub("${AWS::StackName}-sgid"),
+            Ref("DefaultSecurityGroup"),
+        )
+
         sg_arns.append(Ref(sg))
     return sg_arns
 
@@ -797,10 +804,6 @@ def sceptre_handler(user_data):
             "cn-north-1": {"AccountId": "638102146993"},
             "cn-northwest-1": {"AccountId": "037604701340"},
         },
-    )
-
-    add_export(
-        "ElbSecurityGroup", Sub("${AWS::StackName}-sgid"), Ref("DefaultSecurityGroup")
     )
 
     return TEMPLATE.to_json()

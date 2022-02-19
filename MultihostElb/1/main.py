@@ -525,10 +525,10 @@ def get_all_fqdns(user_data):
     return {n for n in it()}
 
 
-def ns_entry_route53(zone_id, record_type, name, value):
+def ns_entry_route53(zone_id, record_type, name, value, title_suffix=""):
     return add_resource(
         RecordSetType(
-            clean_title("RecordSetFor{}".format(name)),
+            clean_title("RecordSetFor{}{}".format(name, title_suffix)),
             HostedZoneId=zone_id,
             Name=name,
             Type=record_type,
@@ -577,7 +577,18 @@ def ns_entry_nsupdate(nsu_model, record_type, name, value):
 def ns_entry_fn(user_data):
     zone_id = user_data.hosted_zone_id
     if zone_id is not None:
-        return partial(ns_entry_route53, zone_id)
+        primary = partial(ns_entry_route53, zone_id)
+        if len(user_data.alt_hosted_zone_ids) < 1:
+            return primary
+
+        def _multizone(record_type, name, value):
+            for zone_id in user_data.alt_hosted_zone_ids:
+                ns_entry_route53(
+                    zone_id, record_type, name, value, title_suffix=f"forZone{zone_id}"
+                )
+            return primary(record_type, name, value)
+
+        return _multizone
 
     nsupdate_model = user_data.ns_update
     if nsupdate_model is not None:

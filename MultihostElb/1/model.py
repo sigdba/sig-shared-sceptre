@@ -515,6 +515,13 @@ class UserDataModel(BaseModel):
                        validation and for hostnames specified for
                        `listeners`."""
     )
+    alt_hosted_zone_ids: List[str] = Field(
+        [],
+        description="""Additional Route53 hosted Zone IDs in which to create DNS entries. Will not
+                       be used for certificate validation. This can be used, for
+                       instance, to specify the internal size of a split-horizon
+                       DNS setup.""",
+    )
     ns_update: Optional[NsUpdateModel] = Field(
         description="Specifies how DNS entries should be updated when not using Route53."
     )

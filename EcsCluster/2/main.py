@@ -529,4 +529,12 @@ def sceptre_handler(sceptre_user_data):
                 lambda_fn_for_cps()
                 cps_reset_resource(user_data)
 
+        TEMPLATE.add_output(
+            Output(
+                "NodeSecurityGroupOutput",
+                Value=Ref(node_sg),
+                Export=Export(Sub("${EnvName}-EcsEnv-NodeSg")),
+            )
+        )
+
     return TEMPLATE.to_json()

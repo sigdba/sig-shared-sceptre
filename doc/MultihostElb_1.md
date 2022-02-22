@@ -40,6 +40,11 @@
                        validation and for hostnames specified for
                        `listeners`.
 
+- `alt_hosted_zone_ids` (List of string) - Additional Route53 hosted Zone IDs in which to create DNS entries. Will not
+                       be used for certificate validation. This can be used, for
+                       instance, to specify the internal size of a split-horizon
+                       DNS setup.
+
 - `ns_update` ([NsUpdateModel](#NsUpdateModel)) - Specifies how DNS entries should be updated when not using Route53.
 
 - `waf_acls` (List of string or [WafAclModel](#WafAclModel)) - List of WAF WebACL ARNs and/or WafAclModel objects to associate with this ELB.

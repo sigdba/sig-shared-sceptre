@@ -82,6 +82,8 @@ for more information.
 - `image_build` ([ImageBuildModel](#ImageBuildModel)) - Settings for building the container image.
   - **Requirement:** One of `image` or `image_build` must be defined
 
+- `command` (List of string) - Maps to the COMMAND parameter of [docker run](https://docs.docker.com/engine/reference/run/#security-configuration).
+
 - `container_port` (integer) - The port exposed by the container
   - One of `container_port` or `port_mappings` must be defined for any container connecting to an ELB.
 

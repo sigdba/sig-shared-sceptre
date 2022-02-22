@@ -219,6 +219,10 @@ class ContainerModel(BaseModel):
         description="Settings for building the container image.",
         notes=["**Requirement:** One of `image` or `image_build` must be defined"],
     )
+    command: List[str] = Field(
+        [],
+        description="Maps to the COMMAND parameter of [docker run](https://docs.docker.com/engine/reference/run/#security-configuration).",
+    )
     container_port: Optional[int] = Field(
         description="The port exposed by the container",
         notes=[
@@ -660,6 +664,8 @@ def container_def(container):
     extra_args = {}
     if len(container.linux_parameters) > 0:
         extra_args["LinuxParameters"] = LinuxParameters(**container.linux_parameters)
+    if len(container.command) > 0:
+        extra_args["Command"] = container.command
 
     return ContainerDefinition(
         Name=container.name,
@@ -684,6 +690,7 @@ def container_def(container):
                 "awslogs-create-group": True,
             },
         ),
+        **extra_args,
         **container.container_extra_props
     )
 

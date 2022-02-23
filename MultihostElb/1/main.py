@@ -3,25 +3,26 @@ from functools import lru_cache, partial
 from troposphere import Ref, Sub, Parameter, GetAtt, Tag, ImportValue, Tags
 from troposphere.cloudformation import AWSCustomObject
 from troposphere.elasticloadbalancingv2 import (
-    LoadBalancer,
-    LoadBalancerAttributes,
-    Listener,
-    ListenerRule,
-    ListenerCertificate,
+    Action,
     Certificate as ListenerCertificateEntry,
+    Condition,
     FixedResponseConfig,
     ForwardConfig,
-    TargetGroup,
-    Matcher,
-    TargetGroupAttribute,
-    TargetDescription,
-    Action,
-    RedirectConfig,
-    Condition,
     HostHeaderConfig,
+    Listener,
+    ListenerCertificate,
+    ListenerRule,
+    LoadBalancer,
+    LoadBalancerAttributes,
+    Matcher,
     PathPatternConfig,
     QueryStringConfig,
     QueryStringKeyValue,
+    RedirectConfig,
+    SubnetMapping,
+    TargetDescription,
+    TargetGroup,
+    TargetGroupAttribute,
 )
 from troposphere.s3 import (
     Bucket,
@@ -37,10 +38,6 @@ from troposphere.ec2 import SecurityGroup, SecurityGroupIngress, SecurityGroupRu
 from troposphere.wafv2 import (
     IPSet,
     RegexPatternSet,
-    AllowAction,
-    BlockAction,
-    CountAction,
-    NoneAction,
     IPSetReferenceStatement,
     ExcludedRule,
     ManagedRuleGroupStatement,
@@ -63,6 +60,7 @@ from troposphere.wafv2 import (
 from model import *
 from util import *
 
+import troposphere.wafv2
 
 PRIORITY_CACHE = []
 

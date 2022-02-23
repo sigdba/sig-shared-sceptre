@@ -632,7 +632,7 @@ def waf_acl_action(constructor, action):
     action = action.capitalize()
     # Some actions have an actual type defined in Troposphere. Others like Count
     # and None in OverrideAction are just dicts.
-    fn = globals().get(f"{action}Action")
+    fn = getattr(troposphere.wafv2, f"{action}Action", None)
     return constructor(**{action: fn() if fn else {}})
 
 

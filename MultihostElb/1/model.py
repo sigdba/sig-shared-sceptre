@@ -457,8 +457,16 @@ class UserDataModel(BaseModel):
     listeners: List[ListenerModel] = Field(
         description="One listener object for each port the ELB should listen on."
     )
-    subnet_ids: List[str] = Field(
+    subnet_ids: Optional[List[str]] = Field(
         description="At least two subnet IDs within the VPC for the ELB to occupy."
+    )
+    subnet_mappings: Optional[List[Dict[str, str]]] = Field(
+        description="""The IDs of the public subnets. You can specify only one subnet per
+                       Availability Zone. You must specify either subnets or
+                       subnet mappings, but not both.""",
+        notes=[
+            "**See Also:** [AWS::ElasticLoadBalancingV2::LoadBalancer SubnetMapping](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-loadbalancer-subnetmapping.html)"
+        ],
     )
     domain: Optional[str] = Field(
         description="The domain to append to short hostnames used elsewhere in the template.",
@@ -537,9 +545,8 @@ class UserDataModel(BaseModel):
         return v
 
     @root_validator
-    def require_subnet_ids(cls, values):
-        if len(values["subnet_ids"]) < 2:
-            raise ValueError("at least two subnet_ids are required")
+    def require_subnets(cls, values):
+        model_exclusive(values, "subnet_ids", "subnet_mappings", required=True)
         return values
 
     # TODO: Add error if security groups are specified for network LBs

@@ -7,20 +7,22 @@ import re
 from troposphere import Template, Ref, Sub, Parameter, GetAtt, Tags
 from troposphere.cloudformation import AWSCustomObject
 from troposphere.ecs import (
-    TaskDefinition,
-    Service,
     ContainerDefinition,
-    PortMapping,
-    LogConfiguration,
-    Environment,
-    LoadBalancer,
+    ContainerDependency,
     DeploymentConfiguration,
-    Volume,
     EFSVolumeConfiguration,
-    MountPoint,
-    Secret,
-    PlacementStrategy,
+    Environment,
     LinuxParameters,
+    LoadBalancer,
+    LogConfiguration,
+    MountPoint,
+    PlacementStrategy,
+    PortMapping,
+    Secret,
+    Service,
+    TaskDefinition,
+    Volume,
+    HealthCheck as ContainerHealthCheck,
 )
 from troposphere.elasticloadbalancingv2 import (
     ListenerRule,
@@ -269,6 +271,12 @@ class ContainerModel(BaseModel):
     health_check: Optional[HealthCheckModel] = Field(
         description="""Defines the health check for the target group. If `rules` is not specified
                        for the container, this setting has no effect."""
+    )
+    container_health_check: Optional[dict] = Field(
+        description="""Container health check as defined in [AWS::ECS::TaskDefinition HealthCheck](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-healthcheck.html)"""
+    )
+    depends_on: Optional[List[dict]] = Field(
+        description="""List of container dependencies as defined in [AWS::ECS::TaskDefinition ContainerDependency](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-containerdependency.html)"""
     )
     links: List[str] = Field(
         [],
@@ -666,6 +674,14 @@ def container_def(container):
         extra_args["LinuxParameters"] = LinuxParameters(**container.linux_parameters)
     if len(container.command) > 0:
         extra_args["Command"] = container.command
+    if container.depends_on:
+        extra_args["DependsOn"] = [
+            ContainerDependency(**d) for d in container.depends_on
+        ]
+    if container.container_health_check:
+        extra_args["HealthCheck"] = ContainerHealthCheck(
+            **container.container_health_check
+        )
 
     return ContainerDefinition(
         Name=container.name,

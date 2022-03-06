@@ -20,18 +20,8 @@ esac
 BASE="$(cd "$SCRIPT_DIR/.."; pwd -P)"
 GENDOC="python3 $SCRIPT_DIR/gendoc.py"
 
-mkdir -p "$BASE/doc"
-
-for template_path in $BASE/*/*/main.py; do
-    title="${template_path#$BASE}"
-    title="${title#/}"
-    md_file="$BASE/doc/$(echo "${title%/main.py}" |tr '/' '_').md"
-    echo "Documenting $template_path -> $md_file"
-    $GENDOC "$template_path" "$md_file" || die "Error generating documentation"
-done
-
-for template_path in $(grep -l 'class UserDataModel(BaseModel' $BASE/*.py); do
-    md_file="$BASE/doc/$(basename "$template_path" .py).md"
+for template_path in $(grep -l 'class UserDataModel(BaseModel' $BASE/templates/*/*.py); do
+    md_file="$(dirname $template_path)/readme.md"
     echo "Documenting $template_path -> $md_file"
     $GENDOC "$template_path" "$md_file" || die "Error generating documentation"
 done

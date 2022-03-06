@@ -20,15 +20,11 @@ jobs:
       - name: Build template packages
         run: bash build/package_all.sh ${{ github.run_number }}
 
-      - name: List template packages
-        id: get-packages
-        run: echo ::set-output name=packages::$(ls packages/*-${{ github.run_number }}.zip)
-
       - name: Release
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v1
         with:
           name: ${{ github.run_number }}
           tag_name: r${{ github.run_number }}
-          fail_on_unmatched_files: yes
-          files: ${{ steps.get-packages.outputs.packages }}
+          fail_on_unmatched_files: true
+          files: packages/*-${{ github.run_number }}.zip

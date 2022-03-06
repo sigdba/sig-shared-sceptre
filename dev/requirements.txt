@@ -1,9 +1,0 @@
-# . setenv.sh
-# pip install -Ur $SCRIPT_DIR/requirements.txt --no-cache-dir
-
-pip-upgrade-tool
-git-remote-codecommit
-boto3==1.20.4
-sceptre==2.6.3
-troposphere==3.1.1
-pydantic==1.8.2

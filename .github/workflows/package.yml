@@ -11,6 +11,9 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
+      - name: Install pip dependencies
+        run: pip install -Ur requirements.txt
+
       - name: Generate documentation
         run: bash build/gen_all_docs.sh
 

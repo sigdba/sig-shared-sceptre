@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+shopt -s nullglob
+
 die () {
     echo "ERROR: $*"
     exit 1
@@ -24,4 +26,24 @@ for template_path in $(grep -l 'class UserDataModel(BaseModel' $BASE/templates/*
     md_file="$(dirname $template_path)/readme.md"
     echo "Documenting $template_path -> $md_file"
     $GENDOC "$template_path" "$md_file" || die "Error generating documentation"
+done
+
+cat ${BASE}/build/readme-header.md >${BASE}/readme.md
+for t in ${BASE}/templates/*; do
+    tdoc=${t}/readme.md
+    tname=$(basename ${t})
+    if [ -f ${tdoc} ]; then
+        echo "- [${tname}](${tdoc##$BASE/})" >>${BASE}/readme.md
+    else
+        echo "WARNING: ${tdoc} not found"
+        echo "- $tname" >>${BASE}/readme.md
+    fi
+    for d in ${t}/doc/*.md; do
+        echo "  - [$(basename $d)](${d##$BASE/})" >>${BASE}/readme.md
+    done
+
+    examples=${t}/examples
+    if [ -d ${examples} ]; then
+        echo "  - [Examples](${examples##$BASE/})" >>${BASE}/readme.md
+    fi
 done

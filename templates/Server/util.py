@@ -47,8 +47,14 @@ def add_param(name, **kwargs):
     return TEMPLATE.add_parameter(Parameter(name, **kwargs))
 
 
+def add_output(title, value, export_name=None, **kwargs):
+    return TEMPLATE.add_output(
+        Output(title, Value=value, **opts_with(Export=(export_name, Export)), **kwargs)
+    )
+
+
 def add_export(title, key, value, **kwargs):
-    return TEMPLATE.add_output(Output(title, Value=value, Export=Export(key), **kwargs))
+    add_output(title, value, key, **kwargs)
 
 
 def add_mapping(name, mapping):
@@ -68,7 +74,12 @@ def opts_with(**kwargs):
             return Ref(v)
         return v
 
-    return {k: _eval(v) for k, v in kwargs.items() if v is not None}
+    def has_value(v):
+        if type(v) is tuple:
+            return v[0] is not None
+        return v is not None
+
+    return {k: _eval(v) for k, v in kwargs.items() if has_value(v)}
 
 
 def opts_from(o, **kwargs):

@@ -40,10 +40,7 @@ def ingress_for_allow(allow):
 
     def gen():
         for cidr in allow.cidr:
-            yield {
-                **base_opts,
-                "CidrIp": cidr,
-            }
+            yield {**base_opts, "CidrIp": cidr}
         if allow.sg_id:
             yield {
                 **base_opts,
@@ -174,10 +171,7 @@ def instance(user_data, ebs_mods_vols):
                 **{**user_data.ami.instance_tags, **user_data.instance_tags},
             ),
             Volumes=[
-                MountPoint(
-                    Device=f"/dev/xvd{m.device_letter}",
-                    VolumeId=Ref(v),
-                )
+                MountPoint(Device=f"/dev/xvd{m.device_letter}", VolumeId=Ref(v))
                 for m, v in ebs_mods_vols
             ],
             **opts_with(
@@ -305,9 +299,7 @@ def allow_statement(allow):
 
 class NsUpdate(AWSCustomObject):
     resource_type = "Custom::NsUpdate"
-    props = {
-        "ServiceToken": (str, True),
-    }
+    props = {"ServiceToken": (str, True)}
 
 
 def ns_entry_nsupdate(nsu_model, record_type, name, value):
@@ -413,5 +405,12 @@ def sceptre_handler(sceptre_user_data):
 
     add_export("InstanceId", Sub("${AWS::StackName}-InstanceId"), Ref(ec2_inst))
     add_export("InstanceSg", Sub("${AWS::StackName}-InstanceSg"), Ref("InstanceSg"))
+
+    for output in user_data.stack_outputs:
+        add_output(
+            output.name,
+            Sub(output.value),
+            **opts_with(export_name=output.export_name, Description=output.description),
+        )
 
     return TEMPLATE.to_json()

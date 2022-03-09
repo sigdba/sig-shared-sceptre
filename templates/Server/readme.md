@@ -25,6 +25,9 @@
 
 - `instance_profile` ([ProfileModel](#ProfileModel))
 
+- `stack_outputs` (List of [OutputModel](#OutputModel)) - Arbitrary (CloudFormation Stack Outputs)[https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/outputs-section-structure.html]
+                       with optional exports.
+
 - `route53` ([Route53Model](#Route53Model))
 
 - `ns_update` ([NsUpdateModel](#NsUpdateModel)) - Specifies how DNS entries should be updated when not using Route53.
@@ -151,6 +154,22 @@
 - `hosted_zone_id` (string)
 
 - `domain` (string) - **required**
+
+
+
+### OutputModel
+
+- `name` (string) - **required** - The Logical ID of the export. Must be unique within the stack's outputs.
+
+- `value` (string) - **required** - The value of the property returned by the aws cloudformation describe-stacks
+                       command. This string will be passed to
+                       (Fn::Sub)[https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-sub.html]
+
+- `description` (string)
+  - **Default:** `A description of the output value.`
+
+- `export_name` (string) - The name of the resource output to be exported for a cross-stack reference.
+                       This must be unique within the account's exports.
 
 
 

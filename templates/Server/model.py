@@ -130,7 +130,7 @@ class AmiModel(BaseModel):
     commands: Optional[List[str]] = Field(
         description="List of commands to encode as user data",
         notes=[
-            "**Warning:** Changing this value after the instance is created may trigger a reboot.",
+            "**Warning:** Changing this value after the instance is created may trigger a reboot."
         ],
     )
     instance_tags: Dict[str, str] = {}
@@ -256,6 +256,22 @@ class Route53Model(BaseModel):
         return v
 
 
+class OutputModel(BaseModel):
+    name: str = Field(
+        description="The Logical ID of the export. Must be unique within the stack's outputs."
+    )
+    value: str = Field(
+        description="""The value of the property returned by the aws cloudformation describe-stacks
+                       command. This string will be passed to
+                       (Fn::Sub)[https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-sub.html]"""
+    )
+    description: Optional[str] = Field("A description of the output value.")
+    export_name: Optional[str] = Field(
+        description="""The name of the resource output to be exported for a cross-stack reference.
+                       This must be unique within the account's exports."""
+    )
+
+
 class UserDataModel(BaseModel):
     instance_name: str
     ami: AmiModel
@@ -282,6 +298,11 @@ class UserDataModel(BaseModel):
     instance_extra_props = {}
     instance_tags: Dict[str, str] = {}
     instance_profile: Optional[ProfileModel]
+    stack_outputs: List[OutputModel] = Field(
+        [],
+        description="""Arbitrary (CloudFormation Stack Outputs)[https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/outputs-section-structure.html]
+                       with optional exports.""",
+    )
 
     route53: Optional[Route53Model]
     ns_update: Optional[NsUpdateModel] = Field(

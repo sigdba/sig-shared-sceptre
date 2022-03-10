@@ -263,7 +263,7 @@ class OutputModel(BaseModel):
     value: str = Field(
         description="""The value of the property returned by the aws cloudformation describe-stacks
                        command. This string will be passed to
-                       (Fn::Sub)[https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-sub.html]"""
+                       [Fn::Sub](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-sub.html)"""
     )
     description: Optional[str] = Field("A description of the output value.")
     export_name: Optional[str] = Field(
@@ -284,7 +284,7 @@ class UserDataModel(BaseModel):
     private_ip_address: Optional[str] = Field(
         description="Provide a fixed private IP address for the instance. If unspecified the instance will receive a random address within its subnet.",
         notes=[
-            "**See Also:** (AWS::EC2::Instance - PrivateIpAddress)[https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-instance.html#cfn-ec2-instance-privateipaddress]"
+            "**See Also:** [AWS::EC2::Instance - PrivateIpAddress](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-instance.html#cfn-ec2-instance-privateipaddress)"
         ],
     )
     allow_api_termination = False
@@ -300,7 +300,7 @@ class UserDataModel(BaseModel):
     instance_profile: Optional[ProfileModel]
     stack_outputs: List[OutputModel] = Field(
         [],
-        description="""Arbitrary (CloudFormation Stack Outputs)[https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/outputs-section-structure.html]
+        description="""Arbitrary [CloudFormation Stack Outputs](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/outputs-section-structure.html)
                        with optional exports.""",
     )
 

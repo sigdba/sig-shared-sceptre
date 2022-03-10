@@ -1,5 +1,9 @@
 ## Parameters
 
+- `EnvName` (String) - **required** - The name of the ECS cluster.
+
+- `VpcId` (String) - **required** - The ID of the VPC where the ECS cluster will be created.
+
 
 
 ## sceptre_user_data

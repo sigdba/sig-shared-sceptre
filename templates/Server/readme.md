@@ -1,5 +1,15 @@
 ## Parameters
 
+- `AvailabilityZone` (AWS::EC2::AvailabilityZone::Name) - **required**
+
+- `InstanceType` (String) - **required**
+
+- `KeyPairName` (AWS::EC2::KeyPair::KeyName) - **required** - SSH keypair used to access the server
+
+- `SubnetId` (AWS::EC2::Subnet::Id) - **required**
+
+- `VpcId` (AWS::EC2::VPC::Id) - **required**
+
 
 
 ## sceptre_user_data
@@ -11,7 +21,7 @@
 - `backups_enabled` (boolean) - **required**
 
 - `private_ip_address` (string) - Provide a fixed private IP address for the instance. If unspecified the instance will receive a random address within its subnet.
-  - **See Also:** (AWS::EC2::Instance - PrivateIpAddress)[https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-instance.html#cfn-ec2-instance-privateipaddress]
+  - **See Also:** [AWS::EC2::Instance - PrivateIpAddress](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-instance.html#cfn-ec2-instance-privateipaddress)
 
 - `ebs_volumes` (List of [EbsVolumeModel](#EbsVolumeModel)) - Additional EBS volumes to attach to the instance.
 
@@ -25,7 +35,7 @@
 
 - `instance_profile` ([ProfileModel](#ProfileModel))
 
-- `stack_outputs` (List of [OutputModel](#OutputModel)) - Arbitrary (CloudFormation Stack Outputs)[https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/outputs-section-structure.html]
+- `stack_outputs` (List of [OutputModel](#OutputModel)) - Arbitrary [CloudFormation Stack Outputs](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/outputs-section-structure.html)
                        with optional exports.
 
 - `route53` ([Route53Model](#Route53Model))
@@ -163,7 +173,7 @@
 
 - `value` (string) - **required** - The value of the property returned by the aws cloudformation describe-stacks
                        command. This string will be passed to
-                       (Fn::Sub)[https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-sub.html]
+                       [Fn::Sub](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-sub.html)
 
 - `description` (string)
   - **Default:** `A description of the output value.`

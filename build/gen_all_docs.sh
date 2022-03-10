@@ -20,11 +20,13 @@ case $(basename $SHELL) in
 esac
 
 BASE="$(cd "$SCRIPT_DIR/.."; pwd -P)"
+TEMPLATES=${BASE}/templates
 GENDOC="python3 $SCRIPT_DIR/gendoc.py"
 
-for template_path in $(grep -l 'class UserDataModel(BaseModel' $BASE/templates/*/*.py); do
+for model_path in $(grep -l 'class UserDataModel(BaseModel' $BASE/templates/*/*.py); do
+    template_path=$(grep -l 'def sceptre_handler(' $(dirname $model_path)/*.py)
     md_file="$(dirname $template_path)/readme.md"
-    echo "Documenting $template_path -> $md_file"
+    echo "Documenting ${template_path/$TEMPLATES} -> ${md_file/$TEMPLATES}"
     $GENDOC "$template_path" "$md_file" || die "Error generating documentation"
 done
 

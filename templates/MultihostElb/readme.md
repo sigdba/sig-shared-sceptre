@@ -1,5 +1,7 @@
 ## Parameters
 
+- `VpcId` (String) - **required** - The ID of the VPC where the ECS cluster will be created.
+
 
 
 ## sceptre_user_data

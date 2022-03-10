@@ -1,5 +1,7 @@
 ## Parameters
 
+- `VpcId` (AWS::EC2::VPC::Id) - **required**
+
 
 
 ## sceptre_user_data

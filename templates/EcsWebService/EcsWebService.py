@@ -3,8 +3,6 @@ import json
 import os.path
 import sys
 
-import model
-
 from troposphere import GetAtt, Parameter, Ref, Sub, Tags, Template
 from troposphere.awslambda import Code, Function, Permission
 from troposphere.cloudformation import AWSCustomObject
@@ -42,6 +40,7 @@ from troposphere.events import Rule as EventRule
 from troposphere.events import Target as EventTarget
 from troposphere.iam import Policy, Role
 
+from model import *
 from util import *
 
 
@@ -346,7 +345,7 @@ def task_def(container_defs, efs_volumes, exec_role):
 
 def target_group(protocol, health_check, target_group_props, default_health_check_path):
     if not health_check:
-        health_check = model.HealthCheckModel()
+        health_check = HealthCheckModel()
     if not health_check.path:
         health_check.path = default_health_check_path
     attrs = target_group_props.attributes
@@ -549,7 +548,7 @@ def sceptre_handler(sceptre_user_data):
         # We're generating documetation. Return the template with just parameters.
         return TEMPLATE
 
-    user_data = model.UserDataModel(**sceptre_user_data)
+    user_data = UserDataModel(**sceptre_user_data)
     efs_volumes = user_data.efs_volumes
 
     # If we're using secrets, we need to define an execution role

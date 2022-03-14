@@ -530,13 +530,19 @@ class UserDataModel(BaseModel):
                        instance, to specify the internal size of a split-horizon
                        DNS setup.""",
     )
-    ns_update: Optional[NsUpdateModel] = Field(
+    ns_update: Optional[Union[NsUpdateModel, List[NsUpdateModel]]] = Field(
         description="Specifies how DNS entries should be updated when not using Route53."
     )
     waf_acls: List[Union[str, WafAclModel]] = Field(
         [],
         description="List of WAF WebACL ARNs and/or WafAclModel objects to associate with this ELB.",
     )
+
+    @validator("ns_update")
+    def ns_update_force_list(cls, v):
+        if type(v) is list:
+            return v
+        return [v]
 
     @validator("listeners")
     def require_listeners(cls, v):

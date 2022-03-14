@@ -1,5 +1,6 @@
 import sys
 import hashlib
+import os.path
 from troposphere import Template, Parameter, AWSObject, Ref, Output, Export
 
 TEMPLATE = Template()
@@ -13,13 +14,6 @@ TITLE_CHAR_MAP = {
     "/": "SLASH",
     " ": "SP",
 }
-
-
-def read_local_file(path):
-    with open(
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), path), "r"
-    ) as fp:
-        return fp.read()
 
 
 def add_resource(r):
@@ -118,6 +112,13 @@ def flatten(lst):
                 yield item
 
     return list(f(lst))
+
+
+def read_local_file(path):
+    with open(
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), path), "r"
+    ) as fp:
+        return fp.read()
 
 
 def read_resource(path):

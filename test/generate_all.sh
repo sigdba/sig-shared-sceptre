@@ -20,6 +20,8 @@ die () {
 
 # Make SCRIPT_DIR absolute
 SCRIPT_DIR="$(cd "$SCRIPT_DIR"; pwd -P)"
+cd $SCRIPT_DIR
+
 SCEPTRE_DIR="$SCRIPT_DIR"
 OUT_DIR="$SCRIPT_DIR/current"
 
@@ -44,4 +46,5 @@ list_stacks () {
 
 echo "Generating stacks into $OUT_DIR"
 
+cd $SCEPTRE_DIR
 list_stacks | parallel -j 300% --halt now,fail=1 gen_stack $OUT_DIR {}

@@ -1,8 +1,6 @@
 import sys
 import hashlib
-import os
-from troposphere import AWSObject, Export, Output, Parameter, Ref, Template
-
+from troposphere import Template, Parameter, AWSObject, Ref, Output, Export
 
 TEMPLATE = Template()
 
@@ -65,6 +63,14 @@ def debug(*args):
     print(*args, file=sys.stderr)
 
 
+def tags_with(tags, tags_key="Tags"):
+    if type(tags) is dict:
+        tags = [{"Key": k, "Value": v} for k, v in tags.items()]
+    if len(tags) < 1:
+        return {}
+    return {tags_key: tags}
+
+
 def opts_with(**kwargs):
     def _eval(v):
         if type(v) is tuple:
@@ -118,5 +124,44 @@ def read_resource(path):
     return read_local_file(os.path.join("resources", path))
 
 
-def md5(s):
-    return hashlib.md5(s.encode("utf-8")).hexdigest()
+def model_alias(keeper, alias, values):
+    if alias in values:
+        if keeper in values:
+            raise ValueError(
+                "{} is an alias for {}, they cannot be specified together".format(
+                    alias, keeper
+                )
+            )
+        values[keeper] = values[alias]
+        del values[alias]
+    return values
+
+
+def model_string_or_list(key, values):
+    if key in values:
+        v = values[key]
+        if isinstance(v, str):
+            values[key] = [v]
+    return values
+
+
+def model_limit_values(allowed, v):
+    if v not in allowed:
+        raise ValueError("value must be one of {}", allowed)
+    return v
+
+
+def model_exclusive(values, *keys, required=False):
+    has = [k for k in keys if k in values and values[k] is not None]
+    if len(has) < 1:
+        if required:
+            raise ValueError(f"One of {', '.join(keys)} must be specified.")
+        return None
+    if len(has) > 1:
+        raise ValueError(f"Only one of {', '.join(keys)} may be specified.")
+    return has[0]
+
+
+def md5(*s):
+    hs = "".join(map(str, s))
+    return hashlib.md5(hs.encode("utf-8")).hexdigest()

@@ -544,12 +544,10 @@ def ns_entry_route53(zone_id, record_type, name, value, title_suffix=""):
 
 class NsUpdate(AWSCustomObject):
     resource_type = "Custom::NsUpdate"
-    props = {
-        "ServiceToken": (str, True),
-    }
+    props = {"ServiceToken": (str, True)}
 
 
-def ns_entry_nsupdate(nsu_model, record_type, name, value):
+def ns_entry_nsupdate(nsu_model, record_type, name, value, _title_suffix=""):
     lambda_arn = (
         nsu_model.lambda_arn
         if nsu_model.lambda_arn is not None
@@ -570,7 +568,7 @@ def ns_entry_nsupdate(nsu_model, record_type, name, value):
 
     return add_resource(
         NsUpdate(
-            clean_title("NsUpdateFor{}".format(name)),
+            clean_title("NsUpdateFor{}{}".format(name, _title_suffix)),
             validation=False,
             ServiceToken=lambda_arn,
             **args,
@@ -594,9 +592,18 @@ def ns_entry_fn(user_data):
 
         return _multizone
 
-    nsupdate_model = user_data.ns_update
-    if nsupdate_model is not None:
-        return partial(ns_entry_nsupdate, nsupdate_model)
+    nsupdate_models = user_data.ns_update
+    if nsupdate_models is not None and len(nsupdate_models) > 0:
+        if len(nsupdate_models) < 2:
+            return partial(ns_entry_nsupdate, nsupdate_models[0])
+
+        def _multiserver(*args):
+            return [
+                ns_entry_nsupdate(m, _title_suffix=md5(m), *args)
+                for m in nsupdate_models
+            ][0]
+
+        return _multiserver
 
     # TODO: Instead of doing nothing, add an output to the stack for convenient lookup
     return lambda t, n, v: None

@@ -1,2 +1,5 @@
 __pycache__
 packages
+.docker-dev*
+/docker-dev.sh
+site.conf

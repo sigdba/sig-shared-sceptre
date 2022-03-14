@@ -1,0 +1,58 @@
+---
+template_path: EcsWebService/EcsWebService.py
+
+parameters:
+  VpcId: vpc-12345
+  ClusterArn: clusterArn
+  ListenerArn: arn:for:the:listener
+
+sceptre_user_data:
+  service_tags:
+    baggy.link.category: Banner 9
+    baggy.link.title: Extensibility Tools
+    baggy.link.url: https://banner.ban.school.edu/BannerExtensibility
+
+  efs_volumes:
+    - name: content
+      fs_id: fs-12345
+      root_directory: /extensibility_content
+
+  containers:
+    - name: tomcat
+      image_build:
+        codebuild_project_name: banner-app
+        ecr_repo_name: banner-app
+        env_vars:
+          - name: APP_NAME
+            value: BannerExtensibility
+          - name: APP_VER
+            value: 9.9-SIGDB
+
+      container_port: 8080
+      protocol: HTTP
+      container_memory: 2220
+      container_memory_reservation: 1937
+      rules:
+        - path: /BannerExtensibility
+          host: banner.*
+
+      mount_points:
+        - container_path: /content
+          source_volume: content
+          read_only: true
+
+      env_vars:
+        TOMCAT_MEMORY_ARGS: "-Xms1700M -Xmx2200M"
+        TOMCAT_EXTRA_ARGS: "-Duser.timezone=America/New_York -Doracle.jdbc.autoCommitSpecCompliant=false -Dbanner.logging.dir=/app_logs"
+
+        TCDS_BP_JDBC_URL: jdbc:url
+        TCDS_BP_USER: banproxy
+        TCDS_BP_JNDI_NAME: jdbc/bannerDataSource
+
+        TCDS_SS_JDBC_URL: jdbc:url
+        TCDS_SS_USER: ban_ss_user
+        TCDS_SS_JNDI_NAME: jdbc/bannerSsbDataSource
+
+      secrets:
+        TCDS_BP_PASSWORD: some_arn
+        TCDS_SS_PASSWORD: some_arn

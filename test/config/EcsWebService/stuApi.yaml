@@ -1,0 +1,55 @@
+---
+template_path: EcsWebService/EcsWebService.py
+
+parameters:
+  VpcId: vpc-12345
+  ClusterArn: clusterArn
+  ListenerArn: arn:for:the:listener
+
+sceptre_user_data:
+  containers:
+    - name: tomcat
+      image_build:
+        codebuild_project_name: banner-app
+        ecr_repo_name: banner-app
+        env_vars:
+          - name: APP_NAME
+            value: StudentApi
+          - name: APP_VER
+            value: 9.25.0.2-SIGDB
+          - name: FORCE_REBUILD
+            value: '1'
+
+      container_port: 8080
+      protocol: HTTP
+      container_memory: 4500
+      rules:
+        - path: /StudentApi
+          host: banner.*
+
+      env_vars:
+        TOMCAT_MEMORY_ARGS: "-Xms1024M -Xmx4098M"
+        TOMCAT_EXTRA_ARGS: "-Duser.timezone=America/New_York -Doracle.jdbc.autoCommitSpecCompliant=false -Dbanner.logging.dir=/app_logs"
+        CONNATTR_relaxedQueryChars: "|{}[]:"
+
+        TCDS_BP_JDBC_URL: jdbc:url
+        TCDS_BP_USER: banproxy
+        TCDS_BP_JNDI_NAME: jdbc/bannerDataSource
+
+        TCDS_SS_JDBC_URL: jdbc:url
+        TCDS_SS_USER: ban_ss_user
+        TCDS_SS_JNDI_NAME: jdbc/bannerSsbDataSource
+
+        TCDS_CD_JDBC_URL: jdbc:url
+        TCDS_CD_USER: cdcadmin
+        TCDS_CD_JNDI_NAME: jdbc/cdcadmin
+
+        TCDS_EV_JDBC_URL: jdbc:url
+        TCDS_EV_USER: events
+        TCDS_EV_JNDI_NAME: jdbc/events
+
+      secrets:
+        TCDS_BP_PASSWORD: some_arn
+        TCDS_SS_PASSWORD: some_arn
+        TCDS_CD_PASSWORD: some_arn
+        TCDS_EV_PASSWORD: some_arn

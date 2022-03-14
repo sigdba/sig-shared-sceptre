@@ -1,0 +1,30 @@
+---
+template_path: EcsWebService/EcsWebService.py
+
+parameters:
+  VpcId: vpc-12345
+  ClusterArn: clusterArn
+  ListenerArn: listener_arn
+
+  MinimumHealthyPercent: "0"
+  MaximumPercent: "100"
+
+sceptre_user_data:
+  efs_volumes:
+    - name: data
+      fs_id: efs-12345
+      root_directory: /opendj
+
+  containers:
+    - image: openidentityplatform/opendj:4.4.11
+      container_memory: 3000
+      mount_points:
+        - source_volume: data
+          container_path: /opt/opendj/data
+      env_vars:
+        BASE_DN: dc=banner
+        OPENDJ_JAVA_ARGS: "-Xms2048m -Xmx2048m"
+      secrets:
+        ROOT_PASSWORD: some_arn
+      target_group_arn: some_arn
+      container_port: 1389

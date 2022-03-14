@@ -1,0 +1,342 @@
+---
+- Parameters:
+    ClusterArn:
+      Description: The ARN or name of the ECS cluster
+      Type: String
+    DesiredCount:
+      Default: '1'
+      Description: The desired number of instances of this service
+      Type: Number
+    ListenerArn:
+      Description: The ARN of the ELB listener which will be used by this service
+      Type: String
+    MaximumPercent:
+      Default: '200'
+      Description: The maximum percent of `DesiredCount` allowed to be running during
+        updates.
+      Type: Number
+    MinimumHealthyPercent:
+      Default: '100'
+      Description: The minimum number of running instances of this service to keep
+        running during an update.
+      Type: Number
+    VpcId:
+      Description: The ID of the VPC of the ECS cluster
+      Type: String
+  Resources:
+    ImageBuildFortomcat:
+      Properties:
+        EnvironmentVariablesOverride:
+        - name: APP_NAME
+          type: PLAINTEXT
+          value: BannerAccessMgmt
+        - name: APP_VER
+          type: PLAINTEXT
+          value: SIGDB
+        ProjectName: banner-app
+        RepositoryName: banner-app
+        ServiceToken:
+          Fn::GetAtt:
+          - LambdaFunctionForCodeBuild
+          - Arn
+      Type: Custom::ImageBuild
+    LambdaExecutionRole:
+      Properties:
+        AssumeRolePolicyDocument:
+          Statement:
+          - Action:
+            - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+              - lambda.amazonaws.com
+          Version: '2012-10-17'
+        ManagedPolicyArns: []
+        Path: /
+        Policies:
+        - PolicyDocument:
+            Statement:
+            - Action:
+              - autoscaling:CompleteLifecycleAction
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+              - ecr:DescribeImages
+              - ecr:DescribeRepositories
+              - ecr:ListImages
+              - codebuild:StartBuild
+              - codebuild:BatchGetBuilds
+              - ecs:UpdateService
+              Effect: Allow
+              Resource: '*'
+            Version: '2012-10-17'
+          PolicyName: lambda-inline
+      Type: AWS::IAM::Role
+    LambdaFunctionForCodeBuild:
+      Properties:
+        Code:
+          ZipFile:
+            Fn::Sub: "#!/usr/bin/env python3\nimport os\nimport time\nimport traceback\n\
+              import boto3\nimport cfnresponse\n\nfrom functools import partial, reduce\n\
+              from datetime import datetime\n\n\nREGION = '${AWS::Region}'\n\n# Check\
+              \ if we're in a test environment, and if so set the region from the\n\
+              # environment or use a default.\nif 'AWS::Region' in REGION:\n    REGION\
+              \ = os.environ.get('AWS_DEFAULT_REGION', 'us-east-1')\n    print(\"\
+              Test environment detected, setting REGION to\", REGION)\nelse:\n   \
+              \ print(\"REGION:\", REGION)\n\n\nCB = boto3.client('codebuild', region_name=REGION)\n\
+              ECR = boto3.client('ecr', region_name=REGION)\n\n\ndef longest(it):\n\
+              \    return reduce((lambda a, b: b if len(b) > len(a) else a), it)\n\
+              \n\ndef get_image_tags(repository_name):\n    for page in ECR.get_paginator('list_images').paginate(repositoryName=repository_name,\
+              \ filter={'tagStatus': 'TAGGED'}):\n       for id in page['imageIds']:\n\
+              \           yield id['imageTag']\n\n\ndef describe_images(repo_name,\
+              \ tags):\n    image_ids = [{'imageTag': t} for t in tags]\n    for page\
+              \ in ECR.get_paginator('describe_images').paginate(repositoryName=repo_name,\
+              \ imageIds=image_ids):\n        for d in page['imageDetails']:\n   \
+              \         yield d\n\n\ndef get_build_status(build_id):\n    print('Fetching\
+              \ build status')\n    return CB.batch_get_builds(ids=[build_id])['builds'][0]['buildStatus']\n\
+              \n\ndef do_build(props, res_fn):\n    res = CB.start_build(projectName=props['ProjectName'],\n\
+              \                         environmentVariablesOverride=props['EnvironmentVariablesOverride'])\n\
+              \    build_props = res['build']\n    build_num = build_props['buildNumber']\n\
+              \    build_id = build_props['id']\n\n    print(\"Build: {} ({})\".format(build_id,\
+              \ build_num))\n\n    while True:\n        print('Waiting 30 seconds')\n\
+              \        time.sleep(30)\n        status = get_build_status(build_id)\n\
+              \        print('Build status:', status)\n        if status == 'SUCCEEDED':\n\
+              \            print(\"Build succeeded.\")\n            return build_num,\
+              \ build_id\n        elif status == 'IN_PROGRESS':\n            continue\n\
+              \        else:\n            res_fn(cfnresponse.FAILED, {}, reason=\"\
+              Build finished with status '{}'\".format(status))\n            return\
+              \ None, None\n\n\ndef find_image(repo, build_time, build_num):\n   \
+              \ image_tags = [t for t in get_image_tags(repo) if t == build_num or\
+              \ t.endswith('-' + build_num)]\n    images = [d for d in describe_images(repo,\
+              \ image_tags) if d['imagePushedAt'].replace(tzinfo=None) > build_time]\n\
+              \    if len(images) == 1:\n        image = images[0]\n        print('Found\
+              \ image:', image)\n        print('Fetching Image URI')\n        image_tag\
+              \ = longest(image['imageTags'])\n        image['imageUri'] = '{}:{}'.format(\n\
+              \            ECR.describe_repositories(repositoryNames=[repo])['repositories'][0]['repositoryUri'],\
+              \ image_tag)\n        print('ImageURI:', image['imageUri'])\n      \
+              \  return image\n    else:\n        res_fn(cfnresponse.FAILED, {}, reason='Build\
+              \ succeeded but found {} matching images in ECR repository'.format(len(images)))\n\
+              \        return None\n\n\ndef do_create_update(event, res_fn):\n   \
+              \ props = event['ResourceProperties']\n\n    build_time = datetime.utcnow()\n\
+              \    build_num, build_id = do_build(props, res_fn)\n\n    if build_num\
+              \ is None:\n        return\n\n    build_num = str(build_num)\n    res_data\
+              \ = {'BuildId': build_id, 'BuildNum': build_num}\n\n    if 'RepositoryName'\
+              \ in props:\n        image = find_image(props['RepositoryName'], build_time,\
+              \ build_num)\n        if image is None:\n            return\n      \
+              \  res_data['ImageURI'] = image['imageUri']\n\n    res_fn(cfnresponse.SUCCESS,\
+              \ res_data)\n\n\ndef print_response(responseStatus, responseData, physicalResourceId=None,\
+              \ noEcho=False, reason=None):\n    print('-----------------------------------------------------------')\n\
+              \    print(\"responseStatus:\", responseStatus, \"\\nresponseData:\"\
+              , responseData, \"\\nphysicalResourceId:\", physicalResourceId,\n  \
+              \        \"\\nreason:\", reason)\n    print('-----------------------------------------------------------')\n\
+              \n\ndef lambda_handler(event, context):\n    print('event:', event)\n\
+              \    req_type = event['RequestType']\n\n    if context is None:\n  \
+              \      # We're in a test environment\n        res_fn = print_response\n\
+              \    else:\n        res_fn = partial(cfnresponse.send, event, context)\n\
+              \n    try:\n        if req_type in ['Create', 'Update']:\n         \
+              \   return do_create_update(event, res_fn)\n        elif req_type ==\
+              \ 'Delete':\n            res_fn(cfnresponse.SUCCESS, {})\n        else:\n\
+              \            print('No handler for event type:', req_type, '\\nReturning\
+              \ failure.')\n            res_fn(cfnresponse.FAILED, {}, reason='No\
+              \ handler for event type \"{}\"'.format(req_type))\n    except Exception\
+              \ as err:\n       traceback.print_exc()\n       res_fn(cfnresponse.FAILED,\
+              \ {}, reason=str(err))\n\n\nif __name__ == '__main__':\n    event =\
+              \ {\n        \"RequestType\" : \"Create\",\n        \"RequestId\" :\
+              \ \"somerequest\",\n        \"ResponseURL\" : \"pre-signed-url-for-create-response\"\
+              ,\n        \"ResourceType\" : \"Custom::MyCustomResourceType\",\n  \
+              \      \"LogicalResourceId\" : \"SomeLocalResourceId\",\n        \"\
+              StackId\" : \"arn:aws:cloudformation:us-east-2:namespace:stack/stack-name/guid\"\
+              ,\n        \"ResourceProperties\" : {\n            \"ProjectName\":\
+              \ \"banner-app\",\n            \"EnvironmentVariablesOverride\": [\n\
+              \                {'name': 'APP_VER', 'value': '9.24.0.1-PPRD'},\n  \
+              \              {'name': 'APP_NAME', 'value': 'StudentApi'},\n      \
+              \      ],\n            \"RepositoryName\" : \"banner-app\"\n       \
+              \ }\n    }\n    lambda_handler(event, None)\n"
+        Description: Builds a container image
+        Handler: index.lambda_handler
+        MemorySize: 128
+        Role:
+          Fn::GetAtt:
+          - LambdaExecutionRole
+          - Arn
+        Runtime: python3.6
+        Timeout: 900
+      Type: AWS::Lambda::Function
+    ListenerRule16116:
+      Properties:
+        Actions:
+        - TargetGroupArn:
+            Ref: TargetGroupFORSLASHBannerAccessMgmtSLASH
+          Type: forward
+        Conditions:
+        - Field: path-pattern
+          PathPatternConfig:
+            Values:
+            - /BannerAccessMgmt
+            - /BannerAccessMgmt/*
+        - Field: host-header
+          HostHeaderConfig:
+            Values:
+            - banner.*
+        ListenerArn:
+          Ref: ListenerArn
+        Priority: 16116
+      Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    ListenerRule43594:
+      Properties:
+        Actions:
+        - TargetGroupArn:
+            Ref: TargetGroupFORSLASHBannerAccessMgmtSLASH
+          Type: forward
+        Conditions:
+        - Field: path-pattern
+          PathPatternConfig:
+            Values:
+            - /BannerAccessMgmt.ws
+            - /BannerAccessMgmt.ws/*
+        - Field: host-header
+          HostHeaderConfig:
+            Values:
+            - banner.*
+        ListenerArn:
+          Ref: ListenerArn
+        Priority: 43594
+      Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Service:
+      DependsOn:
+      - ListenerRule16116
+      - ListenerRule43594
+      Properties:
+        Cluster:
+          Ref: ClusterArn
+        DeploymentConfiguration:
+          MaximumPercent:
+            Ref: MaximumPercent
+          MinimumHealthyPercent:
+            Ref: MinimumHealthyPercent
+        DesiredCount:
+          Ref: DesiredCount
+        LoadBalancers:
+        - ContainerName: tomcat
+          ContainerPort: 8080
+          TargetGroupArn:
+            Ref: TargetGroupFORSLASHBannerAccessMgmtSLASH
+        PlacementStrategies:
+        - Field: memory
+          Type: binpack
+        Tags:
+        - Key: baggy.link.category
+          Value: Admin
+        - Key: baggy.link.title
+          Value: Access Management
+        - Key: baggy.link.url
+          Value: https://banner.ban.school.edu/BannerAccessMgmt
+        TaskDefinition:
+          Ref: TaskDef
+      Type: AWS::ECS::Service
+    TargetGroupFORSLASHBannerAccessMgmtSLASH:
+      Properties:
+        HealthCheckIntervalSeconds: 60
+        HealthCheckPath: /BannerAccessMgmt/
+        HealthCheckProtocol: HTTP
+        HealthCheckTimeoutSeconds: 30
+        Matcher:
+          HttpCode: 200-399
+        Port: 8080
+        Protocol: HTTP
+        TargetGroupAttributes:
+        - Key: stickiness.enabled
+          Value: 'true'
+        - Key: stickiness.type
+          Value: lb_cookie
+        TargetType: instance
+        UnhealthyThresholdCount: 5
+        VpcId:
+          Ref: VpcId
+      Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    TaskDef:
+      Properties:
+        ContainerDefinitions:
+        - Environment:
+          - Name: AWS_DEFAULT_REGION
+            Value:
+              Ref: AWS::Region
+          - Name: TOMCAT_MEMORY_ARGS
+            Value: -Xms1024m -Xmx2048m
+          - Name: TOMCAT_EXTRA_ARGS
+            Value: -Duser.timezone=America/New_York -Doracle.jdbc.autoCommitSpecCompliant=false
+              -Dbanner.logging.dir=/app_logs
+          - Name: TCDS_BP_JDBC_URL
+            Value: jdbc:url
+          - Name: TCDS_BP_USER
+            Value: banproxy
+          - Name: TCDS_BP_JNDI_NAME
+            Value: jdbc/bannerDataSource
+          Essential: true
+          Hostname:
+            Ref: AWS::StackName
+          Image:
+            Fn::GetAtt:
+            - ImageBuildFortomcat
+            - ImageURI
+          Links: []
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-create-group: true
+              awslogs-group:
+                Fn::Sub: /ecs/${AWS::StackName}
+              awslogs-region:
+                Ref: AWS::Region
+              awslogs-stream-prefix: ecs
+          Memory: 2248
+          MemoryReservation: 1031
+          MountPoints: []
+          Name: tomcat
+          PortMappings:
+          - ContainerPort: 8080
+          Secrets:
+          - Name: TCDS_BP_PASSWORD
+            ValueFrom: some_arn
+        ExecutionRoleArn:
+          Ref: TaskExecutionRole
+        Family:
+          Ref: AWS::StackName
+        Volumes: []
+      Type: AWS::ECS::TaskDefinition
+    TaskExecutionRole:
+      Properties:
+        AssumeRolePolicyDocument:
+          Statement:
+          - Action:
+            - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+              - ecs-tasks.amazonaws.com
+          Version: '2012-10-17'
+        ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+        Policies:
+        - PolicyDocument:
+            Statement:
+            - Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+              - logs:DescribeLogStreams
+              Effect: Allow
+              Resource:
+              - arn:aws:logs:*:*:*
+            Version: '2012-10-17'
+          PolicyName: root
+        - PolicyDocument:
+            Statement:
+            - Action: ssm:GetParameters
+              Effect: Allow
+              Resource:
+                Fn::Sub: arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/some_arn
+            Version: '2012-10-17'
+          PolicyName: secrets
+      Type: AWS::IAM::Role
+

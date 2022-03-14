@@ -1,0 +1,26 @@
+---
+template_path: EcsWebService/EcsWebService.py
+
+parameters:
+  VpcId: vpc-12345
+  ClusterArn: clusterArn
+  ListenerArn: some_arn
+
+sceptre_user_data:
+  containers:
+    - image: sigcorp/openssh-client:latest
+      command:
+        - /usr/bin/ssh
+        - "-g"
+        - "-o"
+        - "ServerAliveInterval=60"
+        - "-L"
+        - "1521:localhost:1521"
+        - "-N"
+        - tunnel@34.195.33.51
+      secrets:
+        SSH_DEPLOY_KEY: some_arn
+      container_memory: 256
+      container_memory_reservation: 6
+      target_group_arn: some_arn
+      container_port: 1521

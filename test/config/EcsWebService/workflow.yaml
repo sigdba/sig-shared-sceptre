@@ -1,0 +1,52 @@
+---
+template_path: EcsWebService/EcsWebService.py
+
+parameters:
+  VpcId: vpc-12345
+  ClusterArn: clusterArn
+  ListenerArn: arn:for:the:listener
+
+sceptre_user_data:
+  service_tags:
+    baggy.link.category: Banner
+    baggy.link.title: Banner Workflow
+    baggy.link.url: https://banner.ban.school.edu/workflow/
+
+  efs_volumes:
+    - name: wfroot
+      fs_id: fs-12345
+      root_directory: /workflow/workflow88
+    - name: tomcat_webapps
+      fs_id: fs-12345
+      root_directory: /workflow/tomcat_webapps
+
+  containers:
+    - name: engine
+      image: openjdk:8u322
+      container_memory: 1024
+      container_memory_reservation: 512
+      mount_points:
+        - source_volume: wfroot
+          container_path: /mnt/sig-ban-efs/workflow/workflow88
+      command:
+        - /bin/bash
+        - "-c"
+        - "export WORKFLOW_HOME=/mnt/sig-ban-efs/workflow/workflow88 && cd $WORKFLOW_HOME && java -Xmx256m -jar /mnt/sig-ban-efs/workflow/workflow88/engine/engine.jar main -loggingDir /mnt/sig-ban-efs/workflow/workflow88/engine -nohook"
+
+    - name: tomcat
+      image: sigcorp/tomcat:latest-8-jdk8
+      links:
+        - engine
+      container_port: 8080
+      protocol: HTTP
+      container_memory: 5320
+      container_memory_reservation: 1024
+      mount_points:
+        - source_volume: tomcat_webapps
+          container_path: /usr/local/tomcat/webapps
+      rules:
+        - path: /workflow
+          host: banner.*
+      env_vars:
+        TOMCAT_MEMORY_ARGS: "-Xms512M -Xmx5120M"
+        TOMCAT_EXTRA_ARGS: "-Duser.timezone=America/New_York -Doracle.jdbc.autoCommitSpecCompliant=false -Dbanner.logging.dir=/app_logs"

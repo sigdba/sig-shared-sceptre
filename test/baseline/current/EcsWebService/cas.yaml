@@ -1,0 +1,202 @@
+---
+- Parameters:
+    ClusterArn:
+      Description: The ARN or name of the ECS cluster
+      Type: String
+    DesiredCount:
+      Default: '1'
+      Description: The desired number of instances of this service
+      Type: Number
+    ListenerArn:
+      Description: The ARN of the ELB listener which will be used by this service
+      Type: String
+    MaximumPercent:
+      Default: '200'
+      Description: The maximum percent of `DesiredCount` allowed to be running during
+        updates.
+      Type: Number
+    MinimumHealthyPercent:
+      Default: '100'
+      Description: The minimum number of running instances of this service to keep
+        running during an update.
+      Type: Number
+    VpcId:
+      Description: The ID of the VPC of the ECS cluster
+      Type: String
+  Resources:
+    ListenerRule7155:
+      Properties:
+        Actions:
+        - TargetGroupArn:
+            Ref: TargetGroupFORSLASHcasSLASH
+          Type: forward
+        Conditions:
+        - Field: host-header
+          HostHeaderConfig:
+            Values:
+            - login.*
+        ListenerArn:
+          Ref: ListenerArn
+        Priority: 7155
+      Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Service:
+      DependsOn:
+      - ListenerRule7155
+      Properties:
+        Cluster:
+          Ref: ClusterArn
+        DeploymentConfiguration:
+          MaximumPercent:
+            Ref: MaximumPercent
+          MinimumHealthyPercent:
+            Ref: MinimumHealthyPercent
+        DesiredCount:
+          Ref: DesiredCount
+        LoadBalancers:
+        - ContainerName: main
+          ContainerPort: 8443
+          TargetGroupArn:
+            Ref: TargetGroupFORSLASHcasSLASH
+        PlacementStrategies:
+        - Field: memory
+          Type: binpack
+        Tags:
+        - Key: baggy.link.category
+          Value: Admin
+        - Key: baggy.link.title
+          Value: CAS
+        - Key: baggy.link.url
+          Value: https://login.ban.school.edu/cas
+        TaskDefinition:
+          Ref: TaskDef
+      Type: AWS::ECS::Service
+    TargetGroupFORSLASHcasSLASH:
+      Properties:
+        HealthCheckIntervalSeconds: 60
+        HealthCheckPath: /cas/
+        HealthCheckProtocol: HTTPS
+        HealthCheckTimeoutSeconds: 30
+        Matcher:
+          HttpCode: 200-399
+        Port: 8080
+        Protocol: HTTPS
+        TargetGroupAttributes:
+        - Key: stickiness.enabled
+          Value: 'false'
+        - Key: deregistration_delay.timeout_seconds
+          Value: '0'
+        - Key: stickiness.type
+          Value: lb_cookie
+        TargetType: instance
+        UnhealthyThresholdCount: 5
+        VpcId:
+          Ref: VpcId
+      Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    TaskDef:
+      Properties:
+        ContainerDefinitions:
+        - Environment:
+          - Name: AWS_DEFAULT_REGION
+            Value:
+              Ref: AWS::Region
+          - Name: cas.server.name
+            Value: https://login.school.edu
+          - Name: cas.server.prefix
+            Value: ${cas.server.name}/cas
+          - Name: cas.authn.accept.enabled
+            Value: 'false'
+          - Name: cas.authn.ldap[0].ldap-url
+            Value: ldaps://ldap.ban.school.edu:636
+          - Name: cas.authn.ldap[0].bind-dn
+            Value: cn=Directory Manager
+          - Name: cas.authn.ldap[0].base-dn
+            Value: ou=People,dc=banner
+          - Name: cas.authn.ldap[0].search-filter
+            Value: (&(objectClass=person)(uid={user}))
+          - Name: cas.authn.ldap[0].type
+            Value: AUTHENTICATED
+          - Name: cas.authn.ldap[0].principal-attribute-list
+            Value: uid,cn:UDC_IDENTIFIER
+          - Name: cas.authn.ldap[0].principal-attribute-id
+            Value: uid
+          - Name: cas.service-registry.json.location
+            Value: file:/cas_service_json
+          - Name: cas.httpWebRequest.cors.enabled
+            Value: 'true'
+          - Name: cas.httpWebRequest.cors.allowOriginPatterns[0]
+            Value: '*'
+          - Name: cas.httpWebRequest.cors.allowMethods[0]
+            Value: '*'
+          - Name: cas.httpWebRequest.cors.allowHeaders[0]
+            Value: '*'
+          Essential: true
+          Hostname:
+            Ref: AWS::StackName
+          Image: sigcorp/cas:6.4.5-jdk11-ldap-jsonsvc-support-saml
+          Links: []
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-create-group: true
+              awslogs-group:
+                Fn::Sub: /ecs/${AWS::StackName}
+              awslogs-region:
+                Ref: AWS::Region
+              awslogs-stream-prefix: ecs
+          Memory: 2048
+          MemoryReservation: 2048
+          MountPoints:
+          - ContainerPath: /cas_service_json
+            ReadOnly: false
+            SourceVolume: json_services
+          Name: main
+          PortMappings:
+          - ContainerPort: 8443
+          Secrets:
+          - Name: cas.authn.ldap[0].bind-credential
+            ValueFrom: arn:aws:secretsmanager:us-east-1:12345:secret:ban/ecs/ldap-admin-1234
+        ExecutionRoleArn:
+          Ref: TaskExecutionRole
+        Family:
+          Ref: AWS::StackName
+        Volumes:
+        - EFSVolumeConfiguration:
+            FilesystemId: fs-12345
+            RootDirectory: /cas_service_json
+          Name: json_services
+      Type: AWS::ECS::TaskDefinition
+    TaskExecutionRole:
+      Properties:
+        AssumeRolePolicyDocument:
+          Statement:
+          - Action:
+            - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+              - ecs-tasks.amazonaws.com
+          Version: '2012-10-17'
+        ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+        Policies:
+        - PolicyDocument:
+            Statement:
+            - Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+              - logs:DescribeLogStreams
+              Effect: Allow
+              Resource:
+              - arn:aws:logs:*:*:*
+            Version: '2012-10-17'
+          PolicyName: root
+        - PolicyDocument:
+            Statement:
+            - Action: secretsmanager:GetSecretValue
+              Effect: Allow
+              Resource: arn:aws:secretsmanager:us-east-1:12345:secret:ban/ecs/ldap-admin-1234
+            Version: '2012-10-17'
+          PolicyName: secrets
+      Type: AWS::IAM::Role
+

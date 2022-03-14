@@ -1,0 +1,57 @@
+---
+template_path: EcsWebService/EcsWebService.py
+
+parameters:
+  VpcId: vpc-12345
+  ClusterArn: clusterArn
+  ListenerArn: arn:for:the:listener
+
+sceptre_user_data:
+  service_tags:
+    baggy.link.category: Admin
+    baggy.link.title: CAS
+    baggy.link.url: https://login.ban.school.edu/cas
+
+  efs_volumes:
+    - name: json_services
+      fs_id: fs-12345
+      root_directory: /cas_service_json
+
+  containers:
+    - image: sigcorp/cas:6.4.5-jdk11-ldap-jsonsvc-support-saml
+      container_memory: 2048
+      mount_points:
+        - source_volume: json_services
+          container_path: /cas_service_json
+      env_vars:
+        "cas.server.name": https://login.school.edu
+        "cas.server.prefix": '${cas.server.name}/cas'
+        "cas.authn.accept.enabled": 'false'
+        "cas.authn.ldap[0].ldap-url": 'ldaps://ldap.ban.school.edu:636'
+        "cas.authn.ldap[0].bind-dn": "cn=Directory Manager"
+        "cas.authn.ldap[0].base-dn": "ou=People,dc=banner"
+        "cas.authn.ldap[0].search-filter": "(&(objectClass=person)(uid={user}))"
+        "cas.authn.ldap[0].type": AUTHENTICATED
+        "cas.authn.ldap[0].principal-attribute-list": "uid,cn:UDC_IDENTIFIER"
+        "cas.authn.ldap[0].principal-attribute-id": uid
+        "cas.service-registry.json.location": "file:/cas_service_json"
+        "cas.httpWebRequest.cors.enabled": "true"
+
+        # TODO: We may need to revisit this for security
+        "cas.httpWebRequest.cors.allowOriginPatterns[0]": "*"
+        "cas.httpWebRequest.cors.allowMethods[0]": "*"
+        "cas.httpWebRequest.cors.allowHeaders[0]": "*"
+      secrets:
+        "cas.authn.ldap[0].bind-credential": "arn:aws:secretsmanager:us-east-1:12345:secret:ban/ecs/ldap-admin-1234"
+      container_port: 8443
+      protocol: HTTPS
+      rules:
+        - path: /
+          host: login.*
+      target_group:
+        attributes:
+          stickiness.enabled: 'false'
+          deregistration_delay.timeout_seconds: 0
+      health_check:
+        path: /cas/
+

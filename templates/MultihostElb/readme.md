@@ -50,7 +50,7 @@
                        instance, to specify the internal size of a split-horizon
                        DNS setup.
 
-- `ns_update` ([NsUpdateModel](#NsUpdateModel)) - Specifies how DNS entries should be updated when not using Route53.
+- `ns_update` ([NsUpdateModel](#NsUpdateModel) or List of [NsUpdateModel](#NsUpdateModel)) - Specifies how DNS entries should be updated when not using Route53.
 
 - `waf_acls` (List of string or [WafAclModel](#WafAclModel)) - List of WAF WebACL ARNs and/or WafAclModel objects to associate with this ELB.
 

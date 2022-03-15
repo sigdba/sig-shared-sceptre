@@ -126,6 +126,21 @@ def read_resource(path):
 
 
 def model_alias(keeper, alias, values):
+    """Use this function to establish an alias in a Pydantic model. Note that this
+    is different from Pydantic's alias feature where a value has one name on the
+    programmer-facing object and another on the user-facing input. In this case
+    either name is allowed as user-input.
+
+    Example:
+
+    volumes: List[EfsVolumeModel] = []
+    efs_volumes: List[EfsVolumeModel] = Field(None, description="Alias for `volumes`")
+
+    @classmethod
+    @root_validator(pre=True)
+    def volumes_alias(cls, values):
+        return model_alias("volumes", "efs_volumes", values)
+    """
     if alias in values:
         if keeper in values:
             raise ValueError(

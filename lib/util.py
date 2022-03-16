@@ -1,5 +1,6 @@
 import sys
 import hashlib
+import os.path
 from troposphere import Template, Parameter, AWSObject, Ref, Output, Export
 
 TEMPLATE = Template()
@@ -13,13 +14,6 @@ TITLE_CHAR_MAP = {
     "/": "SLASH",
     " ": "SP",
 }
-
-
-def read_local_file(path):
-    with open(
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), path), "r"
-    ) as fp:
-        return fp.read()
 
 
 def add_resource(r):
@@ -120,11 +114,33 @@ def flatten(lst):
     return list(f(lst))
 
 
+def read_local_file(path):
+    with open(
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), path), "r"
+    ) as fp:
+        return fp.read()
+
+
 def read_resource(path):
     return read_local_file(os.path.join("resources", path))
 
 
 def model_alias(keeper, alias, values):
+    """Use this function to establish an alias in a Pydantic model. Note that this
+    is different from Pydantic's alias feature where a value has one name on the
+    programmer-facing object and another on the user-facing input. In this case
+    either name is allowed as user-input.
+
+    Example:
+
+    volumes: List[EfsVolumeModel] = []
+    efs_volumes: List[EfsVolumeModel] = Field(None, description="Alias for `volumes`")
+
+    @classmethod
+    @root_validator(pre=True)
+    def volumes_alias(cls, values):
+        return model_alias("volumes", "efs_volumes", values)
+    """
     if alias in values:
         if keeper in values:
             raise ValueError(

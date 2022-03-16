@@ -1,0 +1,68 @@
+---
+template_path: EcsWebService/EcsWebService.py
+
+parameters:
+  VpcId: vpc-12345
+  ClusterArn: clusterArn
+  ListenerArn: arn:for:the:listener
+
+  # Avoid allowing multiple instances of the LDAP service
+  MinimumHealthyPercent: "0"
+  MaximumPercent: "100"
+
+sceptre_user_data:
+  service_tags:
+    baggy.link.category: Support
+    baggy.link.title: Foswiki
+    baggy.link.url: https://foswiki.ban.school.edu
+
+  efs_volumes:
+    - name: foswiki_www
+      fs_id: fs-12345
+      root_directory: /foswiki/www
+    - name: solr_logs
+      fs_id: fs-12345
+      root_directory: /foswiki/solr/logs
+    - name: solr_configsets
+      fs_id: fs-12345
+      root_directory: /foswiki/solr/configsets
+    - name: solr_foswiki
+      fs_id: fs-12345
+      root_directory: /foswiki/solr/foswiki
+
+  containers:
+    - name: solr
+      image: solr:5
+      container_memory: 512
+      mount_points:
+        - source_volume: solr_logs
+          container_path: /opt/solr/server/logs
+        - source_volume: solr_configsets
+          container_path: /opt/solr/server/solr/configsets
+        - source_volume: solr_foswiki
+          container_path: /opt/solr/server/solr/solr_foswiki
+        - source_volume: foswiki_www
+          container_path: /var/www/foswiki
+      env_vars:
+        GC_LOG_OPTS: ""
+        SOLR_LOG_LEVEL: WARN
+
+    - name: foswiki
+      image: timlegge/docker-foswiki:v1.22
+      container_memory: 512
+      mount_points:
+        - source_volume: solr_logs
+          container_path: /opt/solr/server/logs
+        - source_volume: solr_configsets
+          container_path: /opt/solr/server/solr/configsets
+        - source_volume: solr_foswiki
+          container_path: /opt/solr/server/solr/solr_foswiki
+        - source_volume: foswiki_www
+          container_path: /var/www/foswiki
+      links:
+        - solr
+      container_port: 80
+      protocol: HTTP
+      rules:
+        - path: /
+          host: foswiki.*

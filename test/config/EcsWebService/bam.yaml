@@ -1,0 +1,42 @@
+---
+template_path: EcsWebService/EcsWebService.py
+
+parameters:
+  VpcId: vpc-12345
+  ClusterArn: clusterArn
+  ListenerArn: arn:for:the:listener
+
+sceptre_user_data:
+  service_tags:
+    baggy.link.category: Admin
+    baggy.link.title: Access Management
+    baggy.link.url: https://banner.ban.school.edu/BannerAccessMgmt
+  containers:
+    - name: tomcat
+      image_build:
+        codebuild_project_name: banner-app
+        ecr_repo_name: banner-app
+        env_vars:
+          - name: APP_NAME
+            value: BannerAccessMgmt
+          - name: APP_VER
+            value: SIGDB
+      container_port: 8080
+      protocol: HTTP
+      container_memory: 2248
+      container_memory_reservation: 1031
+      rules:
+        - path: /BannerAccessMgmt
+          host: banner.*
+        - path: /BannerAccessMgmt.ws
+          host: banner.*
+      env_vars:
+        TOMCAT_MEMORY_ARGS: "-Xms1024m -Xmx2048m"
+        TOMCAT_EXTRA_ARGS: "-Duser.timezone=America/New_York -Doracle.jdbc.autoCommitSpecCompliant=false -Dbanner.logging.dir=/app_logs"
+
+        TCDS_BP_JDBC_URL: jdbc:url
+        TCDS_BP_USER: banproxy
+        TCDS_BP_JNDI_NAME: jdbc/bannerDataSource
+
+      secrets:
+        TCDS_BP_PASSWORD: some_arn

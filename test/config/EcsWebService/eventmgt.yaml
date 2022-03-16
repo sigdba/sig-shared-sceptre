@@ -1,0 +1,49 @@
+---
+template_path: EcsWebService/EcsWebService.py
+
+parameters:
+  VpcId: vpc-12345
+  ClusterArn: clusterArn
+  ListenerArn: arn:for:the:listener
+
+sceptre_user_data:
+  service_tags:
+    baggy.link.category: Banner 9
+    baggy.link.title: Event Management
+    baggy.link.url: https://banner.ban.school.edu/SelfServiceBannerGeneralEventManagement
+
+  containers:
+    - name: tomcat
+      image_build:
+        codebuild_project_name: banner-app
+        ecr_repo_name: banner-app
+        env_vars:
+          - name: APP_NAME
+            value: SelfServiceBannerGeneralEventManagement
+          - name: APP_VER
+            value: 9.10-SIGDB
+          - name: FORCE_BUILD
+            value: 1 # Change this number if you need to force a rebuild
+      container_port: 8080
+      protocol: HTTP
+      container_memory: 3600
+      container_memory_reservation: 2020
+      rules:
+        - path: /SelfServiceBannerGeneralEventManagement
+          host: banner.*
+
+      env_vars:
+        TOMCAT_MEMORY_ARGS: "-Xms1700M -Xmx3200M"
+        TOMCAT_EXTRA_ARGS: "-Duser.timezone=America/New_York -Doracle.jdbc.autoCommitSpecCompliant=false -Dbanner.logging.dir=/app_logs"
+
+        TCDS_BP_JDBC_URL: jdbc:url
+        TCDS_BP_USER: banproxy
+        TCDS_BP_JNDI_NAME: jdbc/bannerDataSource
+
+        TCDS_SS_JDBC_URL: jdbc:url
+        TCDS_SS_USER: ban_ss_user
+        TCDS_SS_JNDI_NAME: jdbc/bannerSsbDataSource
+
+      secrets:
+        TCDS_BP_PASSWORD: some_arn
+        TCDS_SS_PASSWORD: some_arn

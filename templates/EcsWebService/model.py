@@ -32,6 +32,16 @@ class EfsVolumeModel(BaseModel):
     )
 
 
+class HostVolumeModel(BaseModel):
+    name: str = Field(
+        description="""This is the name which will be referred to by `source_volume` values defined in the
+                       `mount_points` settings of a container."""
+    )
+    source_path: str = Field(
+        """The path on the host server that's presented to the container."""
+    )
+
+
 class TargetGroupModel(BaseModel):
     attributes: Dict[str, str] = Field(
         {},
@@ -344,6 +354,16 @@ class UserDataModel(BaseModel):
         description="Set of EFS volumes to make available to containers within this service.",
         notes=[
             "To make an EFS volume available to a container you must define it in the `efs_volumes` setting and define an entry in the `mount_points` setting within the container object."
+        ],
+    )
+    host_volumes: List[HostVolumeModel] = Field(
+        [],
+        description="Set of directories on the host server to make available to containers within this service.",
+        notes=[
+            """**Important:** You almost always will want to use `efs_volumes` instead.""",
+            """To make an EFS volume available to a container you must define it in the
+               `host_volumes` setting and define an entry in the `mount_points`
+               setting within the container object.""",
         ],
     )
     placement_strategies: List[PlacementStrategyModel] = Field(

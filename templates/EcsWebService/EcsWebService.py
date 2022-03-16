@@ -11,6 +11,7 @@ from troposphere.ecs import (
     ContainerDependency,
     DeploymentConfiguration,
     EFSVolumeConfiguration,
+    Host as HostVolumeConfiguration,
     Environment,
 )
 from troposphere.ecs import HealthCheck as ContainerHealthCheck
@@ -313,24 +314,22 @@ def container_def(container):
 
 
 def efs_volume(v):
-    extra_args = {}
-    if v.root_directory:
-        extra_args["RootDirectory"] = v.root_directory
-
     return Volume(
         Name=v.name,
         EFSVolumeConfiguration=EFSVolumeConfiguration(
-            FilesystemId=v.fs_id, **extra_args
+            FilesystemId=v.fs_id, **opts_with(RootDirectory=v.root_directory)
         ),
     )
 
 
-def task_def(container_defs, efs_volumes, exec_role):
-    volumes = [efs_volume(v) for v in efs_volumes]
+def host_volume(v):
+    return Volume(Name=v.name, Host=HostVolumeConfiguration(SourcePath=v.source_path))
 
-    extra_args = {}
-    if exec_role is not None:
-        extra_args["ExecutionRoleArn"] = Ref(exec_role)
+
+def task_def(user_data, container_defs, exec_role):
+    volumes = [efs_volume(v) for v in user_data.efs_volumes] + [
+        host_volume(v) for v in user_data.host_volumes
+    ]
 
     return add_resource(
         TaskDefinition(
@@ -338,7 +337,7 @@ def task_def(container_defs, efs_volumes, exec_role):
             Volumes=volumes,
             Family=Ref("AWS::StackName"),
             ContainerDefinitions=container_defs,
-            **extra_args
+            **opts_with(ExecutionRoleArn=(exec_role, Ref))
         )
     )
 
@@ -549,7 +548,6 @@ def sceptre_handler(sceptre_user_data):
         return TEMPLATE
 
     user_data = UserDataModel(**sceptre_user_data)
-    efs_volumes = user_data.efs_volumes
 
     # If we're using secrets, we need to define an execution role
     secret_arns = [v for c in user_data.containers for k, v in c.secrets.items()]
@@ -593,7 +591,7 @@ def sceptre_handler(sceptre_user_data):
                 )
             )
 
-    task_def(containers, efs_volumes, exec_role)
+    task_def(user_data, containers, exec_role)
     service(
         user_data.service_tags,
         listener_rules,

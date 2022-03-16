@@ -26,6 +26,12 @@
 - `efs_volumes` (List of [EfsVolumeModel](#EfsVolumeModel)) - Set of EFS volumes to make available to containers within this service.
   - To make an EFS volume available to a container you must define it in the `efs_volumes` setting and define an entry in the `mount_points` setting within the container object.
 
+- `host_volumes` (List of [HostVolumeModel](#HostVolumeModel)) - Set of directories on the host server to make available to containers within this service.
+  - **Important:** You almost always will want to use `efs_volumes` instead.
+  - To make an EFS volume available to a container you must define it in the
+               `host_volumes` setting and define an entry in the `mount_points`
+               setting within the container object.
+
 - `placement_strategies` (List of [PlacementStrategyModel](#PlacementStrategyModel)) - Defines the set of placement strategies for service tasks.
   - **Default:** `[{'field': 'memory', 'type': 'binpack'}]`
 
@@ -58,6 +64,16 @@ for more information.
 - `field` (string) - **required** - The field to apply the placement strategy against
 
 - `type` (string) - **required** - The type of placement strategy
+
+
+
+### HostVolumeModel
+
+- `name` (string) - **required** - This is the name which will be referred to by `source_volume` values defined in the
+                       `mount_points` settings of a container.
+
+- `source_path` (string)
+  - **Default:** `The path on the host server that's presented to the container.`
 
 
 

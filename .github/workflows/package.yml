@@ -1,4 +1,4 @@
-name: CI
+name: package
 
 on:
   push:
@@ -28,3 +28,28 @@ jobs:
           tag_name: r${{ github.run_number }}
           fail_on_unmatched_files: true
           files: packages/*-${{ github.run_number }}.zip
+
+# name: test
+
+# on:
+#   push:
+#     branches: ['*']
+#   workflow_dispatch:
+
+# jobs:
+#   test:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v2
+
+#       - name: Install pip dependencies
+#         run: pip install -Ur requirements.txt
+
+#       - name: Generate documentation
+#         run: bash build/gen_all_docs.sh
+
+#       - name: Generate test stacks
+#         run: test/generate_all.sh
+
+#       - name: Compare current output to baselines
+#         run: test/check_diffs.sh

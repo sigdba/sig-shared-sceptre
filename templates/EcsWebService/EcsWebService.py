@@ -1,9 +1,6 @@
-import hashlib
 import json
-import os.path
-import sys
 
-from troposphere import GetAtt, Parameter, Ref, Sub, Tags, Template
+from troposphere import GetAtt, Parameter, Ref, Sub, Tags
 from troposphere.awslambda import Code, Function, Permission
 from troposphere.cloudformation import AWSCustomObject
 from troposphere.ecs import (
@@ -309,7 +306,7 @@ def container_def(container):
             },
         ),
         **extra_args,
-        **container.container_extra_props
+        **container.container_extra_props,
     )
 
 
@@ -337,7 +334,7 @@ def task_def(user_data, container_defs, exec_role):
             Volumes=volumes,
             Family=Ref("AWS::StackName"),
             ContainerDefinitions=container_defs,
-            **opts_with(ExecutionRoleArn=(exec_role, Ref))
+            **opts_with(ExecutionRoleArn=(exec_role, Ref)),
         )
     )
 
@@ -374,7 +371,8 @@ def target_group(protocol, health_check, target_group_props, default_health_chec
             ],
             TargetType="instance",
             VpcId=Ref("VpcId"),
-            **extra_args
+            Tags=Tags(Name=Sub("${AWS::StackName}: %s" % health_check.path)),
+            **extra_args,
         )
     )
 
@@ -439,7 +437,7 @@ def service(tags, listener_rules, lb_mappings, placement_strategies):
                 MinimumHealthyPercent=Ref("MinimumHealthyPercent"),
             ),
             LoadBalancers=lb_mappings,
-            **opts
+            **opts,
         )
     )
 

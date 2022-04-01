@@ -49,3 +49,5 @@ for t in ${BASE}/templates/*; do
         echo "  - [Examples](${examples##$BASE/})" >>${BASE}/readme.md
     fi
 done
+
+cat ${BASE}/build/readme-footer.md >>${BASE}/readme.md

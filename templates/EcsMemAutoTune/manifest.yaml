@@ -1,0 +1,2 @@
+---
+entrypoint: EcsMemAutoTune.yaml.j2

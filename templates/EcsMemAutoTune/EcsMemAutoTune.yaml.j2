@@ -1,0 +1,153 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+
+Parameters:
+  EcsClusters:
+    Type: String
+    Description: Comma separated list of ECS Cluster names or ARNs. If 'ALL' then all clusters in the region will be included.
+
+  ScheduleExpression:
+    Type: String
+    Description: cron-style expression indicating when the Lambda is run.
+
+  PassRoleExpr:
+    Type: String
+    Description: |
+      Expression as used in a 'Resource' clause of an IAM statement. This limits
+      the set of roles the Lambda function is allowed to pass to services it's
+      adjusting. Example:
+      "arn:aws:iam::803071473383:role/sig-ban-ecs-*-TaskExecutionRole-*"
+
+  DryRun:
+    Type: String
+    Default: "false"
+    Description: When 'true' memory adjustments will be reported but not executed.
+
+  ActiveServicesOnly:
+    Type: String
+    Default: "false"
+    Description: When 'true' only active services will be adjusted.
+
+  EnablingTag:
+    Type: String
+    Default: AutoAdjustMemoryReservation
+    Description: |
+      Specifies a tag which may be set on services to control if they will be
+      adjusted. If the tag is present and set to 'true' then the service will be
+      adjusted. Any other value will be treated as false. If the tag is not
+      present then adjustment will depend on the RequireOptIn parameter.
+
+  RequireOptIn:
+    Type: String
+    Default: "true"
+    Description: |
+      When 'true' only services with their EnablingTag set to 'true' will be
+      adjusted. When 'false' any service without the EnablingTag set will be
+      adjusted.
+
+  MinChangeMb:
+    Type: Number
+    Default: "64"
+    Description: Minimum downward change to trigger an adjustment. Upward adjustments will always be made.
+
+  MinOverheadMb:
+    Type: Number
+    Default: "1"
+    Description: Minimum amount to add to peak usage.
+
+  MaxOverheadMb:
+    Type: String
+    Default: ""
+    Description: Maximum amount to add to peak usage.
+
+  OverheadPct:
+    Type: Number
+    Default: "0"
+    Description: Percentage of peak usage to add.
+
+  RequiredStatDays:
+    Type: Number
+    Default: "14"
+    Description: |
+      Number of days worth of memory metrics used to compute peak usage.
+      Services with fewer days of stats will not be adjusted.
+
+
+Resources:
+  LambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Architectures: ['arm64']
+      Code:
+        ZipFile: |
+          {% filter indent(width=10) %}{% include 'ecs_auto_mem.py' %}{% endfilter %}
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Runtime: python3.8
+      MemorySize: 128
+      Timeout: 120
+      Environment:
+        Variables:
+          DRY_RUN: !Ref DryRun
+          ECS_CLUSTERS: !Ref EcsClusters
+          REQUIRE_ACTIVE: !Ref ActiveServicesOnly
+          ENABLING_TAG: !Ref EnablingTag
+          REQUIRE_OPT_IN: !Ref RequireOptIn
+          MIN_CHANGE_MB: !Ref MinChangeMb
+          MIN_OVERHEAD_MB: !Ref MinOverheadMb
+          MAX_OVERHEAD_MB: !Ref MaxOverheadMb
+          OVERHEAD_PCT: !Ref OverheadPct
+          REQUIRE_STAT_DAYS: !Ref RequiredStatDays
+
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Policies:
+        - PolicyName: inline
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - logs:PutRetentionPolicy
+                  - logs:DescribeLogGroups
+                  - ecs:ListClusters
+                  - ecs:ListServices
+                  - ecs:DescribeServices
+                  - ecs:DescribeTaskDefinition
+                  - ecs:RegisterTaskDefinition
+                  - ecs:UpdateService
+                  - cloudwatch:GetMetricStatistics
+                Effect: Allow
+                Resource: '*'
+              - Action: ['iam:PassRole']
+                Effect: Allow
+                Resource: !Ref PassRoleExpr
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ['lambda.amazonaws.com']
+            Action: ['sts:AssumeRole']
+      ManagedPolicyArns: []
+      Path: /
+
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref LambdaFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt ScheduleRule.Arn
+
+  ScheduleRule:
+    Type: AWS::Events::Rule
+    Properties:
+      ScheduleExpression: !Ref ScheduleExpression
+      Targets:
+        - Id: Lambda
+          Arn: !GetAtt LambdaFunction.Arn
+          Input: ""

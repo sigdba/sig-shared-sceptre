@@ -65,13 +65,18 @@ Parameters:
     Default: "0"
     Description: Percentage of peak usage to add.
 
-  RequiredStatDays:
+  ConsiderStatDays:
     Type: Number
     Default: "14"
-    Description: |
-      Number of days worth of memory metrics used to compute peak usage.
-      Services with fewer days of stats will not be adjusted.
+    Description: Number of days worth of memory statistics used to compute peak usage.
 
+  RequiredStatDays:
+    Type: Number
+    Default: "7"
+    Description: |
+      Number of days worth of stats required to compute peak usage. A service
+      must have at least this mean days of statistics within the window set by
+      ConsiderStatDays. Services with fewer days of stats will not be adjusted.
 
 Resources:
   LambdaFunction:
@@ -97,6 +102,7 @@ Resources:
           MIN_OVERHEAD_MB: !Ref MinOverheadMb
           MAX_OVERHEAD_MB: !Ref MaxOverheadMb
           OVERHEAD_PCT: !Ref OverheadPct
+          CONSIDER_STAT_DAYS: !Ref ConsiderStatDays
           REQUIRE_STAT_DAYS: !Ref RequiredStatDays
 
   LambdaExecutionRole:

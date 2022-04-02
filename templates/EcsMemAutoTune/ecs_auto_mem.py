@@ -189,17 +189,19 @@ def update_task_def(old_task_def, new_res):
     ]
 
 
-def update_service(cluster, service, task_def_arn):
+def update_service(cluster, service, task_def, rec_mem):
     if os.environ.get("DRY_RUN", "unset") == "true":
         print("DRY_RUN is true. Will not update service.")
         return
+    task_def_arn = update_task_def(task_def, rec_mem)
     ECS.update_service(cluster=cluster, service=service, taskDefinition=task_def_arn)
 
 
 def go():
-    days = int(os.environ.get("REQUIRE_STAT_DAYS", 14))
+    req_days = int(os.environ.get("REQUIRE_STAT_DAYS", 7))
+    consider_days = int(os.environ.get("CONSIDER_STAT_DAYS", 14))
     now = datetime.utcnow()
-    start_time = now - timedelta(days=days)
+    start_time = now - timedelta(days=consider_days)
     for cluster_arn in get_cluster_arns():
         cluster_name = cluster_arn.split("/")[-1]
         for svc in get_services(cluster_arn):
@@ -221,9 +223,9 @@ def go():
                     start_time, now, cluster_name, svc_name, cname
                 )
                 # Don't adjust if we don't have enough stat data
-                if len(max_mem_days) < days:
+                if len(max_mem_days) < req_days:
                     print(
-                        f"SKIPPING service '{svc_name}': less than {days} days of metrics"
+                        f"SKIPPING service '{svc_name}': less than {req_days} days of metrics"
                     )
                     continue
                 peak_mem = max(max_mem_days)
@@ -232,9 +234,7 @@ def go():
                     print(
                         f"ADJUSTING {cluster_name}/{svc_name}/{cname} {mem_limit}/{mem_res}/{peak_mem} {mem_res} -> {rec_mem}"
                     )
-                    update_service(
-                        cluster_arn, svc_name, update_task_def(task_def, rec_mem)
-                    )
+                    update_service(cluster_arn, svc_name, task_def, rec_mem)
 
 
 def lambda_handler(event, _):

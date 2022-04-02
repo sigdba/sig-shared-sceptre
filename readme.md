@@ -9,6 +9,7 @@ delivered as "packages" and are intended for use with the
 - [EcsCluster](templates/EcsCluster/readme.md)
   - [NodeTypeChangeWithAutoScaling.md](templates/EcsCluster/doc/NodeTypeChangeWithAutoScaling.md)
   - [Examples](templates/EcsCluster/examples)
+- EcsMemAutoTune
 - EcsMonitorService
 - [EcsWebService](templates/EcsWebService/readme.md)
 - [Efs](templates/Efs/readme.md)

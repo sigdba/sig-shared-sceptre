@@ -1,6 +1,7 @@
 import operator
 import os
 import boto3
+import yaml
 
 from datetime import datetime, timedelta
 from functools import partial
@@ -173,9 +174,10 @@ def recommend_res(cur_max, cur_res, peak_mem):
     return ret
 
 
-def update_task_def(old_task_def, new_res):
+def update_task_def(old_task_def):
     omit = [
         "compatibilities",
+        "memory",
         "taskDefinitionArn",
         "revision",
         "status",
@@ -189,12 +191,61 @@ def update_task_def(old_task_def, new_res):
     ]
 
 
-def update_service(cluster, service, task_def, rec_mem):
+def update_service(cluster, service, task_def):
     if os.environ.get("DRY_RUN", "unset") == "true":
         print("DRY_RUN is true. Will not update service.")
         return
-    task_def_arn = update_task_def(task_def, rec_mem)
+    task_def_arn = update_task_def(task_def)
     ECS.update_service(cluster=cluster, service=service, taskDefinition=task_def_arn)
+
+
+def candidate_services():
+    for cluster_arn in get_cluster_arns():
+        cluster_name = cluster_arn.split("/")[-1]
+        for svc in get_services(cluster_arn):
+            if is_candidate_svc(svc):
+                yield {**svc, "clusterName": cluster_name}
+
+
+def adjusted_task_def(svc):
+    req_days = int(os.environ.get("REQUIRE_STAT_DAYS", 7))
+    consider_days = int(os.environ.get("CONSIDER_STAT_DAYS", 14))
+    now = datetime.utcnow()
+    start_time = now - timedelta(days=consider_days)
+    cluster_name = svc["clusterName"]
+    svc_name = svc["serviceName"]
+    task_def = get_task_def(svc["taskDefinition"])
+    task_mem_limit = int(task_def.get("memory", -1))
+    changed = False
+    for cdef in task_def["containerDefinitions"]:
+        cname = cdef["name"]
+        mem_limit = cdef.get("memory", task_mem_limit)
+        if mem_limit < 1:
+            print(
+                f"WARNING: Unable to compute memory limit for {cluster_name}/{svc['serviceName']}/{cname}. SKIPPING."
+            )
+            continue
+        mem_res = cdef.get("memoryReservation", mem_limit)
+        max_mem_days = get_max_mem_by_day(
+            start_time, now, cluster_name, svc_name, cname
+        )
+        # Don't adjust if we don't have enough stat data
+        if len(max_mem_days) < req_days:
+            print(
+                f"SKIPPING service '{svc_name}': less than {req_days} days of metrics"
+            )
+            continue
+        peak_mem = max(max_mem_days)
+        rec_mem = recommend_res(mem_limit, mem_res, peak_mem)
+        if rec_mem != mem_res:
+            print(
+                f"ADJUSTING {cluster_name}/{svc_name}/{cname} {mem_limit}/{mem_res}/{peak_mem} {mem_res} -> {rec_mem}"
+            )
+            cdef["memoryReservation"] = rec_mem
+            changed = True
+    if changed:
+        return task_def
+    return None
 
 
 def go():
@@ -202,39 +253,10 @@ def go():
     consider_days = int(os.environ.get("CONSIDER_STAT_DAYS", 14))
     now = datetime.utcnow()
     start_time = now - timedelta(days=consider_days)
-    for cluster_arn in get_cluster_arns():
-        cluster_name = cluster_arn.split("/")[-1]
-        for svc in get_services(cluster_arn):
-            if not is_candidate_svc(svc):
-                continue
-            svc_name = svc["serviceName"]
-            task_def = get_task_def(svc["taskDefinition"])
-            task_mem_limit = int(task_def.get("memory", -1))
-            for cdef in task_def["containerDefinitions"]:
-                cname = cdef["name"]
-                mem_limit = cdef.get("memory", task_mem_limit)
-                if mem_limit < 1:
-                    print(
-                        f"WARNING: Unable to compute memory limit for {cluster_name}/{svc['serviceName']}/{cname}. SKIPPING."
-                    )
-                    continue
-                mem_res = cdef.get("memoryReservation", mem_limit)
-                max_mem_days = get_max_mem_by_day(
-                    start_time, now, cluster_name, svc_name, cname
-                )
-                # Don't adjust if we don't have enough stat data
-                if len(max_mem_days) < req_days:
-                    print(
-                        f"SKIPPING service '{svc_name}': less than {req_days} days of metrics"
-                    )
-                    continue
-                peak_mem = max(max_mem_days)
-                rec_mem = recommend_res(mem_limit, mem_res, peak_mem)
-                if rec_mem != mem_res:
-                    print(
-                        f"ADJUSTING {cluster_name}/{svc_name}/{cname} {mem_limit}/{mem_res}/{peak_mem} {mem_res} -> {rec_mem}"
-                    )
-                    update_service(cluster_arn, svc_name, task_def, rec_mem)
+    for svc in candidate_services():
+        new_task_def = adjusted_task_def(svc)
+        if new_task_def:
+            update_service(svc["clusterArn"], svc["serviceName"], new_task_def)
 
 
 def lambda_handler(event, _):
@@ -244,3 +266,4 @@ def lambda_handler(event, _):
 
 if __name__ == "__main__":
     go()
+    # print(yaml.dump(list(candidate_services())))

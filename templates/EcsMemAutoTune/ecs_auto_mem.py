@@ -1,7 +1,6 @@
 import operator
 import os
 import boto3
-import yaml
 
 from datetime import datetime, timedelta
 from functools import partial
@@ -266,4 +265,3 @@ def lambda_handler(event, _):
 
 if __name__ == "__main__":
     go()
-    # print(yaml.dump(list(candidate_services())))

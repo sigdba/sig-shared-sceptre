@@ -209,7 +209,7 @@
         - Key: baggy.link.title
           Value: API Management
         - Key: baggy.link.url
-          Value: https://banner.ban.school.edu/ethosapimanagementcenter
+          Value: https://banner.ban.sig.sh/ethosapimanagementcenter
         TaskDefinition:
           Ref: TaskDef
       Type: AWS::ECS::Service
@@ -280,7 +280,7 @@
           - ContainerPort: 8080
           Secrets:
           - Name: TOMCAT_EXTRA_ARGS
-            ValueFrom: some_arn
+            ValueFrom: arn:aws:secretsmanager:us-east-1:803071473383:secret:ban/ecs/apiMgmt/TOMCAT_EXTRA_ARGS-ANtIbw
           - Name: TCDS_BP_PASSWORD
             ValueFrom: some_arn
           - Name: TCDS_SS_PASSWORD
@@ -319,10 +319,9 @@
           PolicyName: root
         - PolicyDocument:
             Statement:
-            - Action: ssm:GetParameters
+            - Action: secretsmanager:GetSecretValue
               Effect: Allow
-              Resource:
-                Fn::Sub: arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/some_arn
+              Resource: arn:aws:secretsmanager:us-east-1:803071473383:secret:ban/ecs/apiMgmt/TOMCAT_EXTRA_ARGS-ANtIbw
             - Action: ssm:GetParameters
               Effect: Allow
               Resource:

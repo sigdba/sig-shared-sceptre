@@ -230,7 +230,7 @@
         - Key: baggy.link.title
           Value: Access Management
         - Key: baggy.link.url
-          Value: https://banner.ban.school.edu/BannerAccessMgmt
+          Value: https://banner.ban.sig.sh/BannerAccessMgmt
         TaskDefinition:
           Ref: TaskDef
       Type: AWS::ECS::Service

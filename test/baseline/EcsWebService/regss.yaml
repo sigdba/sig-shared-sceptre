@@ -209,7 +209,7 @@
         - Key: baggy.link.title
           Value: Registration Self-Service
         - Key: baggy.link.url
-          Value: https://banner.ban.school.edu/StudentRegistrationSsb
+          Value: https://banner.ban.sig.sh/StudentRegistrationSsb
         TaskDefinition:
           Ref: TaskDef
       Type: AWS::ECS::Service

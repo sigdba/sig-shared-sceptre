@@ -212,7 +212,7 @@
         - Key: baggy.link.title
           Value: Event Management
         - Key: baggy.link.url
-          Value: https://banner.ban.school.edu/SelfServiceBannerGeneralEventManagement
+          Value: https://banner.ban.sig.sh/SelfServiceBannerGeneralEventManagement
         TaskDefinition:
           Ref: TaskDef
       Type: AWS::ECS::Service

@@ -71,11 +71,6 @@ def instance_sg(user_data):
 def ebs_volume(inst_name, vol):
     opts = {}
 
-    if vol.iops:
-        opts["Iops"] = vol.iops
-    if vol.throughput_mbs:
-        opts["Throughput"] = vol.throughput_mbs
-
     return add_resource(
         Volume(
             f"EbsVolumeLETTER{vol.device_letter}",
@@ -87,7 +82,9 @@ def ebs_volume(inst_name, vol):
                 {"Key": "erp:mount_point", "Value": vol.mount_point},
                 *[{"Key": k, "Value": v} for k, v in vol.tags.items()],
             ],
-            **opts,
+            **opts_with(
+                Iops=vol.iops, Throughput=vol.throughput_mbs, Encrypted=vol.encrypted
+            ),
         )
     )
 

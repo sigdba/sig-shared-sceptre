@@ -19,6 +19,7 @@ class EbsVolumeModel(BaseModel):
     iops: Optional[int]
     throughput_mbs: Optional[int]
     extra_props: List[dict] = []
+    encrypted: Optional[bool]
 
 
 class SecurityGroupAllowModel(BaseModel):

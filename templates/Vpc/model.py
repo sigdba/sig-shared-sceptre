@@ -26,8 +26,18 @@ class SubnetModel(BaseModel):
         return v
 
 
+class CustomerGatewayModel(BaseModel):
+    customer_asn = 65000
+    amazon_asn: Optional[int]
+    ip_address: str
+    vpn_type = "ipsec.1"
+    static_routes_only: bool
+    tunnel_inside_cidr: Optional[str]
+
+
 class UserDataModel(BaseModel):
     vpc_cidr: str
     vpc_name: Optional[str]
     vpc_extra_opts: dict = {}
     subnets: List[SubnetModel] = []
+    customer_gateway: Optional[CustomerGatewayModel]

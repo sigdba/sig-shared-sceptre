@@ -54,3 +54,20 @@ def debug(*args):
 
 def dashed_to_camel_case(t):
     return "".join([s[0].upper() + s[1:] for s in t.split("-")])
+
+
+def opts_with(**kwargs):
+    def _eval(v):
+        if type(v) is tuple:
+            val, fn, *args = v
+            return _eval(fn(*args, val))
+        if isinstance(v, AWSObject):
+            return Ref(v)
+        return v
+
+    def has_value(v):
+        if type(v) is tuple:
+            return v[0] is not None
+        return v is not None
+
+    return {k: _eval(v) for k, v in kwargs.items() if has_value(v)}

@@ -7,7 +7,11 @@ from troposphere.ec2 import (
     Subnet,
     InternetGateway,
     NatGateway,
+    CustomerGateway,
+    VPNGateway,
+    VPNConnection,
     VPCGatewayAttachment,
+    VpnTunnelOptionsSpecification,
     RouteTable,
     Route,
     SubnetRouteTableAssociation,
@@ -52,9 +56,7 @@ def igw():
 def nat_gateway(az):
     def add_nat(name):
         if not az in public_subnets_models_by_az:
-            raise ValueError(
-                f"No public subnet defined in {subnet_model.availability_zone}"
-            )
+            raise ValueError(f"No public subnet defined in {az}")
         sn, sn_model = public_subnets_models_by_az[az]
         if sn_model.nat_eip_allocation_id:
             alloc_id = sn_model.nat_eip_allocation_id
@@ -167,6 +169,55 @@ def subnets(models):
     return publics + privates
 
 
+def customer_gateway(gw_model):
+    return add_resource(
+        CustomerGateway(
+            "CustomerGateway",
+            BgpAsn=gw_model.customer_asn,
+            IpAddress=gw_model.ip_address,
+            Type=gw_model.vpn_type,
+            Tags=Tags(Name=Ref("AWS::StackName")),
+        )
+    )
+
+
+def vpn_gateway(gw_model):
+    return add_resource(
+        VPNGateway(
+            "VpnGateway",
+            Type=gw_model.vpn_type,
+            Tags=Tags(Name=Ref("AWS::StackName")),
+            **opts_with(AmazonSideAsn=gw_model.amazon_asn),
+        )
+    )
+
+
+def attach_customer_gateway(gw_model):
+    vpg = vpn_gateway(gw_model)
+
+    vpn_conn = add_resource(
+        VPNConnection(
+            "CustomerGatewayConnection",
+            CustomerGatewayId=Ref(customer_gateway(gw_model)),
+            VpnGatewayId=Ref(vpg),
+            Type=gw_model.vpn_type,
+            StaticRoutesOnly=gw_model.static_routes_only,
+            Tags=Tags(Name=Ref("AWS::StackName")),
+            VpnTunnelOptionsSpecifications=[
+                VpnTunnelOptionsSpecification(
+                    **opts_with(TunnelInsideCidr=gw_model.tunnel_inside_cidr)
+                )
+            ],
+        )
+    )
+
+    return add_resource(
+        VPCGatewayAttachment(
+            "CustomerGatewayAttachment", VpcId=Ref("Vpc"), VpnGatewayId=Ref(vpg)
+        )
+    )
+
+
 def sceptre_handler(sceptre_user_data):
     if sceptre_user_data is None:
         # We're generating documetation. Return the template with just parameters.
@@ -176,5 +227,8 @@ def sceptre_handler(sceptre_user_data):
 
     r_vpc(user_data)
     subnets(user_data.subnets)
+
+    if user_data.customer_gateway:
+        attach_customer_gateway(user_data.customer_gateway)
 
     return TEMPLATE.to_json()

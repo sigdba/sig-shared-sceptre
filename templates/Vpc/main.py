@@ -7,6 +7,7 @@ from troposphere.ec2 import (
     CustomerGateway,
     VPNGateway,
     VPNConnection,
+    VPNConnectionRoute,
     VPCGatewayAttachment,
     VpnTunnelOptionsSpecification,
     RouteTable,
@@ -135,18 +136,18 @@ def add_route_table(subnet, name, **kwargs):
 
 
 def connected_subnet(subnet_model):
-    ret = subnet(subnet_model)
+    sn = subnet(subnet_model)
 
     if subnet_model.kind == "public":
         public_subnets_models_by_az[subnet_model.availability_zone] = (
-            ret,
+            sn,
             subnet_model,
         )
         igw()
-        add_route_table(ret, subnet_model.name, GatewayId=Ref("Igw"))
+        rt = add_route_table(sn, subnet_model.name, GatewayId=Ref("Igw"))
     elif subnet_model.kind == "private":
-        add_route_table(
-            ret,
+        rt = add_route_table(
+            sn,
             subnet_model.name,
             NatGatewayId=Ref(nat_gateway(subnet_model.availability_zone)),
         )
@@ -156,7 +157,7 @@ def connected_subnet(subnet_model):
     add_export(
         dashed_to_camel_case(subnet_model.name) + "SubnetId",
         Sub("${AWS::StackName}-" + subnet_model.name + "-subnetId"),
-        Ref(ret),
+        Ref(sn),
     )
     add_export(
         dashed_to_camel_case(subnet_model.name) + "Cidr",
@@ -164,7 +165,7 @@ def connected_subnet(subnet_model):
         subnet_model.cidr,
     )
 
-    return ret
+    return (subnet_model, rt)
 
 
 def subnets(models):
@@ -224,17 +225,39 @@ def attach_customer_gateway(gw_model):
     )
 
 
+def customer_gateway_routes(gw_model, subnets_and_route_tables):
+    for cidr in gw_model.static_route_cidrs:
+        add_resource(
+            VPNConnectionRoute(
+                clean_title(f"VpnStaticRouteFor{cidr}"),
+                DestinationCidrBlock=cidr,
+                VpnConnectionId=Ref("CustomerGatewayConnection"),
+            )
+        )
+
+        for sn_model, rt in subnets_and_route_tables:
+            add_resource(
+                Route(
+                    clean_title(f"RouteFrom{sn_model.cidr}to{cidr}"),
+                    RouteTableId=Ref(rt),
+                    DestinationCidrBlock=cidr,
+                    GatewayId=Ref("VpnGateway"),
+                )
+            )
+
+
 def sceptre_handler(sceptre_user_data):
     if sceptre_user_data is None:
         # We're generating documetation. Return the template with just parameters.
         return TEMPLATE
 
-    user_data = UserDataModel(**sceptre_user_data)
+    user_data = model.UserDataModel(**sceptre_user_data)
 
     r_vpc(user_data)
-    subnets(user_data.subnets)
+    subnets_and_route_tables = subnets(user_data.subnets)
 
     if user_data.customer_gateway:
         attach_customer_gateway(user_data.customer_gateway)
+        customer_gateway_routes(user_data.customer_gateway, subnets_and_route_tables)
 
     return TEMPLATE.to_json()

@@ -33,6 +33,7 @@ class CustomerGatewayModel(BaseModel):
     vpn_type = "ipsec.1"
     static_routes_only: bool
     tunnel_inside_cidr: Optional[str]
+    static_route_cidrs: List[str] = []
 
 
 class UserDataModel(BaseModel):

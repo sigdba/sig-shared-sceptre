@@ -1,32 +1,31 @@
-from troposphere import Ref, Sub, GetAtt, Tags, Tag
+from troposphere import GetAtt, Ref, Sub, Tag, Tags
 from troposphere.ec2 import (
+    EIP,
     VPC,
-    Subnet,
+    CustomerGateway,
     InternetGateway,
     NatGateway,
-    CustomerGateway,
-    VPNGateway,
+    Route,
+    RouteTable,
+    Subnet,
+    SubnetRouteTableAssociation,
+    VPCGatewayAttachment,
     VPNConnection,
     VPNConnectionRoute,
-    VPCGatewayAttachment,
+    VPNGateway,
     VpnTunnelOptionsSpecification,
-    RouteTable,
-    Route,
-    SubnetRouteTableAssociation,
-    EIP,
 )
 
 import model
 from util import (
     TEMPLATE,
+    add_export,
     add_resource,
     add_resource_once,
-    add_export,
     clean_title,
-    opts_with,
     dashed_to_camel_case,
+    opts_with,
 )
-
 
 public_subnets_models_by_az = {}
 
@@ -202,7 +201,7 @@ def vpn_gateway(gw_model):
 def attach_customer_gateway(gw_model):
     vpg = vpn_gateway(gw_model)
 
-    vpn_conn = add_resource(
+    add_resource(
         VPNConnection(
             "CustomerGatewayConnection",
             CustomerGatewayId=Ref(customer_gateway(gw_model)),

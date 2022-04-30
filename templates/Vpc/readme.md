@@ -12,6 +12,28 @@
 
 - `subnets` (List of [SubnetModel](#SubnetModel))
 
+- `customer_gateway` ([CustomerGatewayModel](#CustomerGatewayModel))
+
+
+
+### CustomerGatewayModel
+
+- `amazon_asn` (integer)
+
+- `ip_address` (string) - **required**
+
+- `static_routes_only` (boolean) - **required**
+
+- `tunnel_inside_cidr` (string)
+
+- `static_route_cidrs` (List of string)
+
+- `customer_asn` (integer)
+  - **Default:** `65000`
+
+- `vpn_type` (string)
+  - **Default:** `ipsec.1`
+
 
 
 ### SubnetModel

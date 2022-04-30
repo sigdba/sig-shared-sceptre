@@ -227,6 +227,8 @@
 
 - `extra_props` (List of Dict)
 
+- `encrypted` (boolean)
+
 - `vol_type` (string)
   - **Default:** `gp3`
 

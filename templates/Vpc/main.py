@@ -1,6 +1,3 @@
-import hashlib
-import os.path
-
 from troposphere import Ref, Sub, GetAtt, Tags, Tag
 from troposphere.ec2 import (
     VPC,
@@ -18,8 +15,17 @@ from troposphere.ec2 import (
     EIP,
 )
 
-from model import *
-from util import *
+import model
+from util import (
+    TEMPLATE,
+    add_resource,
+    add_resource_once,
+    add_export,
+    clean_title,
+    opts_with,
+    dashed_to_camel_case,
+)
+
 
 public_subnets_models_by_az = {}
 
@@ -55,7 +61,7 @@ def igw():
 
 def nat_gateway(az):
     def add_nat(name):
-        if not az in public_subnets_models_by_az:
+        if az not in public_subnets_models_by_az:
             raise ValueError(f"No public subnet defined in {az}")
         sn, sn_model = public_subnets_models_by_az[az]
         if sn_model.nat_eip_allocation_id:

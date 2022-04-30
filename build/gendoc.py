@@ -4,6 +4,7 @@ import importlib.util
 import inspect
 import os.path
 import sys
+import types
 
 from pydantic import BaseModel
 from pydantic.schema import schema
@@ -29,11 +30,20 @@ def load_template_module(path):
 
 
 def get_model_classes(module):
-    return dict(
-        inspect.getmembers(
-            module, lambda c: inspect.isclass(c) and issubclass(c, BaseModel)
-        )
+    # First check for a standard import of a model module (as opposed to a
+    # star-import)
+    sub_modules = dict(
+        inspect.getmembers(module, lambda c: isinstance(c, types.ModuleType))
     )
+    ret = get_model_classes(sub_modules["model"]) if "model" in sub_modules else {}
+    return {
+        **ret,
+        **dict(
+            inspect.getmembers(
+                module, lambda c: inspect.isclass(c) and issubclass(c, BaseModel)
+            )
+        ),
+    }
 
 
 def get_schema(model_classes):

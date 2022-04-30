@@ -223,6 +223,10 @@
           HttpCode: 200-399
         Port: 8080
         Protocol: HTTP
+        Tags:
+        - Key: Name
+          Value:
+            Fn::Sub: '${AWS::StackName}: /applicationNavigator/'
         TargetGroupAttributes:
         - Key: stickiness.enabled
           Value: 'true'

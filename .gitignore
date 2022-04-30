@@ -3,3 +3,4 @@ packages
 .docker-dev*
 /docker-dev.sh
 site.conf
+/test/current/

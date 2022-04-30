@@ -2,14 +2,12 @@
 import importlib.machinery
 import importlib.util
 import inspect
-import json
-import sys
 import os.path
-import yaml
+import sys
+
 from pydantic import BaseModel
 from pydantic.schema import schema
 from troposphere import Template
-
 
 TOP_MODEL = "UserDataModel"
 
@@ -233,10 +231,10 @@ if __name__ == "__main__":
 
     module = load_template_module(args.template)
     model_classes = get_model_classes(module)
-    schema = get_schema(model_classes)
+    model_schema = get_schema(model_classes)
 
     # print(yaml.dump(schema))
 
     with open(args.output, "w") as fp:
         render_parameters(fp, module)
-        render_schema_defs(fp, schema)
+        render_schema_defs(fp, model_schema)

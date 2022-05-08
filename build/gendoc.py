@@ -2,14 +2,13 @@
 import importlib.machinery
 import importlib.util
 import inspect
-import json
-import sys
 import os.path
-import yaml
+import sys
+import types
+
 from pydantic import BaseModel
 from pydantic.schema import schema
 from troposphere import Template
-
 
 TOP_MODEL = "UserDataModel"
 
@@ -31,11 +30,20 @@ def load_template_module(path):
 
 
 def get_model_classes(module):
-    return dict(
-        inspect.getmembers(
-            module, lambda c: inspect.isclass(c) and issubclass(c, BaseModel)
-        )
+    # First check for a standard import of a model module (as opposed to a
+    # star-import)
+    sub_modules = dict(
+        inspect.getmembers(module, lambda c: isinstance(c, types.ModuleType))
     )
+    ret = get_model_classes(sub_modules["model"]) if "model" in sub_modules else {}
+    return {
+        **ret,
+        **dict(
+            inspect.getmembers(
+                module, lambda c: inspect.isclass(c) and issubclass(c, BaseModel)
+            )
+        ),
+    }
 
 
 def get_schema(model_classes):
@@ -233,10 +241,10 @@ if __name__ == "__main__":
 
     module = load_template_module(args.template)
     model_classes = get_model_classes(module)
-    schema = get_schema(model_classes)
+    model_schema = get_schema(model_classes)
 
     # print(yaml.dump(schema))
 
     with open(args.output, "w") as fp:
         render_parameters(fp, module)
-        render_schema_defs(fp, schema)
+        render_schema_defs(fp, model_schema)

@@ -1,6 +1,6 @@
-from typing import List, Optional, Dict, Union
-from pydantic import BaseModel, ValidationError, validator, root_validator
-from util import debug
+from typing import List, Optional
+
+from pydantic import BaseModel, validator
 
 #
 # IMPORTANT: The following classes are DATA CLASSES using pydantic.
@@ -26,8 +26,19 @@ class SubnetModel(BaseModel):
         return v
 
 
+class CustomerGatewayModel(BaseModel):
+    customer_asn = 65000
+    amazon_asn: Optional[int]
+    ip_address: str
+    vpn_type = "ipsec.1"
+    static_routes_only: bool
+    tunnel_inside_cidr: Optional[str]
+    static_route_cidrs: List[str] = []
+
+
 class UserDataModel(BaseModel):
     vpc_cidr: str
     vpc_name: Optional[str]
     vpc_extra_opts: dict = {}
     subnets: List[SubnetModel] = []
+    customer_gateway: Optional[CustomerGatewayModel]

@@ -80,6 +80,10 @@
           HttpCode: 200-399
         Port: 8080
         Protocol: HTTPS
+        Tags:
+        - Key: Name
+          Value:
+            Fn::Sub: '${AWS::StackName}: /cas/'
         TargetGroupAttributes:
         - Key: stickiness.enabled
           Value: 'false'

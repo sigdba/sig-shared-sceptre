@@ -35,6 +35,10 @@ def clean_title(s):
     return s
 
 
+def dashed_to_camel_case(t):
+    return "".join([s[0].upper() + s[1:] for s in t.split("-")])
+
+
 def add_param(name, **kwargs):
     return TEMPLATE.add_parameter(Parameter(name, **kwargs))
 

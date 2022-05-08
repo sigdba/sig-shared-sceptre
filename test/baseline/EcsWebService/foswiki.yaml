@@ -66,7 +66,7 @@
         - Key: baggy.link.title
           Value: Foswiki
         - Key: baggy.link.url
-          Value: https://foswiki.ban.sig.sh
+          Value: https://foswiki.ban.school.edu
         TaskDefinition:
           Ref: TaskDef
       Type: AWS::ECS::Service

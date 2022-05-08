@@ -71,7 +71,7 @@
         - Key: baggy.link.title
           Value: Banner Workflow
         - Key: baggy.link.url
-          Value: https://banner.ban.sig.sh/workflow/
+          Value: https://banner.ban.school.edu/workflow/
         TaskDefinition:
           Ref: TaskDef
       Type: AWS::ECS::Service

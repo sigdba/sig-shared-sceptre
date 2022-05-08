@@ -66,7 +66,7 @@
         - Key: baggy.link.title
           Value: CAS
         - Key: baggy.link.url
-          Value: https://login.ban.sig.sh/cas
+          Value: https://login.ban.school.edu/cas
         TaskDefinition:
           Ref: TaskDef
       Type: AWS::ECS::Service
@@ -104,13 +104,13 @@
             Value:
               Ref: AWS::Region
           - Name: cas.server.name
-            Value: https://login.sig.sh
+            Value: https://login.school.edu
           - Name: cas.server.prefix
             Value: ${cas.server.name}/cas
           - Name: cas.authn.accept.enabled
             Value: 'false'
           - Name: cas.authn.ldap[0].ldap-url
-            Value: ldaps://ldap.ban.sig.sh:636
+            Value: ldaps://ldap.ban.school.edu:636
           - Name: cas.authn.ldap[0].bind-dn
             Value: cn=Directory Manager
           - Name: cas.authn.ldap[0].base-dn
@@ -158,7 +158,7 @@
           - ContainerPort: 8443
           Secrets:
           - Name: cas.authn.ldap[0].bind-credential
-            ValueFrom: arn:aws:secretsmanager:us-east-1:803071473383:secret:ban/ecs/ldap-admin-pUrw3m
+            ValueFrom: arn:aws:secretsmanager:us-east-1:12345:secret:ban/ecs/ldap-admin-1234
         ExecutionRoleArn:
           Ref: TaskExecutionRole
         Family:
@@ -199,7 +199,7 @@
             Statement:
             - Action: secretsmanager:GetSecretValue
               Effect: Allow
-              Resource: arn:aws:secretsmanager:us-east-1:803071473383:secret:ban/ecs/ldap-admin-pUrw3m
+              Resource: arn:aws:secretsmanager:us-east-1:12345:secret:ban/ecs/ldap-admin-1234
             Version: '2012-10-17'
           PolicyName: secrets
       Type: AWS::IAM::Role

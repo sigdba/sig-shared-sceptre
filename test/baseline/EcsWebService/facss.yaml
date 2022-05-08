@@ -209,7 +209,7 @@
         - Key: baggy.link.title
           Value: Faculty Self-Service
         - Key: baggy.link.url
-          Value: https://banner.ban.sig.sh/FacultySelfService
+          Value: https://banner.ban.school.edu/FacultySelfService
         TaskDefinition:
           Ref: TaskDef
       Type: AWS::ECS::Service

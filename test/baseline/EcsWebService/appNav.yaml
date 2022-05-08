@@ -209,7 +209,7 @@
         - Key: baggy.link.title
           Value: AdminPages
         - Key: baggy.link.url
-          Value: https://banner.ban.sig.sh/applicationNavigator
+          Value: https://banner.ban.school.edu/applicationNavigator
         TaskDefinition:
           Ref: TaskDef
       Type: AWS::ECS::Service

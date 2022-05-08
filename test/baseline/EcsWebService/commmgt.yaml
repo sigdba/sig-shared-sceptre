@@ -212,7 +212,7 @@
         - Key: baggy.link.title
           Value: Communication Management
         - Key: baggy.link.url
-          Value: https://banner.ban.sig.sh/CommunicationManagement
+          Value: https://banner.ban.school.edu/CommunicationManagement
         TaskDefinition:
           Ref: TaskDef
       Type: AWS::ECS::Service

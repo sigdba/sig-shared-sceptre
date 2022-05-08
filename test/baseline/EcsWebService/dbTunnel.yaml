@@ -39,7 +39,7 @@
         LoadBalancers:
         - ContainerName: main
           ContainerPort: 1521
-          TargetGroupArn: arn:aws:elasticloadbalancing:us-east-1:803071473383:targetgroup/sig-b-Defau-1JM3ICGOUIUF/9e77c17fae03d6ae
+          TargetGroupArn: some_arn
         PlacementStrategies:
         - Field: memory
           Type: binpack
@@ -84,7 +84,7 @@
           - ContainerPort: 1521
           Secrets:
           - Name: SSH_DEPLOY_KEY
-            ValueFrom: arn:aws:secretsmanager:us-east-1:803071473383:secret:ban/ecs/db-tunnel-rsa-RQ1tC7
+            ValueFrom: some_arn
         ExecutionRoleArn:
           Ref: TaskExecutionRole
         Family:
@@ -119,9 +119,10 @@
           PolicyName: root
         - PolicyDocument:
             Statement:
-            - Action: secretsmanager:GetSecretValue
+            - Action: ssm:GetParameters
               Effect: Allow
-              Resource: arn:aws:secretsmanager:us-east-1:803071473383:secret:ban/ecs/db-tunnel-rsa-RQ1tC7
+              Resource:
+                Fn::Sub: arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/some_arn
             Version: '2012-10-17'
           PolicyName: secrets
       Type: AWS::IAM::Role

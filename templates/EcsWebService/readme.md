@@ -19,6 +19,23 @@
 
 ## sceptre_user_data
 
+- `launch_type` (string)
+  - **Allowed Values:** `EC2`, `EXTERNAL`, `FARGATE`
+
+- `cpu` (string)
+
+- `memory` (string)
+
+- `requires_compatibilities` (List of string)
+
+- `network_mode` (string)
+
+- `security_group` ([SecurityGroupModel](#SecurityGroupModel))
+
+- `security_group_ids` (List of string)
+
+- `subnet_ids` (List of string)
+
 - `service_tags` (Dict[string:string])
 
 - `containers` (List of [ContainerModel](#ContainerModel)) - **required** - Defines the containers for this service.
@@ -33,7 +50,6 @@
                setting within the container object.
 
 - `placement_strategies` (List of [PlacementStrategyModel](#PlacementStrategyModel)) - Defines the set of placement strategies for service tasks.
-  - **Default:** `[{'field': 'memory', 'type': 'binpack'}]`
 
 - `schedule` (List of [ScheduleModel](#ScheduleModel)) - Specifies a schedule for modifying the DesiredCount of the service.
 
@@ -269,4 +285,36 @@ for more information.
 - `type` (string)
   - **Default:** `PLAINTEXT`
   - **Allowed Values:** `PLAINTEXT`, `PARAMETER_STORE`, `SECRETS_MANAGER`
+
+
+
+### SecurityGroupModel
+
+- `egress` (List of Dict[string:string])
+  - **Default:** `[{'CidrIp': '0.0.0.0/0', 'Description': 'Allow all outbound', 'FromPort': '-1', 'ToPort': '-1', 'IpProtocol': '-1'}]`
+
+- `allow` (List of [SecurityGroupAllowModel](#SecurityGroupAllowModel) or List of [SecurityGroupAllowModel](#SecurityGroupAllowModel))
+
+- `tags` (Dict[string:string])
+
+
+
+#### SecurityGroupAllowModel
+
+- `cidr` (string or List of string) - The IPv4 address range(s), in CIDR format. May be specified as a single string or a list of strings.
+  - You must specify one of `cidr` or `sg_id` but not both.
+
+- `sg_id` (string) - The ID of a security group whose members are allowed.
+  - You must specify one of `cidr` or `sg_id` but not both.
+
+- `sg_owner` (string) - The AWS account ID that owns the security group specified in `sg_id`. This value is required if the SG is in another account.
+
+- `description` (string) - **required**
+
+- `from_port` (integer) - **required**
+
+- `to_port` (integer) - **required**
+
+- `protocol` (string)
+  - **Default:** `tcp`
 

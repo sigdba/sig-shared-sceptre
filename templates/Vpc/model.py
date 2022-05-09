@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, validator, Field
 
 #
 # IMPORTANT: The following classes are DATA CLASSES using pydantic.
@@ -37,7 +37,7 @@ class CustomerGatewayModel(BaseModel):
 
 
 class UserDataModel(BaseModel):
-    vpc_cidr: str
+    vpc_cidr: str = Field(description="CIDR for the VPC")
     vpc_name: Optional[str]
     vpc_extra_opts: dict = {}
     subnets: List[SubnetModel] = []

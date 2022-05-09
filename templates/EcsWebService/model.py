@@ -1,8 +1,10 @@
-from typing import Dict, List, Optional
-from pydantic import Field, validator, root_validator
-from pydantic import BaseModel as PydanticBaseModel
+from typing import Dict, List, Optional, Literal
 
-from util import *
+from pydantic import BaseModel as PydanticBaseModel
+from pydantic import Field, validator, root_validator
+
+from security_group import SecurityGroupModel
+
 
 # Create a custom BaseModel which forbids extra parameters. This ensures that
 # when a user misspells a key they will get an error instead of some undefined
@@ -345,7 +347,15 @@ class ContainerModel(BaseModel):
 
 
 class UserDataModel(BaseModel):
-    service_tags: Dict[str, str] = {}
+    launch_type: Optional[Literal["EC2", "EXTERNAL", "FARGATE"]]
+    cpu: Optional[str]
+    memory: Optional[str]
+    requires_compatibilities: Optional[List[str]]
+    network_mode: Optional[str]
+    security_group: Optional[SecurityGroupModel]
+    security_group_ids: Optional[List[str]]
+    subnet_ids: Optional[List[str]]
+    service_tags: Optional[Dict[str, str]]
     containers: List[ContainerModel] = Field(
         description="Defines the containers for this service."
     )
@@ -366,11 +376,38 @@ class UserDataModel(BaseModel):
                setting within the container object.""",
         ],
     )
-    placement_strategies: List[PlacementStrategyModel] = Field(
-        [PlacementStrategyModel(field="memory", type="binpack")],
+    placement_strategies: Optional[List[PlacementStrategyModel]] = Field(
         description="Defines the set of placement strategies for service tasks.",
     )
     schedule: List[ScheduleModel] = Field(
         [],
         description="Specifies a schedule for modifying the DesiredCount of the service.",
     )
+
+    @root_validator(pre=True)
+    def fargate_defaults(cls, values):
+        if values.get("launch_type") == "FARGATE":
+            if "cpu" not in values:
+                raise ValueError("cpu is required for Fargate")
+            if "memory" not in values:
+                raise ValueError("memory is required for Fargate")
+            if "requires_compatibilities" not in values:
+                values["requires_compatibilities"] = ["FARGATE"]
+            if "network_mode" not in values:
+                values["network_mode"] = "awsvpc"
+        else:
+            if "placement_strategies" not in values:
+                values["placement_strategies"] = [
+                    PlacementStrategyModel(field="memory", type="binpack")
+                ]
+        return values
+
+    @root_validator
+    def awsvpc_requires_subnet(cls, values):
+        if values.get("network_mode") == "awsvpc":
+            sids = values.get("subnet_ids")
+            if not sids or len(sids) < 1:
+                raise ValueError(
+                    "awsvpc/Fargate services require at least one subnet_id"
+                )
+        return values

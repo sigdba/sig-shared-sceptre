@@ -8,15 +8,17 @@ from troposphere.ecs import (
     ContainerDependency,
     DeploymentConfiguration,
     EFSVolumeConfiguration,
-    Host as HostVolumeConfiguration,
     Environment,
 )
 from troposphere.ecs import HealthCheck as ContainerHealthCheck
+from troposphere.ecs import Host as HostVolumeConfiguration
 from troposphere.ecs import (
+    AwsvpcConfiguration,
     LinuxParameters,
     LoadBalancer,
     LogConfiguration,
     MountPoint,
+    NetworkConfiguration,
     PlacementStrategy,
     PortMapping,
     Secret,
@@ -38,9 +40,17 @@ from troposphere.events import Rule as EventRule
 from troposphere.events import Target as EventTarget
 from troposphere.iam import Policy, Role
 
-from model import *
-from util import *
-
+import model
+from util import (
+    TEMPLATE,
+    add_resource,
+    add_resource_once,
+    clean_title,
+    md5,
+    opts_with,
+    read_resource,
+)
+from security_group import security_group
 
 PRIORITY_CACHE = []
 
@@ -126,6 +136,38 @@ def execution_role_secret_statement(secret_arn):
 
 
 def execution_role(secret_arns):
+    policies = [
+        Policy(
+            PolicyName="root",
+            PolicyDocument={
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Action": [
+                            "logs:CreateLogGroup",
+                            "logs:CreateLogStream",
+                            "logs:PutLogEvents",
+                            "logs:DescribeLogStreams",
+                        ],
+                        "Resource": ["arn:aws:logs:*:*:*"],
+                    }
+                ],
+            },
+        )
+    ]
+    if secret_arns:
+        policies.append(
+            Policy(
+                PolicyName="secrets",
+                PolicyDocument={
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        execution_role_secret_statement(s) for s in secret_arns
+                    ],
+                },
+            )
+        )
     return add_resource(
         Role(
             "TaskExecutionRole",
@@ -142,35 +184,7 @@ def execution_role(secret_arns):
             ManagedPolicyArns=[
                 "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
             ],
-            Policies=[
-                Policy(
-                    PolicyName="root",
-                    PolicyDocument={
-                        "Version": "2012-10-17",
-                        "Statement": [
-                            {
-                                "Effect": "Allow",
-                                "Action": [
-                                    "logs:CreateLogGroup",
-                                    "logs:CreateLogStream",
-                                    "logs:PutLogEvents",
-                                    "logs:DescribeLogStreams",
-                                ],
-                                "Resource": ["arn:aws:logs:*:*:*"],
-                            }
-                        ],
-                    },
-                ),
-                Policy(
-                    PolicyName="secrets",
-                    PolicyDocument={
-                        "Version": "2012-10-17",
-                        "Statement": [
-                            execution_role_secret_statement(s) for s in secret_arns
-                        ],
-                    },
-                ),
-            ],
+            Policies=policies,
         )
     )
 
@@ -235,7 +249,7 @@ def image_build(container_name, build):
     )
 
 
-def container_def(container):
+def container_def(hostname, container):
     # NB: container_memory is the hard limit on RAM presented to the container. It will be killed if it tries to
     #     allocate more. container_memory_reservation is the soft limit and docker will try to keep the container to
     #     this value.
@@ -287,7 +301,6 @@ def container_def(container):
         Environment=environment,
         Secrets=secrets,
         Essential=True,
-        Hostname=Ref("AWS::StackName"),
         Image=image,
         Memory=container_memory,
         MemoryReservation=container_memory_reservation,
@@ -305,6 +318,7 @@ def container_def(container):
                 "awslogs-create-group": True,
             },
         ),
+        **opts_with(Hostname=hostname),
         **extra_args,
         **container.container_extra_props,
     )
@@ -334,14 +348,22 @@ def task_def(user_data, container_defs, exec_role):
             Volumes=volumes,
             Family=Ref("AWS::StackName"),
             ContainerDefinitions=container_defs,
-            **opts_with(ExecutionRoleArn=(exec_role, Ref)),
+            **opts_with(
+                ExecutionRoleArn=(exec_role, Ref),
+                Cpu=user_data.cpu,
+                Memory=user_data.memory,
+                RequiresCompatibilities=user_data.requires_compatibilities,
+                NetworkMode=user_data.network_mode,
+            ),
         )
     )
 
 
-def target_group(protocol, health_check, target_group_props, default_health_check_path):
+def target_group(
+    target_type, protocol, health_check, target_group_props, default_health_check_path
+):
     if not health_check:
-        health_check = HealthCheckModel()
+        health_check = model.HealthCheckModel()
     if not health_check.path:
         health_check.path = default_health_check_path
     attrs = target_group_props.attributes
@@ -350,10 +372,6 @@ def target_group(protocol, health_check, target_group_props, default_health_chec
         attrs["stickiness.enabled"] = "true"
     if "stickiness.type" not in attrs:
         attrs["stickiness.type"] = "lb_cookie"
-
-    extra_args = {}
-    if health_check.healthy_threshold_count:
-        extra_args["HealthyThresholdCount"] = health_check.healthy_threshold_count
 
     return add_resource(
         TargetGroup(
@@ -369,10 +387,10 @@ def target_group(protocol, health_check, target_group_props, default_health_chec
             TargetGroupAttributes=[
                 TargetGroupAttribute(Key=k, Value=str(v)) for k, v in attrs.items()
             ],
-            TargetType="instance",
+            TargetType=target_type,
             VpcId=Ref("VpcId"),
             Tags=Tags(Name=Sub("${AWS::StackName}: %s" % health_check.path)),
-            **extra_args,
+            **opts_with(HealthyThresholdCount=health_check.healthy_threshold_count),
         )
     )
 
@@ -416,11 +434,27 @@ def listener_rule(tg, rule):
     )
 
 
-def service(tags, listener_rules, lb_mappings, placement_strategies):
-    opts = {}
-    if len(tags) > 0:
-        opts["Tags"] = Tags(**tags)
+def service_network_configuration(user_data):
+    if user_data.network_mode != "awsvpc":
+        return None
 
+    security_groups = []
+    if user_data.security_group:
+        security_groups.append(
+            Ref(security_group("ServiceSecurityGroup", user_data.security_group))
+        )
+    if user_data.security_group_ids:
+        security_groups += user_data.security_group_ids
+
+    return NetworkConfiguration(
+        AwsvpcConfiguration=AwsvpcConfiguration(
+            SecurityGroups=security_groups,
+            **opts_with(Subnets=user_data.subnet_ids),
+        )
+    )
+
+
+def service(user_data, listener_rules, lb_mappings):
     return add_resource(
         Service(
             "Service",
@@ -428,16 +462,22 @@ def service(tags, listener_rules, lb_mappings, placement_strategies):
             TaskDefinition=Ref("TaskDef"),
             Cluster=Ref("ClusterArn"),
             DesiredCount=Ref("DesiredCount"),
-            PlacementStrategies=[
-                PlacementStrategy(Field=s.field, Type=s.type)
-                for s in placement_strategies
-            ],
             DeploymentConfiguration=DeploymentConfiguration(
                 MaximumPercent=Ref("MaximumPercent"),
                 MinimumHealthyPercent=Ref("MinimumHealthyPercent"),
             ),
             LoadBalancers=lb_mappings,
-            **opts,
+            **opts_with(
+                LaunchType=user_data.launch_type,
+                Tags=(user_data.service_tags, Tags),
+                NetworkConfiguration=service_network_configuration(user_data),
+                PlacementStrategies=(
+                    user_data.placement_strategies,
+                    lambda ps: [
+                        PlacementStrategy(Field=s.field, Type=s.type) for s in ps
+                    ],
+                ),
+            ),
         )
     )
 
@@ -545,17 +585,23 @@ def sceptre_handler(sceptre_user_data):
         # We're generating documetation. Return the template with just parameters.
         return TEMPLATE
 
-    user_data = UserDataModel(**sceptre_user_data)
+    user_data = model.UserDataModel(**sceptre_user_data)
 
     # If we're using secrets, we need to define an execution role
     secret_arns = [v for c in user_data.containers for k, v in c.secrets.items()]
-    exec_role = execution_role(secret_arns) if len(secret_arns) > 0 else None
+    if len(secret_arns) > 0 or user_data.launch_type == "FARGATE":
+        exec_role = execution_role(secret_arns)
+    else:
+        exec_role = None
+
+    hostname = None if user_data.network_mode == "awsvpc" else Ref("AWS::StackName")
+    target_group_type = "ip" if user_data.network_mode == "awsvpc" else "instance"
 
     containers = []
     listener_rules = []
     lb_mappings = []
     for c in user_data.containers:
-        container = container_def(c)
+        container = container_def(hostname, c)
         containers.append(container)
 
         if c.target_group_arn:
@@ -564,7 +610,11 @@ def sceptre_handler(sceptre_user_data):
         elif c.rules:
             # Create target group and associated listener rules
             tg = target_group(
-                c.protocol, c.health_check, c.target_group, "%s/" % c.rules[0].path
+                target_group_type,
+                c.protocol,
+                c.health_check,
+                c.target_group,
+                "%s/" % c.rules[0].path,
             )
 
             for rule in c.rules:
@@ -591,10 +641,9 @@ def sceptre_handler(sceptre_user_data):
 
     task_def(user_data, containers, exec_role)
     service(
-        user_data.service_tags,
+        user_data,
         listener_rules,
         lb_mappings,
-        user_data.placement_strategies,
     )
 
     schedule = user_data.schedule

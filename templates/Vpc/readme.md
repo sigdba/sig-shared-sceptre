@@ -4,7 +4,7 @@
 
 ## sceptre_user_data
 
-- `vpc_cidr` (string) - **required**
+- `vpc_cidr` (string) - **required** - CIDR for the VPC
 
 - `vpc_name` (string)
 

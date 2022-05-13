@@ -1,5 +1,8 @@
 ## Parameters
 
+- `AmiId` (AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>) - AMI ID for EC2 cluster nodes
+  - **Default:** `/aws/service/ecs/optimized-ami/amazon-linux-2/recommended/image_id`
+
 - `EnvName` (String) - **required** - The name of the ECS cluster.
 
 - `VpcId` (String) - **required** - The ID of the VPC where the ECS cluster will be created.

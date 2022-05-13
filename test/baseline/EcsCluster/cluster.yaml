@@ -1,13 +1,5 @@
 ---
-- Mappings:
-    RegionMap:
-      us-east-1:
-        AMIID: ami-0f06fc190dd71269e
-      us-east-2:
-        AMIID: ami-0d9574c101c76fa20
-      us-west-2:
-        AMIID: ami-0a65620cb9b1fd77d
-  Outputs:
+- Outputs:
     ClusterArnOutput:
       Export:
         Name:
@@ -27,6 +19,10 @@
       Value:
         Ref: NodeSecurityGroup
   Parameters:
+    AmiId:
+      Default: /aws/service/ecs/optimized-ami/amazon-linux-2/recommended/image_id
+      Description: AMI ID for EC2 cluster nodes
+      Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
     EnvName:
       Description: The name of the ECS cluster.
       Type: String
@@ -311,10 +307,7 @@
         IamInstanceProfile:
           Ref: NodeInstanceProfile
         ImageId:
-          Fn::FindInMap:
-          - RegionMap
-          - Ref: AWS::Region
-          - AMIID
+          Ref: AmiId
         InstanceType: t2.2xlarge
         KeyName: somekey
         SecurityGroups:

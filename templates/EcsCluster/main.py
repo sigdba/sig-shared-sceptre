@@ -1,59 +1,52 @@
 import hashlib
 
 from troposphere import (
-    Template,
+    Base64,
+    Export,
+    FindInMap,
+    GetAtt,
+    Output,
     Ref,
     Sub,
-    GetAtt,
-    Parameter,
-    FindInMap,
-    Base64,
-    Output,
-    Export,
 )
 from troposphere.autoscaling import (
     AutoScalingGroup,
-    NotificationConfigurations,
-    MetricsCollection,
     LaunchConfiguration,
     LifecycleHook,
-    Tags as ASTags,
+    MetricsCollection,
+    NotificationConfigurations,
 )
-from troposphere.awslambda import Permission, Function, Code
+from troposphere.autoscaling import Tags as ASTags
+from troposphere.awslambda import Code, Function, Permission
 from troposphere.cloudformation import AWSCustomObject
 from troposphere.ec2 import SecurityGroup, SecurityGroupRule
 from troposphere.ecs import (
-    Cluster,
-    ClusterSetting,
-    CapacityProvider,
     AutoScalingGroupProvider,
-    ManagedScaling,
-    ClusterCapacityProviderAssociations,
+    CapacityProvider,
     CapacityProviderStrategy,
+    Cluster,
+    ClusterCapacityProviderAssociations,
+    ClusterSetting,
+    ManagedScaling,
 )
-from troposphere.iam import Role, Policy, InstanceProfile
-from troposphere.kms import Key, Alias
-from troposphere.policies import UpdatePolicy, AutoScalingRollingUpdate
-from troposphere.sns import Topic, Subscription, SubscriptionResource
+from troposphere.iam import InstanceProfile, Policy, Role
+from troposphere.policies import AutoScalingRollingUpdate, UpdatePolicy
 from troposphere.s3 import Bucket, PublicAccessBlockConfiguration
+from troposphere.sns import Subscription, SubscriptionResource, Topic
 
-from model import *
-from util import *
-
-REGION_MAP = "RegionMap"
+import model
+from util import (
+    TEMPLATE,
+    add_param,
+    add_resource,
+    add_resource_once,
+    read_resource,
+    add_export,
+)
 
 
 def md5(s):
     return hashlib.md5(s.encode("utf-8")).hexdigest()
-
-
-# aws ssm get-parameters --names /aws/service/ecs/optimized-ami/amazon-linux-2/recommended
-def region_map():
-    return {
-        "us-east-1": {"AMIID": "ami-0f06fc190dd71269e"},
-        "us-east-2": {"AMIID": "ami-0d9574c101c76fa20"},
-        "us-west-2": {"AMIID": "ami-0a65620cb9b1fd77d"},
-    }
 
 
 def cluster_bucket():
@@ -210,7 +203,7 @@ def launch_config(name, sgs, inst_type, inst_prof, keyName):
     return add_resource(
         LaunchConfiguration(
             "LaunchConf" + name,
-            ImageId=FindInMap(REGION_MAP, Ref("AWS::Region"), "AMIID"),
+            ImageId=Ref("AmiId"),
             SecurityGroups=sgs,
             InstanceType=inst_type,
             IamInstanceProfile=Ref(inst_prof),
@@ -465,14 +458,18 @@ def sceptre_handler(sceptre_user_data):
         Description="The ID of the VPC where the ECS cluster will be created.",
     )
     add_param("EnvName", Type="String", Description="The name of the ECS cluster.")
+    add_param(
+        "AmiId",
+        Description="AMI ID for EC2 cluster nodes",
+        Type="AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>",
+        Default="/aws/service/ecs/optimized-ami/amazon-linux-2/recommended/image_id",
+    )
 
     if sceptre_user_data is None:
         # We're generating documetation. Return the template with just parameters.
         return TEMPLATE
 
-    TEMPLATE.add_mapping(REGION_MAP, region_map())
-
-    user_data = UserDataModel(**sceptre_user_data)
+    user_data = model.UserDataModel(**sceptre_user_data)
 
     # fn_ex_role = lambda_execution_role()
     cluster = ecs_cluster(user_data.container_insights_enabled)
@@ -480,20 +477,11 @@ def sceptre_handler(sceptre_user_data):
     service_role()
     cluster_bucket()
 
-    TEMPLATE.add_output(
-        Output(
-            "ClusterArnOutput",
-            Value=Ref(cluster),
-            Export=Export(Sub("${EnvName}-EcsEnv-EcsCluster")),
-        )
-    )
-
-    TEMPLATE.add_output(
-        Output(
-            "ClusterBucketOutput",
-            Value=Ref("ClusterBucket"),
-            Export=Export(Sub("${EnvName}-EcsEnv-ClusterBucket")),
-        )
+    add_export("ClusterArnOutput", Sub("${EnvName}-EcsEnv-EcsCluster"), Ref(cluster))
+    add_export(
+        "ClusterBucketOutput",
+        Sub("${EnvName}-EcsEnv-ClusterBucket"),
+        Ref("ClusterBucket"),
     )
 
     if len(user_data.scaling_groups) > 0:
@@ -529,12 +517,8 @@ def sceptre_handler(sceptre_user_data):
                 lambda_fn_for_cps()
                 cps_reset_resource(user_data)
 
-        TEMPLATE.add_output(
-            Output(
-                "NodeSecurityGroupOutput",
-                Value=Ref(node_sg),
-                Export=Export(Sub("${EnvName}-EcsEnv-NodeSg")),
-            )
+        add_export(
+            "NodeSecurityGroupOutput", Sub("${EnvName}-EcsEnv-NodeSg"), Ref(node_sg)
         )
 
     return TEMPLATE.to_json()

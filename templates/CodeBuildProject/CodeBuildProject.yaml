@@ -50,6 +50,10 @@ Parameters:
     Type: String
     Default: ""
 
+  ExtraEnvType1:
+    Type: String
+    Default: PLAINTEXT
+
   ExtraEnvVar2:
     Type: String
     Default: "EXTRA_ARG_2"
@@ -57,6 +61,10 @@ Parameters:
   ExtraEnvVal2:
     Type: String
     Default: ""
+
+  ExtraEnvType2:
+    Type: String
+    Default: PLAINTEXT
 
   ExtraEnvVar3:
     Type: String
@@ -66,6 +74,10 @@ Parameters:
     Type: String
     Default: ""
 
+  ExtraEnvType3:
+    Type: String
+    Default: PLAINTEXT
+
   ExtraEnvVar4:
     Type: String
     Default: "EXTRA_ARG_4"
@@ -74,8 +86,42 @@ Parameters:
     Type: String
     Default: ""
 
+  ExtraEnvType4:
+    Type: String
+    Default: PLAINTEXT
+
+  ExtraEnvVar5:
+    Type: String
+    Default: "EXTRA_ARG_5"
+
+  ExtraEnvVal5:
+    Type: String
+    Default: ""
+
+  ExtraEnvType5:
+    Type: String
+    Default: PLAINTEXT
+
+  ExtraEnvVar6:
+    Type: String
+    Default: "EXTRA_ARG_6"
+
+  ExtraEnvVal6:
+    Type: String
+    Default: ""
+
+  ExtraEnvType6:
+    Type: String
+    Default: PLAINTEXT
+
 Conditions:
   CreateEcsResources: !Equals [ !Ref CreatesDockerImage, true ]
+  ExtraEnvSecMan1: !Equals [ !Ref ExtraEnvType1, SECRETS_MANAGER ]
+  ExtraEnvSecMan2: !Equals [ !Ref ExtraEnvType2, SECRETS_MANAGER ]
+  ExtraEnvSecMan3: !Equals [ !Ref ExtraEnvType3, SECRETS_MANAGER ]
+  ExtraEnvSecMan4: !Equals [ !Ref ExtraEnvType4, SECRETS_MANAGER ]
+  ExtraEnvSecMan5: !Equals [ !Ref ExtraEnvType5, SECRETS_MANAGER ]
+  ExtraEnvSecMan6: !Equals [ !Ref ExtraEnvType6, SECRETS_MANAGER ]
 
 Resources:
   CodeBuildLogGroup:
@@ -128,6 +174,96 @@ Resources:
                   - "lambda:UpdateFunctionCode"
                 Resource: [ '*' ]
 
+  SecretsManagerPolicy1:
+    Condition: ExtraEnvSecMan1
+    Type: AWS::IAM::Policy
+    Properties:
+      Roles: [ !Ref CodeBuildServiceRole ]
+      PolicyName: SecretsManagerForExtraEnv1
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - "secretsmanager:GetSecretValue"
+            Resource:
+              - !Ref ExtraEnvVal1
+
+  SecretsManagerPolicy2:
+    Condition: ExtraEnvSecMan2
+    Type: AWS::IAM::Policy
+    Properties:
+      Roles: [ !Ref CodeBuildServiceRole ]
+      PolicyName: SecretsManagerForExtraEnv2
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - "secretsmanager:GetSecretValue"
+            Resource:
+              - !Ref ExtraEnvVal2
+
+  SecretsManagerPolicy3:
+    Condition: ExtraEnvSecMan3
+    Type: AWS::IAM::Policy
+    Properties:
+      Roles: [ !Ref CodeBuildServiceRole ]
+      PolicyName: SecretsManagerForExtraEnv3
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - "secretsmanager:GetSecretValue"
+            Resource:
+              - !Ref ExtraEnvVal3
+
+  SecretsManagerPolicy4:
+    Condition: ExtraEnvSecMan4
+    Type: AWS::IAM::Policy
+    Properties:
+      Roles: [ !Ref CodeBuildServiceRole ]
+      PolicyName: SecretsManagerForExtraEnv4
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - "secretsmanager:GetSecretValue"
+            Resource:
+              - !Ref ExtraEnvVal4
+
+  SecretsManagerPolicy5:
+    Condition: ExtraEnvSecMan5
+    Type: AWS::IAM::Policy
+    Properties:
+      Roles: [ !Ref CodeBuildServiceRole ]
+      PolicyName: SecretsManagerForExtraEnv5
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - "secretsmanager:GetSecretValue"
+            Resource:
+              - !Ref ExtraEnvVal5
+
+  SecretsManagerPolicy6:
+    Condition: ExtraEnvSecMan6
+    Type: AWS::IAM::Policy
+    Properties:
+      Roles: [ !Ref CodeBuildServiceRole ]
+      PolicyName: SecretsManagerForExtraEnv6
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - "secretsmanager:GetSecretValue"
+            Resource:
+              - !Ref ExtraEnvVal6
+
   CodeBuildProject:
     Type: AWS::CodeBuild::Project
     Properties:
@@ -153,12 +289,22 @@ Resources:
             Value: !Ref ProjectName
           - Name: !Ref ExtraEnvVar1
             Value: !Ref ExtraEnvVal1
+            Type: !Ref ExtraEnvType1
           - Name: !Ref ExtraEnvVar2
             Value: !Ref ExtraEnvVal2
+            Type: !Ref ExtraEnvType2
           - Name: !Ref ExtraEnvVar3
             Value: !Ref ExtraEnvVal3
+            Type: !Ref ExtraEnvType3
           - Name: !Ref ExtraEnvVar4
             Value: !Ref ExtraEnvVal4
+            Type: !Ref ExtraEnvType4
+          - Name: !Ref ExtraEnvVar5
+            Value: !Ref ExtraEnvVal5
+            Type: !Ref ExtraEnvType5
+          - Name: !Ref ExtraEnvVar6
+            Value: !Ref ExtraEnvVal6
+            Type: !Ref ExtraEnvType6
       ServiceRole: !GetAtt CodeBuildServiceRole.Arn
       Source:
         Location: !Ref RepoUrl

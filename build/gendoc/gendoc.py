@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import pydantic_doc
+import yaml_doc
 
 if __name__ == "__main__":
     import argparse
@@ -15,6 +16,8 @@ if __name__ == "__main__":
 
     if args.template.endswith(".py"):
         render_fn = pydantic_doc.render_python
+    elif args.template.endswith(".yaml"):
+        render_fn = yaml_doc.render_yaml
     else:
         print("WARNING: Unrecognized template format:", args.template)
         render_fn = None

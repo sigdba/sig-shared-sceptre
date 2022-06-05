@@ -11,7 +11,7 @@ Parameters:
     Default: sigcorp/ecs_monitor:0.1.10
   Debug:
     Type: String
-    Description: Set to 'yes' to enable debugging
+    Description: Set to `yes` to enable debugging
     Default: ''
 
 Resources:

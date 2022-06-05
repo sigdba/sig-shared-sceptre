@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import importlib.machinery
 import importlib.util
 import inspect
@@ -10,13 +9,10 @@ from pydantic import BaseModel
 from pydantic.schema import schema
 from troposphere import Template
 
-TOP_MODEL = "UserDataModel"
+from gd_util import flatten
 
-flatten = (
-    lambda i: [element for item in i for element in flatten(item)]
-    if type(i) is list
-    else [i]
-)
+
+TOP_MODEL = "UserDataModel"
 
 
 def load_template_module(path):
@@ -247,24 +243,3 @@ def render_python(out_path, template):
     with open(out_path, "w") as fp:
         render_parameters(fp, module)
         render_schema_defs(fp, model_schema)
-
-
-if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser(
-        description="Generate documentation for Pydantic-based Sceptre templates"
-    )
-    parser.add_argument("template", help="path to Python 3 template file")
-    parser.add_argument("output", help="path to output file")
-
-    args = parser.parse_args()
-
-    if args.template.endswith(".py"):
-        render_fn = render_python
-    else:
-        print("WARNING: Unrecognized template format:", args.template)
-        render_fn = None
-
-    if render_fn:
-        render_fn(args.output, args.template)

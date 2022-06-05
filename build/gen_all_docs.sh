@@ -21,7 +21,7 @@ esac
 
 BASE="$(cd "$SCRIPT_DIR/.."; pwd -P)"
 TEMPLATES=${BASE}/templates
-GENDOC="python3 $SCRIPT_DIR/gendoc.py"
+GENDOC="python3 $SCRIPT_DIR/gendoc/gendoc.py"
 
 for template_dir in $TEMPLATES/*; do
     [ -d "$template_dir" ] || continue

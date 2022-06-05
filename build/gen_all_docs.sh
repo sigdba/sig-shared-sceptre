@@ -25,9 +25,16 @@ GENDOC="python3 $SCRIPT_DIR/gendoc.py"
 
 for model_path in $(grep -l 'class UserDataModel(BaseModel' $BASE/templates/*/*.py); do
     template_path=$(grep -l 'def sceptre_handler(' $(dirname $model_path)/*.py)
-    md_file="$(dirname $template_path)/readme.md"
+    template_dir="$(dirname $template_path)"
+    md_file="${template_dir}/readme.md"
+    tmp_md="${md_file}.tmp"
     echo "Documenting ${template_path/$TEMPLATES} -> ${md_file/$TEMPLATES}"
-    $GENDOC "$template_path" "$md_file" || die "Error generating documentation"
+    $GENDOC "$template_path" "$tmp_md" || die "Error generating documentation"
+    rm -f "$md_file"
+    [ -f "$template_dir/.readme-head.md" ] && cat "$template_dir/.readme-head.md" >$md_file
+    cat "$tmp_md" >>$md_file
+    [ -f "$template_dir/.readme-foot.md" ] && cat "$template_dir/.readme-foot.md" >$md_file
+    rm -f "$tmp_md"
 done
 
 cat ${BASE}/build/readme-header.md >${BASE}/readme.md
@@ -40,7 +47,7 @@ for t in ${BASE}/templates/*; do
         echo "WARNING: ${tdoc} not found"
         echo "- $tname" >>${BASE}/readme.md
     fi
-    for d in ${t}/doc/*.md; do
+    for d in ${t}/doc/*.md ${t}/doc/*.org; do
         echo "  - [$(basename $d)](${d##$BASE/})" >>${BASE}/readme.md
     done
 

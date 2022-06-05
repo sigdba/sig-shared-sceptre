@@ -23,18 +23,21 @@ BASE="$(cd "$SCRIPT_DIR/.."; pwd -P)"
 TEMPLATES=${BASE}/templates
 GENDOC="python3 $SCRIPT_DIR/gendoc.py"
 
-for model_path in $(grep -l 'class UserDataModel(BaseModel' $BASE/templates/*/*.py); do
-    template_path=$(grep -l 'def sceptre_handler(' $(dirname $model_path)/*.py)
-    template_dir="$(dirname $template_path)"
+for template_dir in $TEMPLATES/*; do
+    [ -d "$template_dir" ] || continue
+    entrypoint=$(awk '$1 ~ /^entrypoint:/ {print $2}' "$template_dir/manifest.yaml")
+    template_path="$template_dir/$entrypoint"
     md_file="${template_dir}/readme.md"
     tmp_md="${md_file}.tmp"
     echo "Documenting ${template_path/$TEMPLATES} -> ${md_file/$TEMPLATES}"
     $GENDOC "$template_path" "$tmp_md" || die "Error generating documentation"
-    rm -f "$md_file"
-    [ -f "$template_dir/.readme-head.md" ] && cat "$template_dir/.readme-head.md" >$md_file
-    cat "$tmp_md" >>$md_file
-    [ -f "$template_dir/.readme-foot.md" ] && cat "$template_dir/.readme-foot.md" >$md_file
-    rm -f "$tmp_md"
+    if [ -f "$tmp_md" ]; then
+        rm -f "$md_file"
+        [ -f "$template_dir/.readme-head.md" ] && cat "$template_dir/.readme-head.md" >$md_file
+        cat "$tmp_md" >>$md_file
+        [ -f "$template_dir/.readme-foot.md" ] && cat "$template_dir/.readme-foot.md" >$md_file
+        rm -f "$tmp_md"
+    fi
 done
 
 cat ${BASE}/build/readme-header.md >${BASE}/readme.md

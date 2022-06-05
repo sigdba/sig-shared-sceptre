@@ -46,9 +46,15 @@ def get_model_classes(module):
     }
 
 
+class TopLevelModelNotFoundError(Exception):
+    pass
+
+
 def get_schema(model_classes):
     if TOP_MODEL not in model_classes:
-        raise ValueError("Top-level model class not found: %s" % TOP_MODEL)
+        raise TopLevelModelNotFoundError(
+            "Top-level model class not found: %s" % TOP_MODEL
+        )
     top_class = model_classes[TOP_MODEL]
     return schema([top_class], ref_template="{model}")
 
@@ -228,6 +234,21 @@ def render_schema_defs(fp, schema):
         render_schema_def(fp, d)
 
 
+def render_python(out_path, template):
+    try:
+        module = load_template_module(template)
+        model_classes = get_model_classes(module)
+        model_schema = get_schema(model_classes)
+    except TopLevelModelNotFoundError:
+        print("WARNING: Pydantic UserDataModel not found:", template)
+        return
+
+    # print(yaml.dump(schema))
+    with open(out_path, "w") as fp:
+        render_parameters(fp, module)
+        render_schema_defs(fp, model_schema)
+
+
 if __name__ == "__main__":
     import argparse
 
@@ -239,12 +260,11 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    module = load_template_module(args.template)
-    model_classes = get_model_classes(module)
-    model_schema = get_schema(model_classes)
+    if args.template.endswith(".py"):
+        render_fn = render_python
+    else:
+        print("WARNING: Unrecognized template format:", args.template)
+        render_fn = None
 
-    # print(yaml.dump(schema))
-
-    with open(args.output, "w") as fp:
-        render_parameters(fp, module)
-        render_schema_defs(fp, model_schema)
+    if render_fn:
+        render_fn(args.output, args.template)

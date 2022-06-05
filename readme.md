@@ -5,13 +5,14 @@ delivered as "packages" and are intended for use with the
 [Sceptre Package Manager](https://github.com/sigdba/sceptre_package_template_handler).
 
 ## Template Documentation
-- CodeBuildProject
+- [CodeBuildProject](templates/CodeBuildProject/readme.md)
 - [EcsCluster](templates/EcsCluster/readme.md)
   - [NodeTypeChangeWithAutoScaling.md](templates/EcsCluster/doc/NodeTypeChangeWithAutoScaling.md)
   - [Examples](templates/EcsCluster/examples)
 - EcsMemAutoTune
-- EcsMonitorService
+- [EcsMonitorService](templates/EcsMonitorService/readme.md)
 - [EcsWebService](templates/EcsWebService/readme.md)
+  - [SampleMemoryValues.org](templates/EcsWebService/doc/SampleMemoryValues.org)
 - [Efs](templates/Efs/readme.md)
 - GlobalLogRetentionRules
 - [MultihostElb](templates/MultihostElb/readme.md)

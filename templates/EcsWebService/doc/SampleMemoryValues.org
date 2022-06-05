@@ -1,0 +1,15 @@
+#+title: Sample Memory Values
+
+| Product                      |  Xms |  Xmx | Hard | Soft |
+|------------------------------+------+------+------+------|
+| Banner Application Navigator | 2048 | 2432 | 2800 |      |
+| Banner Access Mgt. (BAM)     | 1024 | 2048 | 2248 |      |
+| Banner Admin Pages           | 2048 | 6000 | 6600 |      |
+| Banner Document Mgt. (BDM)   | 2048 | 2048 | 2500 |      |
+| Banner Faculty SS            | 1200 | 2600 | 3000 |      |
+| Banner Finance SS            | 1700 | 3200 | 3600 |      |
+| Banner General SS            | 1024 | 4900 | 5100 |      |
+| Banner Registration          | 2048 | 5200 | 5400 |      |
+| Banner Self-Service 8 (SSB)  |  512 | 1024 | 1224 |      |
+| Banner SSO Manager           |  512 | 2048 | 2224 |      |
+| Banner Student SS            | 1700 | 3200 | 3700 |      |

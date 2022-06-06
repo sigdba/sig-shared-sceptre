@@ -1,3 +1,11 @@
+# EcsMemAutoTune
+
+Creates a Lambda function which runs on a specified schedule to analyze the
+memory used by ECS containers and tune their memory reservation to match
+real-world usage.
+
+**Important Note:** This stack relies on metrics gathered by [EcsMonitorService](../EcsMonitorService/readme.md).
+
 ## Parameters
 
 - `ActiveServicesOnly` (String) - When 'true' only active services will be adjusted.

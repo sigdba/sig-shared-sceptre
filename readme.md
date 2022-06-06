@@ -6,6 +6,7 @@ delivered as "packages" and are intended for use with the
 
 ## Template Documentation
 - [CodeBuildProject](templates/CodeBuildProject/readme.md)
+  - [Examples](templates/CodeBuildProject/examples)
 - [EcsCluster](templates/EcsCluster/readme.md)
   - [NodeTypeChangeWithAutoScaling.md](templates/EcsCluster/doc/NodeTypeChangeWithAutoScaling.md)
   - [Examples](templates/EcsCluster/examples)

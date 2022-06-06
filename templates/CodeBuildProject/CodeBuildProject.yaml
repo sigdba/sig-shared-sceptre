@@ -3,115 +3,174 @@ AWSTemplateFormatVersion: 2010-09-09
 Parameters:
   ProjectName:
     Type: String
+    Description: The name of the CodeBuild project
 
   RepoArn:
     Type: String
+    Description: |
+      The ARN of the CodeCommit repository CodeBuild will build from. Leave the
+      default value if you are not using CodeCommit.
     Default: arn:aws:codecommit:unused::UNUSED
 
   RepoUrl:
+    Description: |
+      The location of the source code. This will normally be the HTTPS (*not
+      HTTPS-GRC*) URL of the CodeCommit repository. If you are using something
+      other than CodeCommit, see [AWS::CodeBuild::Project Source - Location](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codebuild-project-source.html#cfn-codebuild-project-source-location).
     Type: String
 
   EnvType:
     Type: String
+    Description: |
+      The type of environment the builds will occur in. For a list of supported
+      values, see [AWS::CodeBuild::Project Environment - Type](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codebuild-project-environment.html#cfn-codebuild-project-environment-type).
     Default: LINUX_CONTAINER
 
   EnvImage:
     Type: String
+    Description: |
+      The image tag or image digest that identifies the Docker image to use for
+      this build project. Banner application builds will typically use the
+      current x86_64 Amazon Linux 2 image (ex.
+      `aws/codebuild/amazonlinux2-x86_64-standard:3.0`.) Amazon provides
+      [a set of standard images](https://docs.aws.amazon.com/codebuild/latest/userguide/build-env-ref-available.html).
 
   EnvComputeType:
     Type: String
+    Description: |
+      The type of compute environment. This determines the number of CPU cores
+      and memory the build environment uses. For a list of supported values, see
+      [AWS::CodeBuild::Project Environment - ComputeType](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codebuild-project-environment.html#cfn-codebuild-project-environment-computetype)
     Default: BUILD_GENERAL1_SMALL
 
   ArtifactBucket:
     Type: String
-    Default: r.sigcorp.com
+    Description: |
+      The name of an S3 bucket used for build resources. If your project
+      produces artifacts, they will be stored here.
 
   SourceType:
     Type: String
+    Description: |
+      The type of repository that contains the source code to be built. For a
+      list of supported values, see [AWS::CodeBuild::Project Source - Type](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codebuild-project-source.html#cfn-codebuild-project-source-type).
     Default: CODECOMMIT
 
   BuildSpec:
     Type: String
+    Description: The relative path within the source repository for the project's build specification.
     Default: "buildspec.yml"
 
   DefaultRevision:
     Type: String
+    Description: Default value for the `REVISION` environment variable.
     Default: "1.0-SNAPSHOT"
 
   CreatesDockerImage:
     Type: String
-    Default: false
+    Description: Set this to `"true"` to create an ECR repository and related resources.
+    Default: "false"
 
   ExtraEnvVar1:
     Type: String
+    Description: The name of an extra environment variable available during the build.
     Default: "EXTRA_ARG_1"
 
   ExtraEnvVal1:
     Type: String
+    Description: The default value of this environment variable.
     Default: ""
 
   ExtraEnvType1:
     Type: String
+    Description: |
+      The type of this environment variable. For a list of supported values, see
+      [AWS::CodeBuild::Project EnvironmentVariable - Type](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codebuild-project-environmentvariable.html#cfn-codebuild-project-environmentvariable-type).
     Default: PLAINTEXT
 
   ExtraEnvVar2:
     Type: String
+    Description: The name of an extra environment variable available during the build.
     Default: "EXTRA_ARG_2"
 
   ExtraEnvVal2:
     Type: String
+    Description: The default value of this environment variable.
     Default: ""
 
   ExtraEnvType2:
     Type: String
+    Description: |
+      The type of this environment variable. For a list of supported values, see
+      [AWS::CodeBuild::Project EnvironmentVariable - Type](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codebuild-project-environmentvariable.html#cfn-codebuild-project-environmentvariable-type).
     Default: PLAINTEXT
 
   ExtraEnvVar3:
     Type: String
+    Description: The name of an extra environment variable available during the build.
     Default: "EXTRA_ARG_3"
 
   ExtraEnvVal3:
     Type: String
+    Description: The default value of this environment variable.
     Default: ""
 
   ExtraEnvType3:
     Type: String
+    Description: |
+      The type of this environment variable. For a list of supported values, see
+      [AWS::CodeBuild::Project EnvironmentVariable - Type](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codebuild-project-environmentvariable.html#cfn-codebuild-project-environmentvariable-type).
     Default: PLAINTEXT
 
   ExtraEnvVar4:
     Type: String
+    Description: The name of an extra environment variable available during the build.
     Default: "EXTRA_ARG_4"
 
   ExtraEnvVal4:
     Type: String
+    Description: The default value of this environment variable.
     Default: ""
 
   ExtraEnvType4:
     Type: String
+    Description: |
+      The type of this environment variable. For a list of supported values, see
+      [AWS::CodeBuild::Project EnvironmentVariable - Type](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codebuild-project-environmentvariable.html#cfn-codebuild-project-environmentvariable-type).
     Default: PLAINTEXT
 
   ExtraEnvVar5:
     Type: String
+    Description: The name of an extra environment variable available during the build.
     Default: "EXTRA_ARG_5"
 
   ExtraEnvVal5:
     Type: String
+    Description: The default value of this environment variable.
     Default: ""
 
   ExtraEnvType5:
     Type: String
+    Description: |
+      The type of this environment variable. For a list of supported values, see
+      [AWS::CodeBuild::Project EnvironmentVariable - Type](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codebuild-project-environmentvariable.html#cfn-codebuild-project-environmentvariable-type).
     Default: PLAINTEXT
 
   ExtraEnvVar6:
     Type: String
+    Description: The name of an extra environment variable available during the build.
     Default: "EXTRA_ARG_6"
 
   ExtraEnvVal6:
     Type: String
+    Description: The default value of this environment variable.
     Default: ""
 
   ExtraEnvType6:
     Type: String
+    Description: |
+      The type of this environment variable. For a list of supported values, see
+      [AWS::CodeBuild::Project EnvironmentVariable - Type](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codebuild-project-environmentvariable.html#cfn-codebuild-project-environmentvariable-type).
     Default: PLAINTEXT
 
 Conditions:

@@ -10,7 +10,7 @@ delivered as "packages" and are intended for use with the
 - [EcsCluster](templates/EcsCluster/readme.md)
   - [NodeTypeChangeWithAutoScaling.md](templates/EcsCluster/doc/NodeTypeChangeWithAutoScaling.md)
   - [Examples](templates/EcsCluster/examples)
-- EcsMemAutoTune
+- [EcsMemAutoTune](templates/EcsMemAutoTune/readme.md)
 - [EcsMonitorService](templates/EcsMonitorService/readme.md)
 - [EcsWebService](templates/EcsWebService/readme.md)
   - [SampleMemoryValues.org](templates/EcsWebService/doc/SampleMemoryValues.org)

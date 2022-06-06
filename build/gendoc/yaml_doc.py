@@ -27,9 +27,13 @@ def render_parameters(fp, root):
         render_parameter(fp, {**params[k], "title": k})
 
 
-def render_yaml(out_path, template):
-    with open(template, "r") as fp:
-        root = yaml.load(fp, Loader=SafeLoaderIgnoreUnknown)
-
+def render_yaml_string(out_path, yaml_str):
+    root = yaml.load(yaml_str, Loader=SafeLoaderIgnoreUnknown)
     with open(out_path, "w") as fp:
         render_parameters(fp, root)
+
+
+def render_yaml(out_path, template):
+    with open(template, "r") as fp:
+        src = fp.read()
+    render_yaml_string(out_path, src)

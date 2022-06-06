@@ -2,6 +2,7 @@
 
 import pydantic_doc
 import yaml_doc
+import yamlj2_doc
 
 if __name__ == "__main__":
     import argparse
@@ -18,6 +19,8 @@ if __name__ == "__main__":
         render_fn = pydantic_doc.render_python
     elif args.template.endswith(".yaml"):
         render_fn = yaml_doc.render_yaml
+    elif args.template.endswith(".yaml.j2"):
+        render_fn = yamlj2_doc.render_yamlj2
     else:
         print("WARNING: Unrecognized template format:", args.template)
         render_fn = None

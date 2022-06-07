@@ -2,7 +2,7 @@ import hashlib
 import os.path
 import json
 
-from troposphere import Template, Ref, Sub, Parameter, GetAtt
+from troposphere import Template, Ref, Sub, GetAtt
 from troposphere.awslambda import Permission, Function, Code
 from troposphere.events import Rule as EventRule, Target as EventTarget
 from troposphere.iam import Role, Policy

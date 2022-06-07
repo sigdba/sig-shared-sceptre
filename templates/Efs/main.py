@@ -1,7 +1,4 @@
-import hashlib
-import os.path
-
-from troposphere import Ref, Sub, Join, GetAtt, Tags, Tag
+from troposphere import Ref, Sub, Join, Tags
 from troposphere.efs import FileSystem, MountTarget, BackupPolicy
 from troposphere.ec2 import SecurityGroup, SecurityGroupRule
 
@@ -94,7 +91,11 @@ def r_mount_target(filesystem, mt_model):
 
 
 def sceptre_handler(sceptre_user_data):
-    add_param("VpcId", Type="AWS::EC2::VPC::Id")
+    add_param(
+        "VpcId",
+        Type="AWS::EC2::VPC::Id",
+        Description="ID of the VPC in which to create resources.",
+    )
 
     if sceptre_user_data is None:
         # We're generating documetation. Return the template with just parameters.

@@ -1,3 +1,15 @@
+# EcsWebService
+
+Creates an ECS service along with it's related load-balancer resources like
+listener rules and a target group.
+
+## Features
+
+- EFS integration (`sceptre_user_data.efs_volumes`)
+- Service scheduling (`sceptre_user_data.schedule`)
+- Image building through CodeBuild (`sceptre_user_data.containers.*.image_build`)
+- ELB listener rules (`sceptre_user_data.containers.*.rules`)
+
 ## Parameters
 
 - `ClusterArn` (String) - **required** - The ARN or name of the ECS cluster
@@ -22,21 +34,34 @@
 - `launch_type` (string)
   - **Allowed Values:** `EC2`, `EXTERNAL`, `FARGATE`
 
-- `cpu` (string)
+- `cpu` (string) - The number of cpu units used by the task.
+  - If you are using the `FARGATE` launch type, this value is
+            required. See
+            [AWS::ECS::TaskDefinition](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html#cfn-ecs-taskdefinition-cpu)
+            for details.
 
-- `memory` (string)
+- `memory` (string) - The amount (in MiB) of memory used by the task.
+  - If you are using the `FARGATE` launch type, this value is
+            required. See
+            [AWS::ECS::TaskDefinition](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html#cfn-ecs-taskdefinition-memory)
+            for details.
 
-- `requires_compatibilities` (List of string)
+- `requires_compatibilities` (List of string) - The task launch types the task definition was validated against.
+  - **See Also:** [TaskDefinition$compatibilities](https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_TaskDefinition.html#ECS-Type-TaskDefinition-compatibilities)
 
-- `network_mode` (string)
+- `network_mode` (string) - The Docker networking mode to use for the containers in the task.
+  - See [AWS::ECS::TaskDefinition](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html#cfn-ecs-taskdefinition-networkmode) for details.
 
-- `security_group` ([SecurityGroupModel](#SecurityGroupModel))
+- `security_group` ([SecurityGroupModel](#SecurityGroupModel)) - Defines a security group of which all service containers will be members.
+  - This property only applies when `network_mode` is `awsvpc`.
 
-- `security_group_ids` (List of string)
+- `security_group_ids` (List of string) - List of security group IDs of which all service containers will be members.
+  - This property only applies when `network_mode` is `awsvpc`.
 
-- `subnet_ids` (List of string)
+- `subnet_ids` (List of string) - The IDs of the subnets associated with the task or service.
+  - This property only applies when `network_mode` is `awsvpc`.
 
-- `service_tags` (Dict[string:string])
+- `service_tags` (Dict[string:string]) - A dict of tags to apply to the ECS service.
 
 - `containers` (List of [ContainerModel](#ContainerModel)) - **required** - Defines the containers for this service.
 
@@ -278,11 +303,11 @@ for more information.
 
 ##### EnvironmentVariableModel
 
-- `name` (string) - **required**
+- `name` (string) - **required** - The name or key of the environment variable.
 
-- `value` (string) - **required**
+- `value` (string) - **required** - The value of the environment variable.
 
-- `type` (string)
+- `type` (string) - The type of environment variable.
   - **Default:** `PLAINTEXT`
   - **Allowed Values:** `PLAINTEXT`, `PARAMETER_STORE`, `SECRETS_MANAGER`
 
@@ -290,12 +315,12 @@ for more information.
 
 ### SecurityGroupModel
 
-- `egress` (List of Dict[string:string])
-  - **Default:** `[{'CidrIp': '0.0.0.0/0', 'Description': 'Allow all outbound', 'FromPort': '-1', 'ToPort': '-1', 'IpProtocol': '-1'}]`
+- `egress` (List of Dict[string:string]) - The outbound rules associated with the security group.
+  - **Default:** Allow all outbound traffic.
 
-- `allow` (List of [SecurityGroupAllowModel](#SecurityGroupAllowModel) or List of [SecurityGroupAllowModel](#SecurityGroupAllowModel))
+- `allow` (List of [SecurityGroupAllowModel](#SecurityGroupAllowModel) or List of [SecurityGroupAllowModel](#SecurityGroupAllowModel)) - Rules for allowed inbound traffic.
 
-- `tags` (Dict[string:string])
+- `tags` (Dict[string:string]) - Tags applied to security group.
 
 
 
@@ -309,12 +334,20 @@ for more information.
 
 - `sg_owner` (string) - The AWS account ID that owns the security group specified in `sg_id`. This value is required if the SG is in another account.
 
-- `description` (string) - **required**
+- `description` (string) - **required** - Description of the rule.
 
-- `from_port` (integer) - **required**
+- `from_port` (integer) - The start of port range for the TCP and UDP protocols. A value of `-1` indicates all ports.
+  - You must specify either `port` or `from_port` and `to_port` but not both.
 
-- `to_port` (integer) - **required**
+- `to_port` (integer) - The start of port range for the TCP and UDP protocols. A value of `-1` indicates all ports.
+  - You must specify either `port` or `from_port` and `to_port` but not both.
 
-- `protocol` (string)
+- `port` (string or integer) - Port or port range for the TCP and UDP protocols.
+  - You must specify either `port` or `from_port` and `to_port` but not both.
+  - A single number will specify a single port.
+  - A range of ports is specified with a hyphen (eg. `100-199`)
+  - To allow any port specify `any`.
+
+- `protocol` (string) - The IP protocol name.
   - **Default:** `tcp`
 

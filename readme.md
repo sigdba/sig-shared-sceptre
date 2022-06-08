@@ -17,9 +17,9 @@ delivered as "packages" and are intended for use with the
 - [Efs](templates/Efs/readme.md) - Creates an EFS volume and associated resources.
 - [GlobalLogRetentionRules](templates/GlobalLogRetentionRules/readme.md) - Creates an AWS Lambda function which runs on a schedule to set the retention of CloudWatch log groups.
   - [Examples](templates/GlobalLogRetentionRules/examples)
-- [MultihostElb](templates/MultihostElb/readme.md)
-- [Server](templates/Server/readme.md)
-- [Vpc](templates/Vpc/readme.md)
+- [MultihostElb](templates/MultihostElb/readme.md) - Creates an Elastic Load Balancer and associated resources.
+- [Server](templates/Server/readme.md) - Creates an EC2 instance and associated resources.
+- [Vpc](templates/Vpc/readme.md) - Creates a VPC, its subnets, and optional customer gateway (site-to-site VPN).
 
 ## Repository Setup
 

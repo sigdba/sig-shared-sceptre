@@ -1,3 +1,7 @@
+# Server
+
+Creates an EC2 instance and associated resources.
+
 ## Parameters
 
 - `AvailabilityZone` (AWS::EC2::AvailabilityZone::Name) - **required**

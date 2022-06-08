@@ -45,7 +45,10 @@ for t in ${BASE}/templates/*; do
     tdoc=${t}/readme.md
     tname=$(basename ${t})
     if [ -f ${tdoc} ]; then
-        echo "- [${tname}](${tdoc##$BASE/})" >>${BASE}/readme.md
+        blurb=""
+        [ -f "${t}/.readme-head.md" ] && blurb=$(grep '^\w' "${t}/.readme-head.md" |tr '\n' ' ' |grep -o '^[^.]*\.')
+        [ -n "$blurb" ] && blurb=" - $blurb"
+        echo "- [${tname}](${tdoc##$BASE/})${blurb}" >>${BASE}/readme.md
     else
         echo "WARNING: ${tdoc} not found"
         echo "- $tname" >>${BASE}/readme.md

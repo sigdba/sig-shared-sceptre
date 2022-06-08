@@ -5,17 +5,17 @@ delivered as "packages" and are intended for use with the
 [Sceptre Package Manager](https://github.com/sigdba/sceptre_package_template_handler).
 
 ## Template Documentation
-- [CodeBuildProject](templates/CodeBuildProject/readme.md)
+- [CodeBuildProject](templates/CodeBuildProject/readme.md) - Creates a CodeBuild project, an optional ECR repository, and associated resources and permissions.
   - [Examples](templates/CodeBuildProject/examples)
-- [EcsCluster](templates/EcsCluster/readme.md)
+- [EcsCluster](templates/EcsCluster/readme.md) - Creates an EC2-backed cluster in ECS with optional auto-scaling.
   - [NodeTypeChangeWithAutoScaling.md](templates/EcsCluster/doc/NodeTypeChangeWithAutoScaling.md)
   - [Examples](templates/EcsCluster/examples)
-- [EcsMemAutoTune](templates/EcsMemAutoTune/readme.md)
-- [EcsMonitorService](templates/EcsMonitorService/readme.md)
-- [EcsWebService](templates/EcsWebService/readme.md)
+- [EcsMemAutoTune](templates/EcsMemAutoTune/readme.md) - Creates a Lambda function which runs on a specified schedule to analyze the memory used by ECS containers and tune their memory reservation to match real-world usage.
+- [EcsMonitorService](templates/EcsMonitorService/readme.md) - Provides a metric for memory utilization of EC2-backed ECS containers.
+- [EcsWebService](templates/EcsWebService/readme.md) - Creates an ECS service along with it's related load-balancer resources like listener rules and a target group.
   - [SampleMemoryValues.org](templates/EcsWebService/doc/SampleMemoryValues.org)
-- [Efs](templates/Efs/readme.md)
-- [GlobalLogRetentionRules](templates/GlobalLogRetentionRules/readme.md)
+- [Efs](templates/Efs/readme.md) - Creates an EFS volume and associated resources.
+- [GlobalLogRetentionRules](templates/GlobalLogRetentionRules/readme.md) - Creates an AWS Lambda function which runs on a schedule to set the retention of CloudWatch log groups.
   - [Examples](templates/GlobalLogRetentionRules/examples)
 - [MultihostElb](templates/MultihostElb/readme.md)
 - [Server](templates/Server/readme.md)

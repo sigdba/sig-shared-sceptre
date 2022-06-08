@@ -15,7 +15,8 @@ delivered as "packages" and are intended for use with the
 - [EcsWebService](templates/EcsWebService/readme.md)
   - [SampleMemoryValues.org](templates/EcsWebService/doc/SampleMemoryValues.org)
 - [Efs](templates/Efs/readme.md)
-- GlobalLogRetentionRules
+- [GlobalLogRetentionRules](templates/GlobalLogRetentionRules/readme.md)
+  - [Examples](templates/GlobalLogRetentionRules/examples)
 - [MultihostElb](templates/MultihostElb/readme.md)
 - [Server](templates/Server/readme.md)
 - [Vpc](templates/Vpc/readme.md)

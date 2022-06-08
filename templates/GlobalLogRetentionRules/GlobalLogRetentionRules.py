@@ -7,6 +7,8 @@ from troposphere.awslambda import Permission, Function, Code
 from troposphere.events import Rule as EventRule, Target as EventTarget
 from troposphere.iam import Role, Policy
 
+from model import UserDataModel
+
 TEMPLATE = Template()
 PRIORITY_CACHE = []
 
@@ -127,6 +129,13 @@ def scheduling_rule(schedule_expr, rules):
 
 
 def sceptre_handler(sceptre_user_data):
+    if sceptre_user_data is None:
+        # We're generating documetation. Return the template with just parameters.
+        return TEMPLATE
+    # Validate user input
+    # TODO: Update code to use pydantic model instead of just validating
+    UserDataModel.parse_obj(sceptre_user_data)
+
     lambda_execution_role()
     lambda_function()
     lambda_invoke_permission()

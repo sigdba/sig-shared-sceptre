@@ -1,3 +1,7 @@
+# MultihostELB
+
+Creates an Elastic Load Balancer and associated resources.
+
 ## Parameters
 
 - `VpcId` (String) - **required** - The ID of the VPC where the ECS cluster will be created.

@@ -26,10 +26,29 @@ class SecurityGroupAllowModel(BaseModel):
     sg_owner: Optional[str] = Field(
         description="The AWS account ID that owns the security group specified in `sg_id`. This value is required if the SG is in another account."
     )
-    description: str
-    protocol = "tcp"
-    from_port: int
-    to_port: int
+    description: str = Field(description="Description of the rule.")
+    protocol = Field("tcp", description="The IP protocol name.")
+    from_port: Optional[int] = Field(
+        description="The start of port range for the TCP and UDP protocols. A value of `-1` indicates all ports.",
+        notes=[
+            "You must specify either `port` or `from_port` and `to_port` but not both."
+        ],
+    )
+    to_port: Optional[int] = Field(
+        description="The start of port range for the TCP and UDP protocols. A value of `-1` indicates all ports.",
+        notes=[
+            "You must specify either `port` or `from_port` and `to_port` but not both."
+        ],
+    )
+    port: Optional[Union[str, int]] = Field(
+        description="Port or port range for the TCP and UDP protocols.",
+        notes=[
+            "You must specify either `port` or `from_port` and `to_port` but not both.",
+            "A single number will specify a single port.",
+            "A range of ports is specified with a hyphen (eg. `100-199`)",
+            "To allow any port specify `any`.",
+        ],
+    )
 
     @root_validator(pre=True)
     def require_cidr_or_sg_id(cls, values):
@@ -80,17 +99,23 @@ class SecurityGroupAllowModel(BaseModel):
 
 
 class SecurityGroupModel(BaseModel):
-    egress: List[Dict[str, str]] = [
-        {
-            "CidrIp": "0.0.0.0/0",
-            "Description": "Allow all outbound",
-            "FromPort": "-1",
-            "ToPort": "-1",
-            "IpProtocol": "-1",
-        }
-    ]
-    allow: List[Union[SecurityGroupAllowModel, List[SecurityGroupAllowModel]]] = []
-    tags: Dict[str, str] = {}
+    egress: List[Dict[str, str]] = Field(
+        [
+            {
+                "CidrIp": "0.0.0.0/0",
+                "Description": "Allow all outbound",
+                "FromPort": "-1",
+                "ToPort": "-1",
+                "IpProtocol": "-1",
+            }
+        ],
+        description="The outbound rules associated with the security group.",
+        default_description="Allow all outbound traffic.",
+    )
+    allow: List[Union[SecurityGroupAllowModel, List[SecurityGroupAllowModel]]] = Field(
+        [], description="Rules for allowed inbound traffic."
+    )
+    tags: Dict[str, str] = Field({}, description="Tags applied to security group.")
 
     @validator("allow")
     def flatten_allow_list(cls, v):

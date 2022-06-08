@@ -1,0 +1,24 @@
+---
+template:
+  type: package
+  name: GlobalLogRetentionRules
+  release: 25
+  repository: {{ sig_repo }}
+
+sceptre_user_data:
+  rules:
+    # Keep CodeBuild run logs for 30 days.
+    - starts_with: /aws/codebuild/
+      retain_days: 30
+
+    # Keep Lambda execution logs for a week.
+    - starts_with: /aws/lambda/
+      retain_days: 7
+
+    # Keep ECS container logs for 90 days.
+    - starts_with: /ecs/
+      retain_days: 90
+
+    # Keep all other logs for 90 days
+    - starts_with: ''
+      retain_days: 90

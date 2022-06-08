@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import importlib.machinery
 import importlib.util
 import inspect
@@ -10,13 +9,11 @@ from pydantic import BaseModel
 from pydantic.schema import schema
 from troposphere import Template
 
-TOP_MODEL = "UserDataModel"
+from gd_util import flatten
+from render import render_field
 
-flatten = (
-    lambda i: [element for item in i for element in flatten(item)]
-    if type(i) is list
-    else [i]
-)
+
+TOP_MODEL = "UserDataModel"
 
 
 def load_template_module(path):
@@ -46,9 +43,15 @@ def get_model_classes(module):
     }
 
 
+class TopLevelModelNotFoundError(Exception):
+    pass
+
+
 def get_schema(model_classes):
     if TOP_MODEL not in model_classes:
-        raise ValueError("Top-level model class not found: %s" % TOP_MODEL)
+        raise TopLevelModelNotFoundError(
+            "Top-level model class not found: %s" % TOP_MODEL
+        )
     top_class = model_classes[TOP_MODEL]
     return schema([top_class], ref_template="{model}")
 
@@ -112,62 +115,18 @@ def get_parameters_in_order(module):
     return [{**params[k], "title": k} for k in keys]
 
 
-def field_default_str(field):
-    if field.get("omit_default", False):
-        return None
-    desc = field.get("default_description", None)
-    if desc is not None:
-        return desc
-    val = field.get("default", None)
-    if val is not None:
-        if val == [] or val == {}:
-            return None
-        return f"`{val}`"
-    return None
-
-
-def field_requirement_str(field):
-    req = field.get("requirement_description", None)
-    if req:
-        return f" - **{req}**"
-    if field.get("required", False):
-        return " - **required**"
-    return ""
-
-
-def render_field(fp, spec={}, **kwargs):
-    field = {**spec, **{k.lower(): v for k, v in kwargs.items()}}
-    req = field_requirement_str(field)
-    fp.write("- `{}` ({}){}".format(field["title"], field["type"], req))
-
-    if "description" in field and field["description"]:
-        fp.write(" - ")
-        fp.write(field["description"])
-    fp.write("\n")
-
-    allowed = field.get("enum")
-    if allowed:
-        allowed = ", ".join(map(lambda v: f"`{v}`", allowed))
-        fp.write(f"  - **Allowed Values:** {allowed}\n")
-
-    default = field_default_str(field)
-    if default:
-        fp.write(f"  - **Default:** {default}\n")
-
-    for note in field.get("notes", []):
-        fp.write(f"  - {note}\n")
-
-    fp.write("\n")
-
-
 def render_parameter(fp, param):
     render_field(fp, **param, required="Default" not in param)
 
 
 def render_parameters(fp, module):
     fp.write("## Parameters\n\n")
+    has_params = False
     for p in get_parameters_in_order(module):
+        has_params = True
         render_parameter(fp, p)
+    if not has_params:
+        fp.write("*This template does not require parameters.*")
 
 
 def schema_prop_type_str(p):
@@ -228,23 +187,16 @@ def render_schema_defs(fp, schema):
         render_schema_def(fp, d)
 
 
-if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser(
-        description="Generate documentation for Pydantic-based Sceptre templates"
-    )
-    parser.add_argument("template", help="path to Python 3 template file")
-    parser.add_argument("output", help="path to output file")
-
-    args = parser.parse_args()
-
-    module = load_template_module(args.template)
-    model_classes = get_model_classes(module)
-    model_schema = get_schema(model_classes)
+def render_python(out_path, template):
+    try:
+        module = load_template_module(template)
+        model_classes = get_model_classes(module)
+        model_schema = get_schema(model_classes)
+    except TopLevelModelNotFoundError:
+        print("WARNING: Pydantic UserDataModel not found:", template)
+        return
 
     # print(yaml.dump(schema))
-
-    with open(args.output, "w") as fp:
+    with open(out_path, "w") as fp:
         render_parameters(fp, module)
         render_schema_defs(fp, model_schema)

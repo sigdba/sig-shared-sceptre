@@ -1,3 +1,6 @@
+# EcsCluster
+Creates an EC2-backed cluster in ECS with optional auto-scaling.
+
 ## Parameters
 
 - `AmiId` (AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>) - AMI ID for EC2 cluster nodes

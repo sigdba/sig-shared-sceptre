@@ -1,0 +1,32 @@
+---
+#
+# Build Banner 9 application images suitable for launch in ECS.
+#
+template:
+  type: package
+  name: CodeBuildProject
+  release: 26
+  repository: {{ sig_repo }}
+parameters:
+  ProjectName: banner-app
+  CreatesDockerImage: "true"
+  EnvImage: aws/codebuild/amazonlinux2-x86_64-standard:3.0
+
+  # This will typically be a clone of the sig-docker/banner-app repository:
+  #   https://github.com/sig-docker/banner-app
+  # Before creating this stack, you should create a CodeCommit repository and
+  # push the banner-app code to it.
+  RepoUrl: https://git-codecommit.us-east-1.amazonaws.com/v1/repos/banner-app
+  RepoArn: arn:aws:codecommit:us-east-1:12345:banner-app
+
+  # Before creating this stack, you should create an S3 bucket where WAR files
+  # will be staged. In this example we're using "school-codebuild".
+  ArtifactBucket: school-codebuild
+  ExtraEnvVar1: APP_BUCKET
+  ExtraEnvVal1: school-codebuild
+  ExtraEnvVar2: APP_BUCKET_PREFIX
+  ExtraEnvVal2: ecs-banner-apps
+
+  # These values will be set at at launch time.
+  ExtraEnvVar3: APP_NAME
+  ExtraEnvVar4: APP_VER

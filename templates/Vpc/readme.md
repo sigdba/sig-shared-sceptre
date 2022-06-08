@@ -1,6 +1,10 @@
+# Vpc
+
+Creates a VPC, its subnets, and optional customer gateway (site-to-site VPN).
+
 ## Parameters
 
-
+*This template does not require parameters.*
 
 ## sceptre_user_data
 

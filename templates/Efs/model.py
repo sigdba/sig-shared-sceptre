@@ -1,6 +1,6 @@
-from typing import List, Optional, Dict, Union
-from pydantic import BaseModel, ValidationError, validator, root_validator
-from util import debug
+from typing import List, Optional
+
+from pydantic import BaseModel, Field
 
 #
 # IMPORTANT: The following classes are DATA CLASSES using pydantic.
@@ -10,22 +10,44 @@ from util import debug
 
 
 class AllowModel(BaseModel):
-    cidr: Optional[str]
-    sg_id: Optional[str]
-    description: Optional[str]
+    cidr: Optional[str] = Field(
+        description="Traffic from this CIDR will be allowed.",
+        notes=["You must specify one of `cidr` or `sg_id` but not both."],
+    )
+    sg_id: Optional[str] = Field(
+        description="Members of this security group will be allowed.",
+        notes=["You must specify one of `cidr` or `sg_id` but not both."],
+    )
+    description: Optional[str] = Field(description="Description of this rule.")
 
     # TODO: Require one of cidr/sg_id
 
 
 class MountTargetModel(BaseModel):
-    subnet_id: str
-    ip_address: Optional[str]
+    subnet_id: str = Field(
+        description="ID of the subnet in which to create this mount target."
+    )
+    ip_address: Optional[str] = Field(
+        description="IP address to use for this mount target."
+    )
 
 
 class UserDataModel(BaseModel):
-    filesystem_name: Optional[str]
-    auto_backups_enabled: bool
-    filesystem_tags = {}
-    filesystem_extra_opts = {}
-    allow: List[AllowModel] = []
-    mount_targets: List[MountTargetModel] = []
+    filesystem_name: Optional[str] = Field(
+        description="Name of the EFS volume to create."
+    )
+    auto_backups_enabled: bool = Field(
+        description="When `true`, EFS auto-backups will be enabled for this volume."
+    )
+    filesystem_tags = Field({}, description="Tags to apply to this volume.")
+    filesystem_extra_opts = Field(
+        {},
+        description="Additional options to apply to the EFS FileSystem object.",
+        notes=[
+            "**See:** [AWS::EFS::FileSystem](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-efs-filesystem.html)"
+        ],
+    )
+    allow: List[AllowModel] = Field([], description="Rules to allow inbound traffic.")
+    mount_targets: List[MountTargetModel] = Field(
+        [], description="Mount targets to create."
+    )

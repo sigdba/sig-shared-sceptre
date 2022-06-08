@@ -153,10 +153,11 @@ class HealthCheckModel(BaseModel):
 
 
 class EnvironmentVariableModel(BaseModel):
-    name: str
-    value: str
+    name: str = Field(description="The name or key of the environment variable.")
+    value: str = Field(description="The value of the environment variable.")
     type = Field(
         "PLAINTEXT",
+        description="The type of environment variable.",
         notes=["**Allowed Values:** `PLAINTEXT`, `PARAMETER_STORE`, `SECRETS_MANAGER`"],
     )
 
@@ -348,14 +349,51 @@ class ContainerModel(BaseModel):
 
 class UserDataModel(BaseModel):
     launch_type: Optional[Literal["EC2", "EXTERNAL", "FARGATE"]]
-    cpu: Optional[str]
-    memory: Optional[str]
-    requires_compatibilities: Optional[List[str]]
-    network_mode: Optional[str]
-    security_group: Optional[SecurityGroupModel]
-    security_group_ids: Optional[List[str]]
-    subnet_ids: Optional[List[str]]
-    service_tags: Optional[Dict[str, str]]
+    cpu: Optional[str] = Field(
+        description="The number of cpu units used by the task.",
+        notes=[
+            """If you are using the `FARGATE` launch type, this value is
+            required. See
+            [AWS::ECS::TaskDefinition](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html#cfn-ecs-taskdefinition-cpu)
+            for details."""
+        ],
+    )
+    memory: Optional[str] = Field(
+        description="The amount (in MiB) of memory used by the task.",
+        notes=[
+            """If you are using the `FARGATE` launch type, this value is
+            required. See
+            [AWS::ECS::TaskDefinition](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html#cfn-ecs-taskdefinition-memory)
+            for details."""
+        ],
+    )
+    requires_compatibilities: Optional[List[str]] = Field(
+        description="The task launch types the task definition was validated against.",
+        notes=[
+            "**See Also:** [TaskDefinition$compatibilities](https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_TaskDefinition.html#ECS-Type-TaskDefinition-compatibilities)"
+        ],
+    )
+    network_mode: Optional[str] = Field(
+        description="The Docker networking mode to use for the containers in the task.",
+        notes=[
+            "See [AWS::ECS::TaskDefinition](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html#cfn-ecs-taskdefinition-networkmode) for details."
+        ],
+    )
+    security_group: Optional[SecurityGroupModel] = Field(
+        description="Defines a security group of which all service containers will be members.",
+        notes=["This property only applies when `network_mode` is `awsvpc`."],
+    )
+    security_group_ids: Optional[List[str]] = Field(
+        description="List of security group IDs of which all service containers will be members.",
+        notes=["This property only applies when `network_mode` is `awsvpc`."],
+    )
+    subnet_ids: Optional[List[str]] = Field(
+        description="The IDs of the subnets associated with the task or service.",
+        notes=["This property only applies when `network_mode` is `awsvpc`."],
+    )
+    service_tags: Optional[Dict[str, str]] = Field(
+        description="A dict of tags to apply to the ECS service."
+    )
     containers: List[ContainerModel] = Field(
         description="Defines the containers for this service."
     )

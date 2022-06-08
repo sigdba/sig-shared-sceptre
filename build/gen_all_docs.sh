@@ -21,13 +21,23 @@ esac
 
 BASE="$(cd "$SCRIPT_DIR/.."; pwd -P)"
 TEMPLATES=${BASE}/templates
-GENDOC="python3 $SCRIPT_DIR/gendoc.py"
+GENDOC="python3 $SCRIPT_DIR/gendoc/gendoc.py"
 
-for model_path in $(grep -l 'class UserDataModel(BaseModel' $BASE/templates/*/*.py); do
-    template_path=$(grep -l 'def sceptre_handler(' $(dirname $model_path)/*.py)
-    md_file="$(dirname $template_path)/readme.md"
+for template_dir in $TEMPLATES/*; do
+    [ -d "$template_dir" ] || continue
+    entrypoint=$(awk '$1 ~ /^entrypoint:/ {print $2}' "$template_dir/manifest.yaml")
+    template_path="$template_dir/$entrypoint"
+    md_file="${template_dir}/readme.md"
+    tmp_md="${md_file}.tmp"
     echo "Documenting ${template_path/$TEMPLATES} -> ${md_file/$TEMPLATES}"
-    $GENDOC "$template_path" "$md_file" || die "Error generating documentation"
+    $GENDOC "$template_path" "$tmp_md" || die "Error generating documentation"
+    if [ -f "$tmp_md" ]; then
+        rm -f "$md_file"
+        [ -f "$template_dir/.readme-head.md" ] && cat "$template_dir/.readme-head.md" >$md_file
+        cat "$tmp_md" >>$md_file
+        [ -f "$template_dir/.readme-foot.md" ] && cat "$template_dir/.readme-foot.md" >$md_file
+        rm -f "$tmp_md"
+    fi
 done
 
 cat ${BASE}/build/readme-header.md >${BASE}/readme.md
@@ -35,12 +45,15 @@ for t in ${BASE}/templates/*; do
     tdoc=${t}/readme.md
     tname=$(basename ${t})
     if [ -f ${tdoc} ]; then
-        echo "- [${tname}](${tdoc##$BASE/})" >>${BASE}/readme.md
+        blurb=""
+        [ -f "${t}/.readme-head.md" ] && blurb=$(grep '^\w' "${t}/.readme-head.md" |tr '\n' ' ' |grep -o '^[^.]*\.')
+        [ -n "$blurb" ] && blurb=" - $blurb"
+        echo "- [${tname}](${tdoc##$BASE/})${blurb}" >>${BASE}/readme.md
     else
         echo "WARNING: ${tdoc} not found"
         echo "- $tname" >>${BASE}/readme.md
     fi
-    for d in ${t}/doc/*.md; do
+    for d in ${t}/doc/*.md ${t}/doc/*.org; do
         echo "  - [$(basename $d)](${d##$BASE/})" >>${BASE}/readme.md
     done
 

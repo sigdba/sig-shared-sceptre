@@ -121,8 +121,12 @@ def render_parameter(fp, param):
 
 def render_parameters(fp, module):
     fp.write("## Parameters\n\n")
+    has_params = False
     for p in get_parameters_in_order(module):
+        has_params = True
         render_parameter(fp, p)
+    if not has_params:
+        fp.write("*This template does not require parameters.*")
 
 
 def schema_prop_type_str(p):

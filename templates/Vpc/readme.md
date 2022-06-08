@@ -1,6 +1,6 @@
 ## Parameters
 
-
+*This template does not require parameters.*
 
 ## sceptre_user_data
 

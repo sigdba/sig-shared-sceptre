@@ -1,0 +1,11 @@
+---
+template_path: Efs/main.py
+
+parameters:
+  VpcId: vpc-123451
+
+sceptre_user_data:
+  auto_backups_enabled: yes
+  mount_targets:
+    - subnet_id: sn-123123
+    - subnet_id: sn-12312312

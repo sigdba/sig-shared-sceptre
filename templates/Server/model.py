@@ -1,7 +1,9 @@
 from base64 import b64encode
-from typing import List, Optional, Dict, Union, TypeVar
-from pydantic import BaseModel, ValidationError, validator, root_validator, Field
-from util import debug, flatten
+from typing import Dict, List, Optional, Union
+
+from pydantic import Field, root_validator, validator
+
+from util import BaseModel, flatten
 
 #
 # IMPORTANT: The following classes are DATA CLASSES using pydantic.

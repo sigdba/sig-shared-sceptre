@@ -2,6 +2,7 @@ import sys
 import hashlib
 import os.path
 from troposphere import Template, Parameter, AWSObject, Ref, Output, Export
+from pydantic import BaseModel as PydanticBaseModel
 
 TEMPLATE = Template()
 
@@ -14,6 +15,14 @@ TITLE_CHAR_MAP = {
     "/": "SLASH",
     " ": "SP",
 }
+
+
+# Create a custom BaseModel which forbids extra parameters. This ensures that
+# when a user misspells a key they will get an error instead of some undefined
+# behavior.
+class BaseModel(PydanticBaseModel):
+    class Config:
+        extra = "forbid"
 
 
 def add_resource(r):

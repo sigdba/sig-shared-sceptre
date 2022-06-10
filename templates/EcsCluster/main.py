@@ -1,14 +1,6 @@
 import hashlib
 
-from troposphere import (
-    Base64,
-    Export,
-    FindInMap,
-    GetAtt,
-    Output,
-    Ref,
-    Sub,
-)
+from troposphere import Base64, GetAtt, Ref, Sub, Tags
 from troposphere.autoscaling import (
     AutoScalingGroup,
     LaunchConfiguration,
@@ -37,11 +29,11 @@ from troposphere.sns import Subscription, SubscriptionResource, Topic
 import model
 from util import (
     TEMPLATE,
+    add_export,
     add_param,
     add_resource,
     add_resource_once,
     read_resource,
-    add_export,
 )
 
 
@@ -170,7 +162,9 @@ def node_security_group(ingress_cidrs):
     )
 
 
-def auto_scaling_group(name, subnets, launch_conf, max_size, desired_size, sns_topic):
+def auto_scaling_group(
+    name, subnets, launch_conf, max_size, desired_size, sns_topic, tags
+):
     return add_resource(
         AutoScalingGroup(
             "Asg" + name,
@@ -186,7 +180,7 @@ def auto_scaling_group(name, subnets, launch_conf, max_size, desired_size, sns_t
                     NotificationTypes=["autoscaling:EC2_INSTANCE_TERMINATE"],
                 )
             ],
-            Tags=ASTags(Name=Sub("ecs-node-${AWS::StackName}")),
+            Tags=ASTags(Name=Sub("ecs-node-${AWS::StackName}"), **tags),
             UpdatePolicy=UpdatePolicy(
                 AutoScalingRollingUpdate=AutoScalingRollingUpdate(
                     MaxBatchSize=1,
@@ -213,7 +207,7 @@ def launch_config(name, sgs, inst_type, inst_prof, keyName):
     )
 
 
-def ecs_cluster(container_insights_enabled):
+def ecs_cluster(user_data):
     return add_resource(
         Cluster(
             "EcsCluster",
@@ -221,9 +215,12 @@ def ecs_cluster(container_insights_enabled):
             ClusterSettings=[
                 ClusterSetting(
                     Name="containerInsights",
-                    Value="enabled" if container_insights_enabled else "disabled",
+                    Value="enabled"
+                    if user_data.container_insights_enabled
+                    else "disabled",
                 )
             ],
+            Tags=Tags(**{**user_data.tags, **user_data.cluster_tags}),
         )
     )
 
@@ -430,7 +427,7 @@ def capacity_provider_assoc(asgs_with_models):
 
 
 def scaling_group_with_resources(
-    security_groups, node_profile, subnets, sns_topic, sns_fn_role, sg_model
+    security_groups, node_profile, subnets, sns_topic, sns_fn_role, tags, sg_model
 ):
     lc = launch_config(
         sg_model.name,
@@ -446,6 +443,7 @@ def scaling_group_with_resources(
         sg_model.max_size,
         sg_model.desired_size,
         sns_topic,
+        tags,
     )
     asg_terminate_hook(asg, sns_topic, sns_fn_role)
     return asg
@@ -472,7 +470,7 @@ def sceptre_handler(sceptre_user_data):
     user_data = model.UserDataModel(**sceptre_user_data)
 
     # fn_ex_role = lambda_execution_role()
-    cluster = ecs_cluster(user_data.container_insights_enabled)
+    cluster = ecs_cluster(user_data)
 
     service_role()
     cluster_bucket()
@@ -504,6 +502,7 @@ def sceptre_handler(sceptre_user_data):
                     user_data.subnet_ids,
                     sns_topic,
                     sns_fn_role,
+                    {**user_data.tags, **user_data.asg_tags, **g.tags},
                     g,
                 ),
                 g,

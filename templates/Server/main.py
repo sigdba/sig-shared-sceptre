@@ -1,20 +1,6 @@
-import hashlib
-import os.path
-
 from functools import partial
 
-from troposphere import Ref, Sub, GetAtt, Tags, FindInMap, ImportValue
-from troposphere.cloudformation import AWSCustomObject
-from troposphere.iam import Role, Policy, InstanceProfile
-from troposphere.ec2 import (
-    SecurityGroup,
-    Instance,
-    Volume,
-    MountPoint,
-    EIP,
-    EIPAssociation,
-)
-from troposphere.route53 import RecordSet, RecordSetType
+from troposphere import FindInMap, GetAtt, ImportValue, Ref, Sub, Tags
 from troposphere.backup import (
     BackupPlan,
     BackupPlanResourceType,
@@ -24,10 +10,30 @@ from troposphere.backup import (
     BackupVault,
     LifecycleResourceType,
 )
+from troposphere.cloudformation import AWSCustomObject
+from troposphere.ec2 import (
+    EIP,
+    Instance,
+    MountPoint,
+    SecurityGroup,
+    Volume,
+)
+from troposphere.iam import InstanceProfile, Policy, Role
+from troposphere.route53 import RecordSetType
 
-from model import *
-from util import *
+from model import UserDataModel
 from root_vol import root_vol_props
+from util import (
+    add_export,
+    add_mapping,
+    add_output,
+    add_param,
+    add_resource,
+    clean_title,
+    opts_with,
+    troposphere_opts,
+    TEMPLATE,
+)
 
 
 def ingress_for_allow(allow):
@@ -69,8 +75,6 @@ def instance_sg(user_data):
 
 
 def ebs_volume(inst_name, vol):
-    opts = {}
-
     return add_resource(
         Volume(
             f"EbsVolumeLETTER{vol.device_letter}",
@@ -362,7 +366,7 @@ def ns_entry_fn(user_data):
 def attach_eip(user_data, inst):
     if not user_data.allocate_eip:
         return
-    eip = add_resource(
+    add_resource(
         EIP(
             "Eip",
             Domain="vpc",
@@ -407,7 +411,9 @@ def sceptre_handler(sceptre_user_data):
         add_output(
             output.name,
             Sub(output.value),
-            **opts_with(export_name=output.export_name, Description=output.description),
+            **opts_with(
+                export_name=(output.export_name, Sub), Description=output.description
+            ),
         )
 
     return TEMPLATE.to_json()

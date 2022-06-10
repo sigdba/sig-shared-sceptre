@@ -7,6 +7,7 @@ Content-Type: text/x-shellscript; charset="us-ascii"
 # Install awslogs and the jq JSON parser
 yum update -y
 yum install -y awslogs jq wget nfs-utils aws-cfn-bootstrap aws-cli
+pip3 install botocore --upgrade
 
 hostname ecs-node-${EnvName}
 

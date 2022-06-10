@@ -8,15 +8,15 @@ Creates a VPC, its subnets, and optional customer gateway (site-to-site VPN).
 
 ## sceptre_user_data
 
-- `vpc_cidr` (string) - **required** - CIDR for the VPC
-
-- `vpc_name` (string)
-
-- `vpc_extra_opts` (Dict)
+- `customer_gateway` ([CustomerGatewayModel](#CustomerGatewayModel))
 
 - `subnets` (List of [SubnetModel](#SubnetModel))
 
-- `customer_gateway` ([CustomerGatewayModel](#CustomerGatewayModel))
+- `vpc_cidr` (string) - **required** - CIDR for the VPC
+
+- `vpc_extra_opts` (Dict)
+
+- `vpc_name` (string)
 
 
 
@@ -24,16 +24,16 @@ Creates a VPC, its subnets, and optional customer gateway (site-to-site VPN).
 
 - `amazon_asn` (integer)
 
+- `customer_asn` (integer)
+  - **Default:** `65000`
+
 - `ip_address` (string) - **required**
+
+- `static_route_cidrs` (List of string)
 
 - `static_routes_only` (boolean) - **required**
 
 - `tunnel_inside_cidr` (string)
-
-- `static_route_cidrs` (List of string)
-
-- `customer_asn` (integer)
-  - **Default:** `65000`
 
 - `vpn_type` (string)
   - **Default:** `ipsec.1`
@@ -42,16 +42,16 @@ Creates a VPC, its subnets, and optional customer gateway (site-to-site VPN).
 
 ### SubnetModel
 
-- `name` (string) - **required**
-
-- `kind` (string) - **required**
-
 - `availability_zone` (string) - **required**
 
 - `cidr` (string) - **required**
 
-- `nat_eip_allocation_id` (string)
+- `kind` (string) - **required**
 
 - `map_public_ip_on_launch` (boolean)
   - **Default:** `False`
+
+- `name` (string) - **required**
+
+- `nat_eip_allocation_id` (string)
 

@@ -14,24 +14,6 @@ Creates an EC2-backed cluster in ECS with optional auto-scaling.
 
 ## sceptre_user_data
 
-- `node_security_groups` (List of string) - List of security group IDs which will be assigned to all container instances.
-
-- `ingress_cidrs` (List of string) - List of CIDRs which will be allowed to communicate with
-                       the container instances. This must include at least the
-                       load-balancer subnets which will be associated with
-                       services on this cluster.
-
-- `subnet_ids` (List of string) - IDs of the subnets where container instances will be
-                       created. These should be "private" subnets behind a NAT.
-
-- `scaling_groups` (List of [ScalingGroupModel](#ScalingGroupModel)) - One or more `scaling_group` objects defining the EC2
-                       Auto-Scaling Group(s) which will provide container
-                       instances for the cluster.
-
-- `tags` (Dict[string:string]) - Tags to apply to the cluster and ASG EC2 instances.
-
-- `cluster_tags` (Dict[string:string]) - Tags to apply to the cluster.
-
 - `asg_tags` (Dict[string:string]) - Tags to apply to all ASG EC2 instances.
 
 - `auto_scaling_enabled` (boolean) - When true, auto-scaling features will be enabled on the cluster based on ECS capacity providers.
@@ -41,6 +23,8 @@ Creates an EC2-backed cluster in ECS with optional auto-scaling.
                once auto-scaling has been enabled on a cluster, it will be
                necessary to remove all services before auto-scaling can be
                disabled again.
+
+- `cluster_tags` (Dict[string:string]) - Tags to apply to the cluster.
 
 - `container_insights_enabled` (boolean) - When true, Container Insights will be enabled.
   - **Default:** `False`
@@ -57,28 +41,44 @@ Creates an EC2-backed cluster in ECS with optional auto-scaling.
                then you probably want to set it to true unless you're manually
                managing the capacity provider strategies for each service.
 
+- `ingress_cidrs` (List of string) - List of CIDRs which will be allowed to communicate with
+                       the container instances. This must include at least the
+                       load-balancer subnets which will be associated with
+                       services on this cluster.
+
+- `node_security_groups` (List of string) - List of security group IDs which will be assigned to all container instances.
+
+- `scaling_groups` (List of [ScalingGroupModel](#ScalingGroupModel)) - One or more `scaling_group` objects defining the EC2
+                       Auto-Scaling Group(s) which will provide container
+                       instances for the cluster.
+
+- `subnet_ids` (List of string) - IDs of the subnets where container instances will be
+                       created. These should be "private" subnets behind a NAT.
+
+- `tags` (Dict[string:string]) - Tags to apply to the cluster and ASG EC2 instances.
+
 
 
 ### ScalingGroupModel
 
-- `name` (string) - **required** - The name to assign the scaling group.
-
-- `key_name` (string) - **required** - The name of the SSH key to assign when creating container instances.
-
-- `node_type` (string) - **required** - The EC2 instance type of the container instances in this scaling group.
-
-- `max_size` (integer) - **required** - The maximum number of container instances allowed in this scaling group.
-
 - `desired_size` (integer) - **required** - The desired number of container instances in this scaling group.
   - If `auto_scaling_enabled` is true, then ECS may modify the desired size of the scaling group to match demand.
-
-- `tags` (Dict[string:string]) - Tags to apply to this ASG's EC2 instances.
 
 - `in_default_cps` (boolean) - When true, this scaling group will participate in the
                        default capacity provider strategy for the cluster. This
                        option has no effect if `auto_scaling_enabled` is false.
   - **Default:** `True`
   - [Changing instance types with auto-scaling enabled](EcsCluster_NodeTypeChangeWithAutoScaling.md)
+
+- `key_name` (string) - **required** - The name of the SSH key to assign when creating container instances.
+
+- `max_size` (integer) - **required** - The maximum number of container instances allowed in this scaling group.
+
+- `name` (string) - **required** - The name to assign the scaling group.
+
+- `node_type` (string) - **required** - The EC2 instance type of the container instances in this scaling group.
+
+- `tags` (Dict[string:string]) - Tags to apply to this ASG's EC2 instances.
 
 - `weight` (integer) - Sets the weight of the scaling group within the default
                        capacity provider strategy. This option has no effect if

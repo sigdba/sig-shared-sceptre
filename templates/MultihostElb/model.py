@@ -1,14 +1,14 @@
-from typing import List, Optional, Dict, Union, Literal
-from pydantic import (
-    BaseModel,
-    ValidationError,
-    validator,
-    root_validator,
-    Field,
-    constr,
-)
+from typing import Dict, List, Literal, Optional, Union
 
-from util import *
+from pydantic import Field, constr, root_validator, validator
+
+from util import (
+    BaseModel,
+    model_alias,
+    model_exclusive,
+    model_limit_values,
+    model_string_or_list,
+)
 
 #
 # IMPORTANT: The following classes are DATA CLASSES using pydantic.
@@ -333,7 +333,10 @@ class WafIpSetModel(BaseModel):
         if "ip_address_version" in values:
             return values
         addrs = values["addresses"]
-        check = lambda s: any(filter(lambda a: s in a, addrs))
+
+        def check(s):
+            return any(filter(lambda a: s in a, addrs))
+
         has4 = check(".")
         has6 = check(":")
         if has4 and has6:

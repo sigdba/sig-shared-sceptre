@@ -28,6 +28,12 @@ Creates an EC2-backed cluster in ECS with optional auto-scaling.
                        Auto-Scaling Group(s) which will provide container
                        instances for the cluster.
 
+- `tags` (Dict[string:string]) - Tags to apply to the cluster and ASG EC2 instances.
+
+- `cluster_tags` (Dict[string:string]) - Tags to apply to the cluster.
+
+- `asg_tags` (Dict[string:string]) - Tags to apply to all ASG EC2 instances.
+
 - `auto_scaling_enabled` (boolean) - When true, auto-scaling features will be enabled on the cluster based on ECS capacity providers.
   - **Default:** `True`
   - **Warning:** Once a capacity provider has been assigned to an ECS
@@ -65,6 +71,8 @@ Creates an EC2-backed cluster in ECS with optional auto-scaling.
 
 - `desired_size` (integer) - **required** - The desired number of container instances in this scaling group.
   - If `auto_scaling_enabled` is true, then ECS may modify the desired size of the scaling group to match demand.
+
+- `tags` (Dict[string:string]) - Tags to apply to this ASG's EC2 instances.
 
 - `in_default_cps` (boolean) - When true, this scaling group will participate in the
                        default capacity provider strategy for the cluster. This

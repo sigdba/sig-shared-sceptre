@@ -30,26 +30,14 @@ jobs:
       - name: Confirm that current docs are committed
         run: md5sum -c doc.md5
 
-  package:
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-
-      - name: Install pip dependencies
-        run: pip install -Ur requirements.txt
-
-      - name: Generate documentation
-        run: bash build/gen_all_docs.sh
-
       - name: Build template packages
         run: bash build/package_all.sh ${{ github.run_number }}
 
-      - name: Release
-        if: github.ref == 'refs/heads/main'
-        uses: softprops/action-gh-release@v1
-        with:
-          name: ${{ github.run_number }}
-          tag_name: r${{ github.run_number }}
-          fail_on_unmatched_files: true
-          files: packages/*-${{ github.run_number }}.zip
+      # - name: Release
+      #   if: github.ref == 'refs/heads/main'
+      #   uses: softprops/action-gh-release@v1
+      #   with:
+      #     name: ${{ github.run_number }}
+      #     tag_name: r${{ github.run_number }}
+      #     fail_on_unmatched_files: true
+      #     files: packages/*-${{ github.run_number }}.zip

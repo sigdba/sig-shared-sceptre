@@ -12,6 +12,12 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
+      # Renaming the workflow reset the github.run_number, so to keep things
+      # consecutive, we compute an offset value.
+      - name: Set release number
+        id: release
+        run: echo "::set-output name=release::$(expr ${{ github.run_number }} + 20)"
+
       - name: Install pip dependencies
         run: pip install -Ur requirements.txt
 
@@ -31,13 +37,13 @@ jobs:
         run: md5sum -c doc.md5
 
       - name: Build template packages
-        run: bash build/package_all.sh ${{ github.run_number }}
+        run: bash build/package_all.sh ${{ steps.release.outputs.release }}
 
-      # - name: Release
-      #   if: github.ref == 'refs/heads/main'
-      #   uses: softprops/action-gh-release@v1
-      #   with:
-      #     name: ${{ github.run_number }}
-      #     tag_name: r${{ github.run_number }}
-      #     fail_on_unmatched_files: true
-      #     files: packages/*-${{ github.run_number }}.zip
+      - name: Release
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v1
+        with:
+          name: ${{ steps.release.outputs.release }}
+          tag_name: r${{ steps.release.outputs.release }}
+          fail_on_unmatched_files: true
+          files: packages/*-${{ steps.release.outputs.release }}.zip

@@ -1,15 +1,8 @@
 from typing import List, Optional
 
-from pydantic import BaseModel as PydanticBaseModel
 from pydantic import Field
 
-
-# Create a custom BaseModel which forbids extra parameters. This ensures that
-# when a user misspells a key they will get an error instead of some undefined
-# behavior.
-class BaseModel(PydanticBaseModel):
-    class Config:
-        extra = "forbid"
+from util import BaseModel
 
 
 class RuleModel(BaseModel):

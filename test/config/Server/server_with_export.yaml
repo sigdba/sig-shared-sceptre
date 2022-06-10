@@ -1,0 +1,61 @@
+---
+template_path: Server/main.py
+
+parameters:
+  VpcId: vpc-123
+  SubnetId: sn-1234
+  AvailabilityZone: us-east-1a
+  InstanceType: t2.medium
+  KeyPairName: somekey
+
+sceptre_user_data:
+  instance_name: jobsub1
+  ami:
+    ami_map:
+      us-east-1: ami-047627086234fbbe7
+    instance_tags:
+      'erp:init_user': ec2-user
+      'os:type': linux
+    commands:
+      - yum install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm
+      - systemctl enable amazon-ssm-agent
+      - systemctl start amazon-ssm-agent
+  route53:
+    domain: school.edu
+    hosted_zone_id: Z12342123
+  instance_tags:
+    'erp:role': jobsub
+  allow_api_termination: yes
+  backups_enabled: yes
+  ebs_volumes:
+    - mount_point: /u01
+      size_gb: 200
+      device_letter: b
+  security_group_ids:
+    - sg-123451
+  security_group:
+    allow:
+      - description: Allow ESM to SSH
+        sg_id: sg-123123
+        from_port: 22
+        to_port: 22
+  stack_outputs:
+    - name: SomeExport
+      value: "${AWS::StackName}"
+      description: Test stack output of stack name
+      export_name: "${AWS::StackName}-something"
+  instance_profile:
+    managed_policy_arns:
+      - "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+    allow:
+      - - action:
+            - ec2:DescribeVolumes
+          resource: "*"
+
+      # Allow posting build artificats for ECS
+      - action: "s3:ListBucket"
+        resource: "arn:aws:s3:::codebuild"
+      - action: "s3:*Object*"
+        resource: "arn:aws:s3:::codebuild/*"
+      - action: "codebuild:StartBuild"
+        resource: "arn:aws:codebuild:us-east-1:12342123:project/banner-app"

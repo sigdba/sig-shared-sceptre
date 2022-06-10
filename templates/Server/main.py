@@ -411,7 +411,9 @@ def sceptre_handler(sceptre_user_data):
         add_output(
             output.name,
             Sub(output.value),
-            **opts_with(export_name=output.export_name, Description=output.description),
+            **opts_with(
+                export_name=(output.export_name, Sub), Description=output.description
+            ),
         )
 
     return TEMPLATE.to_json()

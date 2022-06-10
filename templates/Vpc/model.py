@@ -1,6 +1,8 @@
 from typing import List, Optional
 
-from pydantic import BaseModel, validator, Field
+from pydantic import validator, Field
+
+from util import BaseModel
 
 #
 # IMPORTANT: The following classes are DATA CLASSES using pydantic.

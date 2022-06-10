@@ -183,7 +183,8 @@ Creates an EC2 instance and associated resources.
   - **Default:** `A description of the output value.`
 
 - `export_name` (string) - The name of the resource output to be exported for a cross-stack reference.
-                       This must be unique within the account's exports.
+                       This must be unique within the account's exports. This string will be passed to
+                       [Fn::Sub](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-sub.html)
 
 
 

@@ -271,7 +271,8 @@ class OutputModel(BaseModel):
     description: Optional[str] = Field("A description of the output value.")
     export_name: Optional[str] = Field(
         description="""The name of the resource output to be exported for a cross-stack reference.
-                       This must be unique within the account's exports."""
+                       This must be unique within the account's exports. This string will be passed to
+                       [Fn::Sub](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-sub.html)"""
     )
 
 

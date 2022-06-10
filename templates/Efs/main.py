@@ -2,8 +2,16 @@ from troposphere import Ref, Sub, Join, Tags
 from troposphere.efs import FileSystem, MountTarget, BackupPolicy
 from troposphere.ec2 import SecurityGroup, SecurityGroupRule
 
-from model import *
-from util import *
+from model import UserDataModel
+from util import (
+    add_resource,
+    add_param,
+    add_output,
+    opts_from,
+    opts_with,
+    clean_title,
+    TEMPLATE,
+)
 
 EFS_PORT = 2049
 
@@ -27,7 +35,10 @@ def allow_ingress(allow):
         ToPort=EFS_PORT,
         IpProtocol="tcp",
         **opts_from(
-            allow, Description="description", CidrIp="cidr", SourceSecurityGroup="sg_id"
+            allow,
+            Description="description",
+            CidrIp="cidr",
+            SourceSecurityGroupId="sg_id",
         ),
     )
 

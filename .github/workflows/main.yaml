@@ -39,11 +39,11 @@ jobs:
       - name: Build template packages
         run: bash build/package_all.sh ${{ steps.release.outputs.release }}
 
-      # - name: Release
-      #   if: github.ref == 'refs/heads/main'
-      #   uses: softprops/action-gh-release@v1
-      #   with:
-      #     name: ${{ steps.release.outputs.release }}
-      #     tag_name: r${{ steps.release.outputs.release }}
-      #     fail_on_unmatched_files: true
-      #     files: packages/*-${{ steps.release.outputs.release }}.zip
+      - name: Release
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v1
+        with:
+          name: ${{ steps.release.outputs.release }}
+          tag_name: r${{ steps.release.outputs.release }}
+          fail_on_unmatched_files: true
+          files: packages/*-${{ steps.release.outputs.release }}.zip

@@ -1,9 +1,8 @@
 import operator
 import os
-import boto3
-
 from datetime import datetime, timedelta
-from functools import partial
+
+import boto3
 
 REGION = "${AWS::Region}"
 

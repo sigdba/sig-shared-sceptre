@@ -59,6 +59,15 @@
           PropagateAtLaunch: true
           Value:
             Fn::Sub: ecs-node-${AWS::StackName}
+        - Key: a
+          PropagateAtLaunch: true
+          Value: top_a
+        - Key: b
+          PropagateAtLaunch: true
+          Value: asg_b
+        - Key: c
+          PropagateAtLaunch: true
+          Value: asg_spec_c
         VPCZoneIdentifier:
         - subnet-123456
       Type: AWS::AutoScaling::AutoScalingGroup
@@ -119,7 +128,7 @@
           Fn::GetAtt:
           - LambdaFunctionForCpsReset
           - Arn
-        StrategyHash: 31b5af1b389401ba3e4e04c1dba8fb9f
+        StrategyHash: a06e0f354909a6ee0fa7355e388c721a
       Type: Custom::CpsReset
     EcsCluster:
       Properties:
@@ -128,7 +137,13 @@
         ClusterSettings:
         - Name: containerInsights
           Value: disabled
-        Tags: []
+        Tags:
+        - Key: a
+          Value: top_a
+        - Key: b
+          Value: cluster_b
+        - Key: c
+          Value: top_c
       Type: AWS::ECS::Cluster
     LambdaExecutionRole:
       Properties:

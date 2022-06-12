@@ -1,0 +1,70 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+
+Parameters:
+  PolicyName:
+    Type: String
+    Description: Name of the policy which will deny requests not authenticated with MFA
+    Default: RequireMFA
+
+  CreateAdminGroup:
+    Type: String
+    Description: |
+      When `true` an IAM group will be created whose members are granted full
+      administrative access but require MFA-authenticated requests.
+    Default: "true"
+    AllowedValues: [ "true", "false" ]
+
+  AdminGroupName:
+    Type: String
+    Description: If `CreateAdminGroup` is `true`, this will be the name of the group.
+    Default: AdminsWithMfa
+
+  AdminGroupPath:
+    Type: String
+    Description: If `CreateAdminGroup` is `true`, this will be the path to the group.
+    Default: "/"
+
+Conditions:
+  CreateAdminGroup: !Equals [ !Ref CreateAdminGroup, "true" ]
+
+Resources:
+  Policy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: Denies any request (except those needed to configure an MFA) if it is not authenticated by an MFA.
+      ManagedPolicyName: !Ref PolicyName
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: BlockMostAccessUnlessSignedInWithMFA
+            Effect: Deny
+            NotAction:
+              - iam:CreateVirtualMFADevice
+              - iam:DeleteVirtualMFADevice
+              - iam:ListVirtualMFADevices
+              - iam:EnableMFADevice
+              - iam:ResyncMFADevice
+              - iam:ListAccountAliases
+              - iam:ListUsers
+              - iam:ListSSHPublicKeys
+              - iam:ListAccessKeys
+              - iam:ListServiceSpecificCredentials
+              - iam:ListMFADevices
+              - iam:GetAccountSummary
+              - sts:GetSessionToken
+            Resource: "*"
+            Condition:
+              BoolIfExists:
+                aws:MultiFactorAuthPresent: 'false'
+                aws:ViaAWSService: 'false'
+
+  AdminGroup:
+    Condition: CreateAdminGroup
+    Type: AWS::IAM::Group
+    Properties:
+      GroupName: !Ref AdminGroupName
+      Path: !Ref AdminGroupPath
+      ManagedPolicyArns:
+        - !Ref Policy
+        - arn:aws:iam::aws:policy/AdministratorAccess

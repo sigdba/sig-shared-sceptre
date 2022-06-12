@@ -25,6 +25,10 @@ GENDOC="python3 $SCRIPT_DIR/gendoc/gendoc.py"
 
 for template_dir in $TEMPLATES/*; do
     [ -d "$template_dir" ] || continue
+    if [ ! -f "${template_dir}/manifest.yaml" ]; then
+      echo "WARNING: Skipping $template_dir"
+      continue
+    fi
     entrypoint=$(awk '$1 ~ /^entrypoint:/ {print $2}' "$template_dir/manifest.yaml")
     template_path="$template_dir/$entrypoint"
     md_file="${template_dir}/readme.md"
@@ -42,6 +46,10 @@ done
 
 cat ${BASE}/build/readme-header.md >${BASE}/readme.md
 for t in ${BASE}/templates/*; do
+    if [ ! -f "${t}/manifest.yaml" ]; then
+      echo "WARNING: Skipping $t"
+      continue
+    fi
     tdoc=${t}/readme.md
     tname=$(basename ${t})
     if [ -f ${tdoc} ]; then

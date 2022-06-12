@@ -31,39 +31,13 @@ listener rules and a target group.
 
 ## sceptre_user_data
 
-- `launch_type` (string)
-  - **Allowed Values:** `EC2`, `EXTERNAL`, `FARGATE`
+- `containers` (List of [ContainerModel](#ContainerModel)) - **required** - Defines the containers for this service.
 
 - `cpu` (string) - The number of cpu units used by the task.
   - If you are using the `FARGATE` launch type, this value is
             required. See
             [AWS::ECS::TaskDefinition](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html#cfn-ecs-taskdefinition-cpu)
             for details.
-
-- `memory` (string) - The amount (in MiB) of memory used by the task.
-  - If you are using the `FARGATE` launch type, this value is
-            required. See
-            [AWS::ECS::TaskDefinition](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html#cfn-ecs-taskdefinition-memory)
-            for details.
-
-- `requires_compatibilities` (List of string) - The task launch types the task definition was validated against.
-  - **See Also:** [TaskDefinition$compatibilities](https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_TaskDefinition.html#ECS-Type-TaskDefinition-compatibilities)
-
-- `network_mode` (string) - The Docker networking mode to use for the containers in the task.
-  - See [AWS::ECS::TaskDefinition](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html#cfn-ecs-taskdefinition-networkmode) for details.
-
-- `security_group` ([SecurityGroupModel](#SecurityGroupModel)) - Defines a security group of which all service containers will be members.
-  - This property only applies when `network_mode` is `awsvpc`.
-
-- `security_group_ids` (List of string) - List of security group IDs of which all service containers will be members.
-  - This property only applies when `network_mode` is `awsvpc`.
-
-- `subnet_ids` (List of string) - The IDs of the subnets associated with the task or service.
-  - This property only applies when `network_mode` is `awsvpc`.
-
-- `service_tags` (Dict[string:string]) - A dict of tags to apply to the ECS service.
-
-- `containers` (List of [ContainerModel](#ContainerModel)) - **required** - Defines the containers for this service.
 
 - `efs_volumes` (List of [EfsVolumeModel](#EfsVolumeModel)) - Set of EFS volumes to make available to containers within this service.
   - To make an EFS volume available to a container you must define it in the `efs_volumes` setting and define an entry in the `mount_points` setting within the container object.
@@ -74,9 +48,35 @@ listener rules and a target group.
                `host_volumes` setting and define an entry in the `mount_points`
                setting within the container object.
 
+- `launch_type` (string)
+  - **Allowed Values:** `EC2`, `EXTERNAL`, `FARGATE`
+
+- `memory` (string) - The amount (in MiB) of memory used by the task.
+  - If you are using the `FARGATE` launch type, this value is
+            required. See
+            [AWS::ECS::TaskDefinition](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html#cfn-ecs-taskdefinition-memory)
+            for details.
+
+- `network_mode` (string) - The Docker networking mode to use for the containers in the task.
+  - See [AWS::ECS::TaskDefinition](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html#cfn-ecs-taskdefinition-networkmode) for details.
+
 - `placement_strategies` (List of [PlacementStrategyModel](#PlacementStrategyModel)) - Defines the set of placement strategies for service tasks.
 
+- `requires_compatibilities` (List of string) - The task launch types the task definition was validated against.
+  - **See Also:** [TaskDefinition$compatibilities](https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_TaskDefinition.html#ECS-Type-TaskDefinition-compatibilities)
+
 - `schedule` (List of [ScheduleModel](#ScheduleModel)) - Specifies a schedule for modifying the DesiredCount of the service.
+
+- `security_group` ([SecurityGroupModel](#SecurityGroupModel)) - Defines a security group of which all service containers will be members.
+  - This property only applies when `network_mode` is `awsvpc`.
+
+- `security_group_ids` (List of string) - List of security group IDs of which all service containers will be members.
+  - This property only applies when `network_mode` is `awsvpc`.
+
+- `service_tags` (Dict[string:string]) - A dict of tags to apply to the ECS service.
+
+- `subnet_ids` (List of string) - The IDs of the subnets associated with the task or service.
+  - This property only applies when `network_mode` is `awsvpc`.
 
 
 
@@ -91,9 +91,9 @@ listener rules and a target group.
                adjust your cron expressions appropriately.
   - **See Also:** [Schedule Expressions for Rules](https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/ScheduledEvents.html#CronExpressions)
 
-- `desired_count` (integer) - **required** - Desired number of tasks to set for the service at the specified time.
-
 - `description` (string) - Description of the schedule
+
+- `desired_count` (integer) - **required** - Desired number of tasks to set for the service at the specified time.
 
 
 
@@ -120,10 +120,10 @@ for more information.
 
 ### EfsVolumeModel
 
+- `fs_id` (string) - **required** - The ID of the EFS volume
+
 - `name` (string) - **required** - This is the name which will be referred to by `source_volume` values defined in the
                        `mount_points` settings of a container.
-
-- `fs_id` (string) - **required** - The ID of the EFS volume
 
 - `root_directory` (string) - The directory within the EFS volume which will mounted by containers
   - **Default:** By default the root directory of the volume will be used.
@@ -132,20 +132,24 @@ for more information.
 
 ### ContainerModel
 
-- `image` (string) - The URI of the container image.
-  - **Requirement:** One of `image` or `image_build` must be defined
-  - [AWS::ECS::TaskDefinition ContainerDefinition](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-containerdefinitions.html#cfn-ecs-taskdefinition-containerdefinition-image)
-
-- `image_build` ([ImageBuildModel](#ImageBuildModel)) - Settings for building the container image.
-  - **Requirement:** One of `image` or `image_build` must be defined
-
 - `command` (List of string) - Maps to the COMMAND parameter of [docker run](https://docs.docker.com/engine/reference/run/#security-configuration).
 
-- `container_port` (integer) - The port exposed by the container
-  - One of `container_port` or `port_mappings` must be defined for any container connecting to an ELB.
+- `container_extra_props` (Dict) - Additional options to include in the ContainerDefinition
+  - **See Also:** [AWS::ECS::TaskDefinition ContainerDefinition](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-containerdefinitions.html)
 
-- `port_mappings` (List of [PortMappingModel](#PortMappingModel)) - List of port-mappings to assign to the container.
-  - **Requirement:** One of `container_port` or `port_mappings` must be defined for any container connecting to an ELB.
+- `container_health_check` (Dict) - Container health check as defined in [AWS::ECS::TaskDefinition HealthCheck](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-healthcheck.html)
+
+- `container_memory` (integer) - The amount (in MiB) of memory to present to the container. If your container
+                       attempts to exceed the memory specified here, the
+                       container is killed.
+  - **Default:** `512`
+  - If you specify both `container_memory` and `container_memory_reservation`,
+               `container_memory` must be greater than
+               `container_memory_reservation`. If you specify
+               `container_memory_reservation`, then that value is subtracted
+               from the available memory resources for the container instance on
+               which the container is placed. Otherwise, the value of
+               `container_memory` is used.
 
 - `container_memory_reservation` (integer) - The soft limit (in MiB) of memory to reserve for the container.
   - If you specify both `container_memory` and `container_memory_reservation`,
@@ -156,21 +160,41 @@ for more information.
                which the container is placed. Otherwise, the value of
                `container_memory` is used.
 
+- `container_port` (integer) - The port exposed by the container
+  - One of `container_port` or `port_mappings` must be defined for any container connecting to an ELB.
+
+- `depends_on` (List of Dict) - List of container dependencies as defined in [AWS::ECS::TaskDefinition ContainerDependency](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-containerdependency.html)
+
 - `env_vars` (Dict[string:string]) - Environment variables passed to the container.
 
 - `health_check` ([HealthCheckModel](#HealthCheckModel)) - Defines the health check for the target group. If `rules` is not specified
                        for the container, this setting has no effect.
 
-- `container_health_check` (Dict) - Container health check as defined in [AWS::ECS::TaskDefinition HealthCheck](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-healthcheck.html)
+- `image` (string) - The URI of the container image.
+  - **Requirement:** One of `image` or `image_build` must be defined
+  - [AWS::ECS::TaskDefinition ContainerDefinition](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-containerdefinitions.html#cfn-ecs-taskdefinition-containerdefinition-image)
 
-- `depends_on` (List of Dict) - List of container dependencies as defined in [AWS::ECS::TaskDefinition ContainerDependency](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-containerdependency.html)
+- `image_build` ([ImageBuildModel](#ImageBuildModel)) - Settings for building the container image.
+  - **Requirement:** One of `image` or `image_build` must be defined
 
 - `links` (List of string) - List of container `names` to which to link this container. The `links`
                        parameter allows containers to communicate with each
                        other without the need for port mappings.
   - **See Also:** [AWS::ECS::TaskDefinition ContainerDefinition](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-containerdefinitions.html#cfn-ecs-taskdefinition-containerdefinition-links)
 
+- `linux_parameters` (Dict) - Linux-specific options that are applied to the container
+  - **See Also:** [AWS::ECS::TaskDefinition LinuxParameters](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-linuxparameters.html#cfn-ecs-taskdefinition-linuxparameters-sharedmemorysize)
+
 - `mount_points` (List of [MountPointModel](#MountPointModel)) - Maps volumes defined in `sceptre_user_data.efs_volumes` to mount points within the container.
+
+- `name` (string) - The name of the container
+  - **Default:** `main`
+
+- `port_mappings` (List of [PortMappingModel](#PortMappingModel)) - List of port-mappings to assign to the container.
+  - **Requirement:** One of `container_port` or `port_mappings` must be defined for any container connecting to an ELB.
+
+- `protocol` (string) - The back-end protocol used by the load-balancer to communicate with the container
+  - **Default:** `HTTP`
 
 - `rules` (List of [RuleModel](#RuleModel)) - If specified, the stack will create an ELB target group and add the specified
                        rules to the listener to route traffic.
@@ -185,40 +209,16 @@ for more information.
                   the full ARN or name of the parameter. If the parameter exists
                   in a different Region, then the full ARN must be specified.
 
+- `target_group` ([TargetGroupModel](#TargetGroupModel)) - Extended options for the target group. If `rules` is not specified for the
+                       container, this setting has no effect.
+  - **Default:** `{'attributes': {}}`
+
 - `target_group_arn` (string) - ARN of the ELB target group to for the container. If this option is specified
                        instead of `rules` then no target group will be created.
                        Instead, the container will be assigned to an
                        externally-defined target group. This is normally used to
                        assign a container to the default target group of an
                        ELB.
-
-- `linux_parameters` (Dict) - Linux-specific options that are applied to the container
-  - **See Also:** [AWS::ECS::TaskDefinition LinuxParameters](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-linuxparameters.html#cfn-ecs-taskdefinition-linuxparameters-sharedmemorysize)
-
-- `container_extra_props` (Dict) - Additional options to include in the ContainerDefinition
-  - **See Also:** [AWS::ECS::TaskDefinition ContainerDefinition](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-containerdefinitions.html)
-
-- `container_memory` (integer) - The amount (in MiB) of memory to present to the container. If your container
-                       attempts to exceed the memory specified here, the
-                       container is killed.
-  - **Default:** `512`
-  - If you specify both `container_memory` and `container_memory_reservation`,
-               `container_memory` must be greater than
-               `container_memory_reservation`. If you specify
-               `container_memory_reservation`, then that value is subtracted
-               from the available memory resources for the container instance on
-               which the container is placed. Otherwise, the value of
-               `container_memory` is used.
-
-- `name` (string) - The name of the container
-  - **Default:** `main`
-
-- `protocol` (string) - The back-end protocol used by the load-balancer to communicate with the container
-  - **Default:** `HTTP`
-
-- `target_group` ([TargetGroupModel](#TargetGroupModel)) - Extended options for the target group. If `rules` is not specified for the
-                       container, this setting has no effect.
-  - **Default:** `{'attributes': {}}`
 
 
 
@@ -234,13 +234,13 @@ for more information.
 
 #### RuleModel
 
-- `path` (string) - **required** - The context path for the listener rule. The path should start with a `/`. Two
-                       listener rules will be created, one matching `path` and
-                       one matching `path + '/*'`.
-
 - `host` (string) - Pattern to match against the request's host header. Wildcards `?` and `*` are supported.
   - For this setting to work properly, the ELB will need to be set up to for multiple hostnames.
   - **See Also:** [AWS::ElasticLoadBalancingV2::ListenerRule HostHeaderConfig](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-hostheaderconfig.html)
+
+- `path` (string) - **required** - The context path for the listener rule. The path should start with a `/`. Two
+                       listener rules will be created, one matching `path` and
+                       one matching `path + '/*'`.
 
 - `priority` (integer) - The priority value for the listener rule. If undefined, a hash-based value will be generated.
 
@@ -250,22 +250,28 @@ for more information.
 
 - `container_path` (string) - **required** - The mount point for the volume within the container
 
-- `source_volume` (string) - **required** - The `name` value specified for the volume in `sceptre_user_data.efs_volumes`.
-
 - `read_only` (boolean) - If true, the volume will not be writable to the container.
   - **Default:** `False`
+
+- `source_volume` (string) - **required** - The `name` value specified for the volume in `sceptre_user_data.efs_volumes`.
 
 
 
 #### HealthCheckModel
 
-- `path` (string) - Path the target group health check will request
-
 - `healthy_threshold_count` (integer) - The number of consecutive health checks successes required before considering
                        an unhealthy target healthy.
 
+- `http_code` (string) - HTTP status code(s) the health check will consider "healthy." You can specify
+                       values between 200 and 499, and the default value is 200.
+                       You can specify multiple values (for example, "200,202")
+                       or a range of values (for example, "200-299").
+  - **Default:** `200-399`
+
 - `interval_seconds` (integer) - The approximate amount of time between health checks of an individual target.
   - **Default:** `60`
+
+- `path` (string) - Path the target group health check will request
 
 - `timeout_seconds` (integer) - The amount of time during which no response from a target means a failed health check.
   - **Default:** `30`
@@ -273,12 +279,6 @@ for more information.
 - `unhealthy_threshold_count` (integer) - The number of consecutive health check failures required before considering a
                        target unhealthy.
   - **Default:** `5`
-
-- `http_code` (string) - HTTP status code(s) the health check will consider "healthy." You can specify
-                       values between 200 and 499, and the default value is 200.
-                       You can specify multiple values (for example, "200,202")
-                       or a range of values (for example, "200-299").
-  - **Default:** `200-399`
 
 
 
@@ -305,20 +305,20 @@ for more information.
 
 - `name` (string) - **required** - The name or key of the environment variable.
 
-- `value` (string) - **required** - The value of the environment variable.
-
 - `type` (string) - The type of environment variable.
   - **Default:** `PLAINTEXT`
   - **Allowed Values:** `PLAINTEXT`, `PARAMETER_STORE`, `SECRETS_MANAGER`
+
+- `value` (string) - **required** - The value of the environment variable.
 
 
 
 ### SecurityGroupModel
 
+- `allow` (List of [SecurityGroupAllowModel](#SecurityGroupAllowModel) or List of [SecurityGroupAllowModel](#SecurityGroupAllowModel)) - Rules for allowed inbound traffic.
+
 - `egress` (List of Dict[string:string]) - The outbound rules associated with the security group.
   - **Default:** Allow all outbound traffic.
-
-- `allow` (List of [SecurityGroupAllowModel](#SecurityGroupAllowModel) or List of [SecurityGroupAllowModel](#SecurityGroupAllowModel)) - Rules for allowed inbound traffic.
 
 - `tags` (Dict[string:string]) - Tags applied to security group.
 
@@ -329,17 +329,9 @@ for more information.
 - `cidr` (string or List of string) - The IPv4 address range(s), in CIDR format. May be specified as a single string or a list of strings.
   - You must specify one of `cidr` or `sg_id` but not both.
 
-- `sg_id` (string) - The ID of a security group whose members are allowed.
-  - You must specify one of `cidr` or `sg_id` but not both.
-
-- `sg_owner` (string) - The AWS account ID that owns the security group specified in `sg_id`. This value is required if the SG is in another account.
-
 - `description` (string) - **required** - Description of the rule.
 
 - `from_port` (integer) - The start of port range for the TCP and UDP protocols. A value of `-1` indicates all ports.
-  - You must specify either `port` or `from_port` and `to_port` but not both.
-
-- `to_port` (integer) - The start of port range for the TCP and UDP protocols. A value of `-1` indicates all ports.
   - You must specify either `port` or `from_port` and `to_port` but not both.
 
 - `port` (string or integer) - Port or port range for the TCP and UDP protocols.
@@ -350,4 +342,12 @@ for more information.
 
 - `protocol` (string) - The IP protocol name.
   - **Default:** `tcp`
+
+- `sg_id` (string) - The ID of a security group whose members are allowed.
+  - You must specify one of `cidr` or `sg_id` but not both.
+
+- `sg_owner` (string) - The AWS account ID that owns the security group specified in `sg_id`. This value is required if the SG is in another account.
+
+- `to_port` (integer) - The start of port range for the TCP and UDP protocols. A value of `-1` indicates all ports.
+  - You must specify either `port` or `from_port` and `to_port` but not both.
 

@@ -1,0 +1,21 @@
+---
+template_path: Efs/main.py
+
+parameters:
+  VpcId: vpc-123451
+
+sceptre_user_data:
+  filesystem_name: the_fs
+  allow:
+    - cidr: 10.1.0.0/16
+      description: Some CIDR
+    - sg_id: sg-123124
+      description: Some SG
+  auto_backups_enabled: yes
+  mount_targets:
+    - subnet_id: sn-123123
+    - subnet_id: sn-12312312
+  filesystem_tags:
+    atag: tagval
+  filesystem_extra_opts:
+    Encrypted: yes

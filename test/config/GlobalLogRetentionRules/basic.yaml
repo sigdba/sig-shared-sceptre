@@ -1,0 +1,13 @@
+---
+template_path: GlobalLogRetentionRules/GlobalLogRetentionRules.py
+
+sceptre_user_data:
+  rules:
+    - starts_with: /aws/codebuild/
+      retain_days: 30
+    - starts_with: /aws/lambda/
+      retain_days: 7
+    - starts_with: /ecs/
+      retain_days: 90
+    - starts_with: '' # Default
+      retain_days: 90

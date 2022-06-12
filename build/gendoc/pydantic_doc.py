@@ -178,7 +178,7 @@ def render_schema_def(fp, sdef):
         fp.write(f"{desc}\n\n")
 
     required = sdef.get("required", [])
-    for k, v in sdef["properties"].items():
+    for k, v in sorted(sdef["properties"].items()):
         render_schema_prop(fp, k, {"required": k in required, **v})
 
 

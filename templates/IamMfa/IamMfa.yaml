@@ -41,7 +41,6 @@ Resources:
             Effect: Deny
             NotAction:
               - iam:CreateVirtualMFADevice
-              - iam:DeleteVirtualMFADevice
               - iam:ListVirtualMFADevices
               - iam:EnableMFADevice
               - iam:ResyncMFADevice

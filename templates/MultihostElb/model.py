@@ -39,6 +39,25 @@ class HostnameModel(BaseModel):
         description="ARN of the certificate to associate with this hostname",
         default_description="If this value is not specified, then a certificate will be generated as part of the stack.",
     )
+    hosted_zone_id: Optional[Union[str, List[str]]] = Field(
+        description="ID or list of IDs for the Route53 hosted zones in which to register this hostname.",
+        default_description="""If this value is not specified, then the value(s)
+                               from `sceptre_user_data.hosted_zone_id` and
+                               `sceptre_user_data.alt_hosted_zone_ids` will be
+                               used.""",
+    )
+    certificate_validation_method: Optional[str] = Field(
+        description="""The method by which AWS Certificate Manager (ACM) will
+                       validate generated certificates. Overrides
+                       `sceptre_user_data.certificate_validation_method`.""",
+        notes=[
+            "**Allowed Values:** `DNS`, `EMAIL`",
+        ],
+    )
+
+    @root_validator
+    def hosted_zone_ids_to_list(cls, values):
+        return model_string_or_list("hosted_zone_id", values)
 
 
 class RedirectModel(BaseModel):

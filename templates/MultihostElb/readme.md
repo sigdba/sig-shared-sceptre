@@ -397,6 +397,17 @@ specify a condition. At least one of these options must be specified.
 - `certificate_arn` (string) - ARN of the certificate to associate with this hostname
   - **Default:** If this value is not specified, then a certificate will be generated as part of the stack.
 
+- `certificate_validation_method` (string) - The method by which AWS Certificate Manager (ACM) will
+                       validate generated certificates. Overrides
+                       `sceptre_user_data.certificate_validation_method`.
+  - **Allowed Values:** `DNS`, `EMAIL`
+
+- `hosted_zone_id` (string or List of string) - ID or list of IDs for the Route53 hosted zones in which to register this hostname.
+  - **Default:** If this value is not specified, then the value(s)
+                               from `sceptre_user_data.hosted_zone_id` and
+                               `sceptre_user_data.alt_hosted_zone_ids` will be
+                               used.
+
 - `hostname` (string) - **required** - Short hostname or FQDN.
   - Hostnames which do not contain a dot (.) will be treated as "short" and the
                value specified in `domain` will be appended. If a short hostname

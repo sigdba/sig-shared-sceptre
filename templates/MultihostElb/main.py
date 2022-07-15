@@ -1,13 +1,15 @@
 from functools import lru_cache, partial
 
-from troposphere import Ref, Sub, Parameter, GetAtt, Tag, ImportValue, Tags
+import troposphere.wafv2
+from troposphere import GetAtt, ImportValue, Ref, Sub, Tag
+from troposphere.certificatemanager import Certificate, DomainValidationOption
 from troposphere.cloudformation import AWSCustomObject
+from troposphere.ec2 import SecurityGroup, SecurityGroupIngress, SecurityGroupRule
+from troposphere.elasticloadbalancingv2 import Action
+from troposphere.elasticloadbalancingv2 import Certificate as ListenerCertificateEntry
 from troposphere.elasticloadbalancingv2 import (
-    Action,
-    Certificate as ListenerCertificateEntry,
     Condition,
     FixedResponseConfig,
-    ForwardConfig,
     HostHeaderConfig,
     Listener,
     ListenerCertificate,
@@ -24,43 +26,46 @@ from troposphere.elasticloadbalancingv2 import (
     TargetGroup,
     TargetGroupAttribute,
 )
+from troposphere.route53 import RecordSetType
 from troposphere.s3 import (
     Bucket,
     BucketPolicy,
     LifecycleConfiguration,
     LifecycleRule,
-    LifecycleRuleTransition,
     PublicAccessBlockConfiguration,
 )
-from troposphere.certificatemanager import Certificate, DomainValidationOption
-from troposphere.route53 import RecordSet, RecordSetType
-from troposphere.ec2 import SecurityGroup, SecurityGroupIngress, SecurityGroupRule
 from troposphere.wafv2 import (
-    IPSet,
-    RegexPatternSet,
-    IPSetReferenceStatement,
-    ExcludedRule,
-    ManagedRuleGroupStatement,
-    RegexPatternSetReferenceStatement,
-    RuleGroupReferenceStatement,
-    VisibilityConfig,
-    RuleGroupRule,
-    RuleGroup,
     DefaultAction,
-    OverrideAction,
-    WebACLRule,
-    WebACL,
-    WebACLAssociation,
+    ExcludedRule,
     FieldToMatch,
-    TextTransformation,
-    StatementOne as WafStatement,
+    IPSet,
+    IPSetReferenceStatement,
+    ManagedRuleGroupStatement,
+    OverrideAction,
+    RegexPatternSet,
+    RegexPatternSetReferenceStatement,
     RuleAction,
 )
+from troposphere.wafv2 import StatementOne as WafStatement
+from troposphere.wafv2 import (
+    TextTransformation,
+    VisibilityConfig,
+    WebACL,
+    WebACLAssociation,
+    WebACLRule,
+)
 
-from model import *
-from util import *
-
-import troposphere.wafv2
+from model import UserDataModel
+from util import (
+    TEMPLATE,
+    clean_title,
+    add_resource,
+    add_param,
+    tags_with,
+    opts_with,
+    md5,
+    add_export,
+)
 
 PRIORITY_CACHE = []
 
@@ -250,7 +255,6 @@ def load_balancer(user_data):
 # We wrap this function in an LRU cache to ensure we only generate one cert per FQDN.
 @lru_cache
 def certificate_with_fqdn(fqdn, validation_method, hosted_zone_id):
-    extra_args = {}
     if validation_method == "DNS" and hosted_zone_id is not None:
         validation_options = [
             DomainValidationOption(DomainName=fqdn, HostedZoneId=hosted_zone_id)
@@ -270,12 +274,18 @@ def certificate_with_fqdn(fqdn, validation_method, hosted_zone_id):
 def certificate_arn(user_data, hostname_data):
     if hostname_data.certificate_arn:
         return hostname_data.certificate_arn
+    hosted_zone_id = (
+        hostname_data.hosted_zone_id[0]
+        if hostname_data.hosted_zone_id
+        else user_data.hosted_zone_id
+    )
 
     return Ref(
         certificate_with_fqdn(
             hostname_to_fqdn(user_data, hostname_data.hostname),
-            user_data.certificate_validation_method,
-            user_data.hosted_zone_id,
+            hostname_data.certificate_validation_method
+            or user_data.certificate_validation_method,
+            hosted_zone_id,
         )
     )
 
@@ -520,13 +530,10 @@ def listener(user_data, listener_data):
     return ret
 
 
-def get_all_fqdns(user_data):
-    def it():
-        for lsn_data in user_data.listeners:
-            for hostname_data in lsn_data.hostnames:
-                yield hostname_to_fqdn(user_data, hostname_data.hostname)
-
-    return {n for n in it()}
+def get_all_hostnames(user_data):
+    for lsn_data in user_data.listeners:
+        for hostname_data in lsn_data.hostnames:
+            yield hostname_data
 
 
 def ns_entry_route53(zone_id, record_type, name, value, title_suffix=""):
@@ -576,7 +583,9 @@ def ns_entry_nsupdate(nsu_model, record_type, name, value, _title_suffix=""):
     )
 
 
-def ns_entry_fn(user_data):
+def ns_entry_fn_global(user_data):
+    """Returns a function which creates DNS resources based on the configuration
+    in user_data."""
     zone_id = user_data.hosted_zone_id
     if zone_id is not None:
         primary = partial(ns_entry_route53, zone_id)
@@ -609,10 +618,49 @@ def ns_entry_fn(user_data):
     return lambda t, n, v: None
 
 
+def ns_entry_fn(user_data):
+    """Returns a function which creates DNS resources based on the configuration
+    in user_data. This function wraps ns_entry_fn_global and adds a keyword
+    argument which can be used to override the default behavior."""
+
+    default_fn = ns_entry_fn_global(user_data)
+
+    def ret(record_type, name, value, hosted_zone_id=None):
+        if hosted_zone_id:
+            return ns_entry_route53(
+                hosted_zone_id,
+                record_type,
+                name,
+                value,
+                title_suffix=f"ovrZone{hosted_zone_id}",
+            )
+
+        return default_fn(record_type, name, value)
+
+    return ret
+
+
+def get_all_fqdns(user_data):
+    return {
+        hostname_to_fqdn(user_data, n.hostname) for n in get_all_hostnames(user_data)
+    }
+
+
 def elb_cnames(user_data):
+    # We need a de-duplicated list of hostnames along with their overriding
+    # hosted_zone_id (if any). To do this we create a generator which yields
+    # tuples then push them into a set to remove duplicates.
+    def it():
+        for h in get_all_hostnames(user_data):
+            if h.hosted_zone_id:
+                for z in h.hosted_zone_id:
+                    yield (h.hostname, z)
+            else:
+                yield (h.hostname, None)
+
     efn = ns_entry_fn(user_data)
-    for fqdn in get_all_fqdns(user_data):
-        efn("CNAME", fqdn, Sub("${LoadBalancer.DNSName}."))
+    for fqdn, zone_id in {p for p in it()}:
+        efn("CNAME", fqdn, Sub("${LoadBalancer.DNSName}."), hosted_zone_id=zone_id)
 
 
 def target_ingress_rules(user_data):
@@ -788,8 +836,8 @@ def sceptre_handler(user_data):
 
     load_balancer(data)
 
-    for l in data.listeners:
-        listener(data, l)
+    for lsn in data.listeners:
+        listener(data, lsn)
 
     elb_cnames(data)
     target_ingress_rules(data)

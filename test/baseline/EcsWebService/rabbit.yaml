@@ -1,0 +1,248 @@
+---
+- Parameters:
+    ClusterArn:
+      Description: The ARN or name of the ECS cluster
+      Type: String
+    DesiredCount:
+      Default: '1'
+      Description: The desired number of instances of this service
+      Type: Number
+    ListenerArn:
+      Description: The ARN of the ELB listener which will be used by this service
+      Type: String
+    MaximumPercent:
+      Default: '200'
+      Description: The maximum percent of `DesiredCount` allowed to be running during
+        updates.
+      Type: Number
+    MinimumHealthyPercent:
+      Default: '100'
+      Description: The minimum number of running instances of this service to keep
+        running during an update.
+      Type: Number
+    VpcId:
+      Description: The ID of the VPC of the ECS cluster
+      Type: String
+  Resources:
+    ListenerRule17728:
+      Properties:
+        Actions:
+        - TargetGroupArn: arn:aws:some_target_group
+          Type: forward
+        Conditions:
+        - Field: path-pattern
+          PathPatternConfig:
+            Values:
+            - /weird
+            - /weird/*
+        - Field: host-header
+          HostHeaderConfig:
+            Values:
+            - rabbit.*
+        ListenerArn:
+          Ref: ListenerArn
+        Priority: 17728
+      Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    ListenerRule39113:
+      Properties:
+        Actions:
+        - TargetGroupArn:
+            Ref: TargetGroupPORT15672HCSLASH
+          Type: forward
+        Conditions:
+        - Field: host-header
+          HostHeaderConfig:
+            Values:
+            - rabbit-mgt.*
+        ListenerArn:
+          Ref: ListenerArn
+        Priority: 39113
+      Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    ListenerRule44159:
+      Properties:
+        Actions:
+        - TargetGroupArn:
+            Ref: TargetGroupPORT5672HCSLASH
+          Type: forward
+        Conditions:
+        - Field: host-header
+          HostHeaderConfig:
+            Values:
+            - rabbit.*
+        ListenerArn:
+          Ref: ListenerArn
+        Priority: 44159
+      Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Service:
+      DependsOn:
+      - ListenerRule44159
+      - ListenerRule39113
+      - ListenerRule17728
+      Properties:
+        Cluster:
+          Ref: ClusterArn
+        DeploymentConfiguration:
+          MaximumPercent:
+            Ref: MaximumPercent
+          MinimumHealthyPercent:
+            Ref: MinimumHealthyPercent
+        DesiredCount:
+          Ref: DesiredCount
+        LoadBalancers:
+        - ContainerName: main
+          ContainerPort: 5672
+          TargetGroupArn:
+            Ref: TargetGroupPORT5672HCSLASH
+        - ContainerName: main
+          ContainerPort: 15672
+          TargetGroupArn:
+            Ref: TargetGroupPORT15672HCSLASH
+        - ContainerName: main
+          ContainerPort: 5672
+          TargetGroupArn: arn:aws:some_target_group
+        PlacementStrategies:
+        - Field: memory
+          Type: binpack
+        TaskDefinition:
+          Ref: TaskDef
+      Type: AWS::ECS::Service
+    TargetGroupPORT15672HCSLASH:
+      Properties:
+        HealthCheckIntervalSeconds: 60
+        HealthCheckPath: /
+        HealthCheckProtocol: HTTP
+        HealthCheckTimeoutSeconds: 30
+        Matcher:
+          HttpCode: 200-399
+        Port: 15672
+        Protocol: HTTP
+        Tags:
+        - Key: Name
+          Value:
+            Fn::Sub: '${AWS::StackName}: /'
+        TargetGroupAttributes:
+        - Key: stickiness.enabled
+          Value: 'false'
+        - Key: deregistration_delay.timeout_seconds
+          Value: '0'
+        - Key: stickiness.type
+          Value: lb_cookie
+        TargetType: instance
+        UnhealthyThresholdCount: 5
+        VpcId:
+          Ref: VpcId
+      Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    TargetGroupPORT5672HCSLASH:
+      Properties:
+        HealthCheckIntervalSeconds: 60
+        HealthCheckPath: /
+        HealthCheckProtocol: HTTPS
+        HealthCheckTimeoutSeconds: 30
+        Matcher:
+          HttpCode: 200-399
+        Port: 5672
+        Protocol: HTTPS
+        Tags:
+        - Key: Name
+          Value:
+            Fn::Sub: '${AWS::StackName}: /'
+        TargetGroupAttributes:
+        - Key: stickiness.enabled
+          Value: 'false'
+        - Key: deregistration_delay.timeout_seconds
+          Value: '0'
+        - Key: stickiness.type
+          Value: lb_cookie
+        TargetType: instance
+        UnhealthyThresholdCount: 5
+        VpcId:
+          Ref: VpcId
+      Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    TaskDef:
+      Properties:
+        ContainerDefinitions:
+        - Environment:
+          - Name: AWS_DEFAULT_REGION
+            Value:
+              Ref: AWS::Region
+          - Name: RABBITMQ_DEFAULT_USER
+            Value: rabbitmqAdm
+          Essential: true
+          Hostname:
+            Ref: AWS::StackName
+          Image: rabbitmq:3.9.1-management
+          Links: []
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-create-group: true
+              awslogs-group:
+                Fn::Sub: /ecs/${AWS::StackName}
+              awslogs-region:
+                Ref: AWS::Region
+              awslogs-stream-prefix: ecs
+          Memory: 512
+          MemoryReservation: 512
+          MountPoints:
+          - ContainerPath: /var/lib/rabbitmq
+            ReadOnly: false
+            SourceVolume: db
+          - ContainerPath: /etc/rabbitmq
+            ReadOnly: false
+            SourceVolume: config
+          Name: main
+          PortMappings:
+          - ContainerPort: 5672
+          - ContainerPort: 15672
+          Secrets:
+          - Name: RABBITMQ_DEFAULT_PASS
+            ValueFrom: arn:aws:secretsmanager:us-east-1:123123123:secret:ban/ecs/rabbitmqAdm-12342
+        ExecutionRoleArn:
+          Ref: TaskExecutionRole
+        Family:
+          Ref: AWS::StackName
+        Volumes:
+        - EFSVolumeConfiguration:
+            FilesystemId: fs-123123
+            RootDirectory: /rabbitmq/database
+          Name: db
+        - EFSVolumeConfiguration:
+            FilesystemId: fs-123123
+            RootDirectory: /rabbitmq/config
+          Name: config
+      Type: AWS::ECS::TaskDefinition
+    TaskExecutionRole:
+      Properties:
+        AssumeRolePolicyDocument:
+          Statement:
+          - Action:
+            - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+              - ecs-tasks.amazonaws.com
+          Version: '2012-10-17'
+        ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+        Policies:
+        - PolicyDocument:
+            Statement:
+            - Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+              - logs:DescribeLogStreams
+              Effect: Allow
+              Resource:
+              - arn:aws:logs:*:*:*
+            Version: '2012-10-17'
+          PolicyName: root
+        - PolicyDocument:
+            Statement:
+            - Action: secretsmanager:GetSecretValue
+              Effect: Allow
+              Resource: arn:aws:secretsmanager:us-east-1:123123123:secret:ban/ecs/rabbitmqAdm-12342
+            Version: '2012-10-17'
+          PolicyName: secrets
+      Type: AWS::IAM::Role
+

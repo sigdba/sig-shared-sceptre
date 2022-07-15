@@ -24,7 +24,7 @@
       Description: The ID of the VPC of the ECS cluster
       Type: String
   Resources:
-    ListenerRule17728:
+    ListenerRule3434:
       Properties:
         Actions:
         - TargetGroupArn: arn:aws:some_target_group
@@ -38,12 +38,11 @@
         - Field: host-header
           HostHeaderConfig:
             Values:
-            - rabbit.*
-        ListenerArn:
-          Ref: ListenerArn
-        Priority: 17728
+            - rabbit-mgt.*
+        ListenerArn: arn:for:the:http-listener
+        Priority: 3434
       Type: AWS::ElasticLoadBalancingV2::ListenerRule
-    ListenerRule39113:
+    ListenerRule34874:
       Properties:
         Actions:
         - TargetGroupArn:
@@ -54,30 +53,13 @@
           HostHeaderConfig:
             Values:
             - rabbit-mgt.*
-        ListenerArn:
-          Ref: ListenerArn
-        Priority: 39113
-      Type: AWS::ElasticLoadBalancingV2::ListenerRule
-    ListenerRule44159:
-      Properties:
-        Actions:
-        - TargetGroupArn:
-            Ref: TargetGroupPORT5672HCSLASH
-          Type: forward
-        Conditions:
-        - Field: host-header
-          HostHeaderConfig:
-            Values:
-            - rabbit.*
-        ListenerArn:
-          Ref: ListenerArn
-        Priority: 44159
+        ListenerArn: arn:for:the:http-listener
+        Priority: 34874
       Type: AWS::ElasticLoadBalancingV2::ListenerRule
     Service:
       DependsOn:
-      - ListenerRule44159
-      - ListenerRule39113
-      - ListenerRule17728
+      - ListenerRule34874
+      - ListenerRule3434
       Properties:
         Cluster:
           Ref: ClusterArn
@@ -90,16 +72,15 @@
           Ref: DesiredCount
         LoadBalancers:
         - ContainerName: main
-          ContainerPort: 5672
-          TargetGroupArn:
-            Ref: TargetGroupPORT5672HCSLASH
-        - ContainerName: main
           ContainerPort: 15672
           TargetGroupArn:
             Ref: TargetGroupPORT15672HCSLASH
         - ContainerName: main
-          ContainerPort: 5672
+          ContainerPort: 15672
           TargetGroupArn: arn:aws:some_target_group
+        - ContainerName: main
+          ContainerPort: 5672
+          TargetGroupArn: arn:for:the:tcp-target-group
         PlacementStrategies:
         - Field: memory
           Type: binpack
@@ -116,32 +97,6 @@
           HttpCode: 200-399
         Port: 15672
         Protocol: HTTP
-        Tags:
-        - Key: Name
-          Value:
-            Fn::Sub: '${AWS::StackName}: /'
-        TargetGroupAttributes:
-        - Key: stickiness.enabled
-          Value: 'false'
-        - Key: deregistration_delay.timeout_seconds
-          Value: '0'
-        - Key: stickiness.type
-          Value: lb_cookie
-        TargetType: instance
-        UnhealthyThresholdCount: 5
-        VpcId:
-          Ref: VpcId
-      Type: AWS::ElasticLoadBalancingV2::TargetGroup
-    TargetGroupPORT5672HCSLASH:
-      Properties:
-        HealthCheckIntervalSeconds: 60
-        HealthCheckPath: /
-        HealthCheckProtocol: HTTPS
-        HealthCheckTimeoutSeconds: 30
-        Matcher:
-          HttpCode: 200-399
-        Port: 5672
-        Protocol: HTTPS
         Tags:
         - Key: Name
           Value:

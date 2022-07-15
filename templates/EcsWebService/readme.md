@@ -245,6 +245,8 @@ for more information.
   - For this setting to work properly, the ELB will need to be set up to for multiple hostnames.
   - **See Also:** [AWS::ElasticLoadBalancingV2::ListenerRule HostHeaderConfig](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-hostheaderconfig.html)
 
+- `listener_arn` (string) - ARN of the listener for this rule. Overrides the ListenerArn parameter.
+
 - `path` (string) - **required** - The context path for the listener rule. The path should start with a `/`. Two
                        listener rules will be created, one matching `path` and
                        one matching `path + '/*'`.

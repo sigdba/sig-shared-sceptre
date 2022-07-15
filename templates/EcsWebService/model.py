@@ -144,6 +144,9 @@ class RuleModel(BaseModel):
                        is specified then a target group will not be created for
                        this rule."""
     )
+    listener_arn: Optional[str] = Field(
+        description="""ARN of the listener for this rule. Overrides the ListenerArn parameter."""
+    )
 
 
 class PortMappingModel(BaseModel):

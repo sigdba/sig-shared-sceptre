@@ -4,7 +4,7 @@ template_path: EcsWebService/EcsWebService.py
 parameters:
   VpcId: vpc-12345
   ClusterArn: clusterArn
-  ListenerArn: arn:for:the:listener
+  ListenerArn: arn:for:the:tcp-listener
 
   # Prevent multiple instances
   MaximumPercent: 100
@@ -33,17 +33,18 @@ sceptre_user_data:
       port_mappings:
         - container_port: 5672
         - container_port: 15672
-      protocol: HTTPS
+      target_group_arn: arn:for:the:tcp-target-group
+      protocol: TCP
       rules:
-        - path: /
-          host: rabbit.*
-          container_port: 5672
         - path: /
           host: rabbit-mgt.*
           protocol: HTTP
           container_port: 15672
+          listener_arn: arn:for:the:http-listener
         - path: /weird
-          host: rabbit.*
+          host: rabbit-mgt.*
+          container_port: 15672
+          listener_arn: arn:for:the:http-listener
           target_group_arn: arn:aws:some_target_group
       target_group:
         attributes:

@@ -406,7 +406,7 @@ def target_group(
     )
 
 
-def listener_rule(tg_arn, rule):
+def listener_rule(tg_arn, rule, listener_arn):
     path = rule.path
     priority = rule.priority if rule.priority else priority_hash(rule)
 
@@ -439,7 +439,7 @@ def listener_rule(tg_arn, rule):
             "ListenerRule%s" % priority,
             Actions=[Action(Type="forward", TargetGroupArn=tg_arn)],
             Conditions=conditions,
-            ListenerArn=Ref("ListenerArn"),
+            ListenerArn=listener_arn,
             Priority=priority,
         )
     )
@@ -619,7 +619,8 @@ def sceptre_handler(sceptre_user_data):
         if c.target_group_arn:
             # We're injecting into an existing target. Don't set up listener rules.
             target_group_arn = c.target_group_arn
-        elif c.rules:
+
+        if c.rules:
             default_port = container.PortMappings[0].ContainerPort
             default_tg = None
             for rule in c.rules:
@@ -646,6 +647,10 @@ def sceptre_handler(sceptre_user_data):
                     )
                 else:
                     if not default_tg:
+                        if target_group_arn:
+                            # TODO: Add validation to the model to prevent this.
+                            # TODO: Should port_mappings let you put a container_port on a TG?
+                            raise ValueError("The default TG has already been created.")
                         default_tg = target_group(
                             target_group_type,
                             c.protocol,
@@ -655,7 +660,9 @@ def sceptre_handler(sceptre_user_data):
                         )
                         target_group_arn = Ref(default_tg)
                     tg_arn = Ref(default_tg)
-                listener_rules.append(listener_rule(tg_arn, rule))
+                listener_rules.append(
+                    listener_rule(tg_arn, rule, rule.listener_arn or Ref("ListenerArn"))
+                )
 
         if target_group_arn is not None:
             if len(container.PortMappings) < 1:

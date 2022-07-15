@@ -1,0 +1,53 @@
+---
+template_path: EcsWebService/EcsWebService.py
+
+parameters:
+  VpcId: vpc-12345
+  ClusterArn: clusterArn
+  ListenerArn: arn:for:the:listener
+
+  # Prevent multiple instances
+  MaximumPercent: 100
+
+sceptre_user_data:
+  efs_volumes:
+    - name: db
+      fs_id: fs-123123
+      root_directory: /rabbitmq/database
+    - name: config
+      fs_id: fs-123123
+      root_directory: /rabbitmq/config
+
+  containers:
+    - image: rabbitmq:3.9.1-management
+      container_memory: 512
+      mount_points:
+        - source_volume: db
+          container_path: /var/lib/rabbitmq
+        - source_volume: config
+          container_path: /etc/rabbitmq
+      env_vars:
+        RABBITMQ_DEFAULT_USER: rabbitmqAdm
+      secrets:
+        RABBITMQ_DEFAULT_PASS: arn:aws:secretsmanager:us-east-1:123123123:secret:ban/ecs/rabbitmqAdm-12342
+      port_mappings:
+        - container_port: 5672
+        - container_port: 15672
+      protocol: HTTPS
+      rules:
+        - path: /
+          host: rabbit.*
+          container_port: 5672
+        - path: /
+          host: rabbit-mgt.*
+          protocol: HTTP
+          container_port: 15672
+        - path: /weird
+          host: rabbit.*
+          target_group_arn: arn:aws:some_target_group
+      target_group:
+        attributes:
+          stickiness.enabled: 'false'
+          deregistration_delay.timeout_seconds: 0
+      health_check:
+        path: /

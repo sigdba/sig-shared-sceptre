@@ -72,47 +72,6 @@ class ScheduleModel(BaseModel):
     )
 
 
-class RuleModel(BaseModel):
-    path: str = Field(
-        description="""The context path for the listener rule. The path should start with a `/`. Two
-                       listener rules will be created, one matching `path` and
-                       one matching `path + '/*'`."""
-    )
-    host: Optional[str] = Field(
-        description="""Pattern to match against the request's host header. Wildcards `?` and `*` are supported.""",
-        notes=[
-            "For this setting to work properly, the ELB will need to be set up to for multiple hostnames.",
-            "**See Also:** [AWS::ElasticLoadBalancingV2::ListenerRule HostHeaderConfig](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-hostheaderconfig.html)",
-        ],
-    )
-    priority: Optional[int] = Field(
-        description="The priority value for the listener rule. If undefined, a hash-based value will be generated."
-    )
-
-
-class PortMappingModel(BaseModel):
-    container_port: int = Field(
-        description="The port exposed by the container",
-        notes=[
-            """You may specify more than one port mapping object per container, but the
-               target group will always route its traffic to the
-               `container_port` of the first port mapping."""
-        ],
-    )
-
-
-class MountPointModel(BaseModel):
-    container_path: str = Field(
-        description="The mount point for the volume within the container"
-    )
-    source_volume: str = Field(
-        description="The `name` value specified for the volume in `sceptre_user_data.efs_volumes`."
-    )
-    read_only = Field(
-        False, description="If true, the volume will not be writable to the container."
-    )
-
-
 class HealthCheckModel(BaseModel):
     path: Optional[str] = Field(
         description="Path the target group health check will request",
@@ -141,6 +100,72 @@ class HealthCheckModel(BaseModel):
                        values between 200 and 499, and the default value is 200.
                        You can specify multiple values (for example, "200,202")
                        or a range of values (for example, "200-299").""",
+    )
+
+
+class RuleModel(BaseModel):
+    path: str = Field(
+        description="""The context path for the listener rule. The path should start with a `/`. Two
+                       listener rules will be created, one matching `path` and
+                       one matching `path + '/*'`."""
+    )
+    host: Optional[str] = Field(
+        description="""Pattern to match against the request's host header. Wildcards `?` and `*` are supported.""",
+        notes=[
+            "For this setting to work properly, the ELB will need to be set up to for multiple hostnames.",
+            "**See Also:** [AWS::ElasticLoadBalancingV2::ListenerRule HostHeaderConfig](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-hostheaderconfig.html)",
+        ],
+    )
+    priority: Optional[int] = Field(
+        description="The priority value for the listener rule. If undefined, a hash-based value will be generated."
+    )
+    container_port: Optional[int] = Field(
+        description="The container port associated with this rule's traffic.",
+        notes=[
+            """This field is only required if you need to send traffic to
+               multiple ports within the container. You must include this port
+               in the container's `port_mappings` key."""
+        ],
+    )
+    protocol: Optional[str] = Field(
+        description="""The back-end protocol used by the load-balancer to
+                       communicate with the container. This overrides the
+                       `protocol` specified on the container.""",
+    )
+    health_check: Optional[HealthCheckModel] = Field(
+        description="Health check for this rule. This overrides the `health_check` specified on the container."
+    )
+    target_group: Optional[TargetGroupModel] = Field(
+        description="""Extended options for the target group for this rule. This
+                       overrides the `target_group` specified on the container."""
+    )
+    target_group_arn: Optional[str] = Field(
+        description="""ARN of an existing target group on the ELB. If this value
+                       is specified then a target group will not be created for
+                       this rule."""
+    )
+
+
+class PortMappingModel(BaseModel):
+    container_port: int = Field(
+        description="The port exposed by the container",
+        notes=[
+            """You may specify more than one port mapping object per container, but the
+               target group will always route its traffic to the
+               `container_port` of the first port mapping."""
+        ],
+    )
+
+
+class MountPointModel(BaseModel):
+    container_path: str = Field(
+        description="The mount point for the volume within the container"
+    )
+    source_volume: str = Field(
+        description="The `name` value specified for the volume in `sceptre_user_data.efs_volumes`."
+    )
+    read_only = Field(
+        False, description="If true, the volume will not be writable to the container."
     )
 
 

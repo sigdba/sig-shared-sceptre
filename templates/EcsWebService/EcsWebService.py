@@ -360,7 +360,12 @@ def task_def(user_data, container_defs, exec_role):
 
 
 def target_group(
-    target_type, protocol, health_check, target_group_props, default_health_check_path
+    target_type,
+    protocol,
+    health_check,
+    target_group_props,
+    default_health_check_path,
+    port=None,
 ):
     if not health_check:
         health_check = model.HealthCheckModel()
@@ -373,16 +378,22 @@ def target_group(
     if "stickiness.type" not in attrs:
         attrs["stickiness.type"] = "lb_cookie"
 
+    title = clean_title(
+        f"TargetGroupPORT{port}HC{health_check.path}"
+        if port
+        else f"TargetGroupFOR{health_check.path}"
+    )
+
     return add_resource(
         TargetGroup(
-            clean_title("TargetGroupFOR%s" % health_check.path),
+            title,
             HealthCheckProtocol=protocol,
             HealthCheckPath=health_check.path,
             HealthCheckIntervalSeconds=health_check.interval_seconds,
             HealthCheckTimeoutSeconds=health_check.timeout_seconds,
             UnhealthyThresholdCount=health_check.unhealthy_threshold_count,
             Matcher=Matcher(HttpCode=health_check.http_code),
-            Port=8080,  # This is overridden by the targets themselves.
+            Port=port or 8080,  # This is overridden by the targets themselves.
             Protocol=protocol,
             TargetGroupAttributes=[
                 TargetGroupAttribute(Key=k, Value=str(v)) for k, v in attrs.items()
@@ -395,7 +406,7 @@ def target_group(
     )
 
 
-def listener_rule(tg, rule):
+def listener_rule(tg_arn, rule):
     path = rule.path
     priority = rule.priority if rule.priority else priority_hash(rule)
 
@@ -426,7 +437,7 @@ def listener_rule(tg, rule):
     return add_resource(
         ListenerRule(
             "ListenerRule%s" % priority,
-            Actions=[Action(Type="forward", TargetGroupArn=Ref(tg))],
+            Actions=[Action(Type="forward", TargetGroupArn=tg_arn)],
             Conditions=conditions,
             ListenerArn=Ref("ListenerArn"),
             Priority=priority,
@@ -604,25 +615,47 @@ def sceptre_handler(sceptre_user_data):
         container = container_def(hostname, c)
         containers.append(container)
 
+        target_group_arn = None
         if c.target_group_arn:
             # We're injecting into an existing target. Don't set up listener rules.
             target_group_arn = c.target_group_arn
         elif c.rules:
-            # Create target group and associated listener rules
-            tg = target_group(
-                target_group_type,
-                c.protocol,
-                c.health_check,
-                c.target_group,
-                "%s/" % c.rules[0].path,
-            )
-
+            default_port = container.PortMappings[0].ContainerPort
+            default_tg = None
             for rule in c.rules:
-                listener_rules.append(listener_rule(tg, rule))
-
-            target_group_arn = Ref(tg)
-        else:
-            target_group_arn = None
+                if rule.container_port or rule.target_group_arn:
+                    if rule.target_group_arn:
+                        tg_arn = rule.target_group_arn
+                    else:
+                        tg_arn = Ref(
+                            target_group(
+                                target_group_type,
+                                rule.protocol or c.protocol,
+                                rule.health_check or c.health_check,
+                                rule.target_group or c.target_group,
+                                f"{rule.path}/",
+                                port=rule.container_port or default_port,
+                            )
+                        )
+                    lb_mappings.append(
+                        LoadBalancer(
+                            ContainerName=container.Name,
+                            ContainerPort=rule.container_port or default_port,
+                            TargetGroupArn=tg_arn,
+                        )
+                    )
+                else:
+                    if not default_tg:
+                        default_tg = target_group(
+                            target_group_type,
+                            c.protocol,
+                            c.health_check,
+                            c.target_group,
+                            "%s/" % c.rules[0].path,
+                        )
+                        target_group_arn = Ref(default_tg)
+                    tg_arn = Ref(default_tg)
+                listener_rules.append(listener_rule(tg_arn, rule))
 
         if target_group_arn is not None:
             if len(container.PortMappings) < 1:
@@ -633,7 +666,6 @@ def sceptre_handler(sceptre_user_data):
             lb_mappings.append(
                 LoadBalancer(
                     ContainerName=container.Name,
-                    # TODO: Ugly hack, do better.
                     ContainerPort=container.PortMappings[0].ContainerPort,
                     TargetGroupArn=target_group_arn,
                 )

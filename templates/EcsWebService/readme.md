@@ -234,6 +234,13 @@ for more information.
 
 #### RuleModel
 
+- `container_port` (integer) - The container port associated with this rule's traffic.
+  - This field is only required if you need to send traffic to
+               multiple ports within the container. You must include this port
+               in the container's `port_mappings` key.
+
+- `health_check` ([HealthCheckModel](#HealthCheckModel)) - Health check for this rule. This overrides the `health_check` specified on the container.
+
 - `host` (string) - Pattern to match against the request's host header. Wildcards `?` and `*` are supported.
   - For this setting to work properly, the ELB will need to be set up to for multiple hostnames.
   - **See Also:** [AWS::ElasticLoadBalancingV2::ListenerRule HostHeaderConfig](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-hostheaderconfig.html)
@@ -244,20 +251,20 @@ for more information.
 
 - `priority` (integer) - The priority value for the listener rule. If undefined, a hash-based value will be generated.
 
+- `protocol` (string) - The back-end protocol used by the load-balancer to
+                       communicate with the container. This overrides the
+                       `protocol` specified on the container.
+
+- `target_group` ([TargetGroupModel](#TargetGroupModel)) - Extended options for the target group for this rule. This
+                       overrides the `target_group` specified on the container.
+
+- `target_group_arn` (string) - ARN of an existing target group on the ELB. If this value
+                       is specified then a target group will not be created for
+                       this rule.
 
 
-#### MountPointModel
 
-- `container_path` (string) - **required** - The mount point for the volume within the container
-
-- `read_only` (boolean) - If true, the volume will not be writable to the container.
-  - **Default:** `False`
-
-- `source_volume` (string) - **required** - The `name` value specified for the volume in `sceptre_user_data.efs_volumes`.
-
-
-
-#### HealthCheckModel
+##### HealthCheckModel
 
 - `healthy_threshold_count` (integer) - The number of consecutive health checks successes required before considering
                        an unhealthy target healthy.
@@ -279,6 +286,17 @@ for more information.
 - `unhealthy_threshold_count` (integer) - The number of consecutive health check failures required before considering a
                        target unhealthy.
   - **Default:** `5`
+
+
+
+#### MountPointModel
+
+- `container_path` (string) - **required** - The mount point for the volume within the container
+
+- `read_only` (boolean) - If true, the volume will not be writable to the container.
+  - **Default:** `False`
+
+- `source_volume` (string) - **required** - The `name` value specified for the volume in `sceptre_user_data.efs_volumes`.
 
 
 

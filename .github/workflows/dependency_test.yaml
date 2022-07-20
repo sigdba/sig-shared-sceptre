@@ -31,10 +31,10 @@ jobs:
           - 1.1.1
           - 2.1.1
         exclude:
-          - sceptre: 2.*
-            markupsafe: 2.*
-          - sceptre: 3.*
-            markupsafe: 1.*
+          - sceptre: 2.7.1
+            markupsafe: 2.1.1
+          - sceptre: 3.0.0
+            markupsafe: 1.1.1
 
 
     runs-on: ubuntu-latest
@@ -48,9 +48,6 @@ jobs:
       - name: Dump python version
         run: python --version
 
-      - name: Dump pip versions
-        run: pip freeze
-
       - name: Install dependencies
         run: |
           pip install yq cfnresponse \
@@ -59,6 +56,9 @@ jobs:
             troposphere==${{ matrix.troposphere }} \
             pydantic==${{ matrix.pydantic }} \
             MarkupSafe==${{ matrix.markupsafe }}
+
+      - name: Dump pip versions
+        run: pip freeze
 
       - name: Generate test stacks
         run: test/generate_all.sh

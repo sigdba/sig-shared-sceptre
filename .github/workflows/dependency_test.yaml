@@ -31,8 +31,10 @@ jobs:
           - 1.1.1
           - 2.1.1
         exclude:
+          # Sceptre 2.x is incompatible with MarkupSafe 2.x
           - sceptre: 2.7.1
             markupsafe: 2.1.1
+          # Sceptre 3.x is incompatible with MarkupSafe 1.x
           - sceptre: 3.0.0
             markupsafe: 1.1.1
 

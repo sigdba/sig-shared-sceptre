@@ -172,7 +172,7 @@ def auto_scaling_group(
             LaunchConfigurationName=Ref(launch_conf),
             MinSize=0,
             MaxSize=max_size,
-            DesiredCapacity=desired_size,
+            DesiredCapacity=str(desired_size),
             MetricsCollection=[MetricsCollection(Granularity="1Minute")],
             NotificationConfigurations=[
                 NotificationConfigurations(

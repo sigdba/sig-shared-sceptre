@@ -1,0 +1,66 @@
+name: dependency_test
+
+on:
+  push:
+    branches: ['*']
+  workflow_dispatch:
+    branches: ['*']
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        python:
+          - 3.8.13
+          - 3.9.13
+          - 3.10.5
+        boto3:
+          - 1.20.31
+          - 1.24.33
+        sceptre:
+          - 2.7.1
+          - 3.0.0
+        troposphere:
+          - 3.2.2
+          # - 4.0.2
+        pydantic:
+          - 1.8.2
+          - 1.9.1
+        markupsafe:
+          - 1.1.1
+          - 2.1.1
+        exclude:
+          # Sceptre 2.x is incompatible with MarkupSafe 2.x
+          - sceptre: 2.7.1
+            markupsafe: 2.1.1
+          # Sceptre 3.x is incompatible with MarkupSafe 1.x
+          - sceptre: 3.0.0
+            markupsafe: 1.1.1
+
+
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Dump python version
+        run: python --version
+
+      - name: Install dependencies
+        run: |
+          pip install yq cfnresponse \
+            boto3==${{ matrix.boto3 }} \
+            sceptre==${{ matrix.sceptre }} \
+            troposphere==${{ matrix.troposphere }} \
+            pydantic==${{ matrix.pydantic }} \
+            MarkupSafe==${{ matrix.markupsafe }}
+
+      - name: Dump pip versions
+        run: pip freeze
+
+      - name: Generate test stacks
+        run: test/generate_all.sh

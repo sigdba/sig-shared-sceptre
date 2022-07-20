@@ -1,5 +1,6 @@
 import json
 
+import troposphere
 from troposphere import GetAtt, Parameter, Ref, Sub, Tags
 from troposphere.awslambda import Code, Function, Permission
 from troposphere.cloudformation import AWSCustomObject
@@ -27,7 +28,6 @@ from troposphere.ecs import (
     Volume,
 )
 from troposphere.elasticloadbalancingv2 import (
-    Action,
     Condition,
     HostHeaderConfig,
     ListenerRule,
@@ -39,6 +39,12 @@ from troposphere.elasticloadbalancingv2 import (
 from troposphere.events import Rule as EventRule
 from troposphere.events import Target as EventTarget
 from troposphere.iam import Policy, Role
+
+
+if int(troposphere.__version__.split(".")[0]) > 3:
+    from troposphere.elasticloadbalancingv2 import ListenerRuleAction
+else:
+    from troposphere.elasticloadbalancingv2 import Action as ListenerRuleAction
 
 import model
 from util import (
@@ -437,7 +443,7 @@ def listener_rule(tg_arn, rule, listener_arn):
     return add_resource(
         ListenerRule(
             "ListenerRule%s" % priority,
-            Actions=[Action(Type="forward", TargetGroupArn=tg_arn)],
+            Actions=[ListenerRuleAction(Type="forward", TargetGroupArn=tg_arn)],
             Conditions=conditions,
             ListenerArn=listener_arn,
             Priority=priority,

@@ -42,7 +42,7 @@
       Type: AWS::SNS::Topic
     Asgt22xlarge:
       Properties:
-        DesiredCapacity: 1
+        DesiredCapacity: '1'
         LaunchConfigurationName:
           Ref: LaunchConft22xlarge
         MaxSize: 4

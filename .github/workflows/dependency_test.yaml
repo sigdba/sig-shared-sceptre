@@ -64,6 +64,3 @@ jobs:
 
       - name: Generate test stacks
         run: test/generate_all.sh
-
-      - name: Compare current output to baselines
-        run: test/check_diffs.sh

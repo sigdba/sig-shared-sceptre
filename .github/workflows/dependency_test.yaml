@@ -12,7 +12,6 @@ jobs:
       fail-fast: false
       matrix:
         python:
-          - 3.7.13
           - 3.8.13
           - 3.9.13
           - 3.10.5
@@ -32,8 +31,11 @@ jobs:
           - 1.1.1
           - 2.1.1
         exclude:
-          - sceptre: 2.7.1
-            markupsafe: 2.1.1
+          - sceptre: 2.*
+            markupsafe: 2.*
+          - sceptre: 3.*
+            markupsafe: 1.*
+
 
     runs-on: ubuntu-latest
     steps:

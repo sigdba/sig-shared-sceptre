@@ -1,0 +1,37 @@
+name: dependency_test
+
+on:
+  push:
+    branches: ['*']
+  workflow_dispatch:
+    branches: ['*']
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        boto3:
+          - 1.20.31
+        sceptre:
+          - 3.0.0
+        troposphere:
+          - 3.2.2
+        pydantic:
+          - 1.8.2
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install dependencies
+        run: |
+          pip install yq cfnresponse \
+            boto3==${{ matrix.boto3 }} \
+            sceptre==${{ matrix.sceptre }} \
+            troposphere==${{ matrix.troposphere }} \
+            pydantic==${{ matrix.pydantic }}
+
+      - name: Generate test stacks
+        run: test/generate_all.sh
+
+      - name: Compare current output to baselines
+        run: test/check_diffs.sh

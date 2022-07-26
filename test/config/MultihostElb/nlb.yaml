@@ -1,0 +1,48 @@
+---
+template_path: MultihostElb/main.py
+
+parameters:
+  VpcId: vpc-1234
+
+sceptre_user_data:
+  elb_type: network
+  internet_facing: yes
+  # idle_timeout: 3600
+  attributes:
+    access_logs.s3.enabled: 'false'
+  domain: ban.sig.sh
+  hosted_zone_id: ABC1234
+  alt_hosted_zone_ids:
+    - ABC423123
+  subnet_ids:
+    - subnet-1234a
+    - subnet-1234b
+
+  listeners:
+    - port: 636
+      protocol: TLS
+      hostnames:
+        - hostname: ldap
+      default_action:
+        targets: []
+        target_port: 1389
+        target_group_attributes:
+          deregistration_delay.timeout_seconds: 0
+
+    - port: 1521
+      protocol: TCP
+      hostnames:
+        - hostname: db
+      default_action:
+        targets: []
+        target_port: 1521
+
+    - port: 5672
+      protocol: TCP
+      hostnames:
+        - hostname: rabbit
+      default_action:
+        targets: []
+        target_port: 5672
+        target_group_attributes:
+          deregistration_delay.timeout_seconds: 0

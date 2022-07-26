@@ -26,7 +26,7 @@ from troposphere.elasticloadbalancingv2 import (
     TargetGroup,
     TargetGroupAttribute,
 )
-from troposphere.route53 import RecordSetType
+from troposphere.route53 import RecordSetType, AliasTarget
 from troposphere.s3 import (
     Bucket,
     BucketPolicy,
@@ -536,15 +536,27 @@ def get_all_hostnames(user_data):
             yield hostname_data
 
 
-def ns_entry_route53(zone_id, record_type, name, value, title_suffix=""):
+def ns_entry_route53(route53_opts, zone_id, record_type, name, value, title_suffix=""):
+    if route53_opts.record_type == "alias":
+        opts = {
+            "Type": "A",
+            "AliasTarget": AliasTarget(
+                DNSName=value,
+                HostedZoneId=GetAtt("LoadBalancer", "CanonicalHostedZoneID"),
+            ),
+        }
+    else:
+        opts = {
+            "Type": record_type,
+            "ResourceRecords": [value],
+            "TTL": "300",
+        }
     return add_resource(
         RecordSetType(
             clean_title("RecordSetFor{}{}".format(name, title_suffix)),
             HostedZoneId=zone_id,
             Name=name,
-            Type=record_type,
-            TTL="300",
-            ResourceRecords=[value],
+            **opts,
         )
     )
 
@@ -588,14 +600,19 @@ def ns_entry_fn_global(user_data):
     in user_data."""
     zone_id = user_data.hosted_zone_id
     if zone_id is not None:
-        primary = partial(ns_entry_route53, zone_id)
+        primary = partial(ns_entry_route53, user_data.route53, zone_id)
         if len(user_data.alt_hosted_zone_ids) < 1:
             return primary
 
         def _multizone(record_type, name, value):
             for zone_id in user_data.alt_hosted_zone_ids:
                 ns_entry_route53(
-                    zone_id, record_type, name, value, title_suffix=f"forZone{zone_id}"
+                    user_data.route53,
+                    zone_id,
+                    record_type,
+                    name,
+                    value,
+                    title_suffix=f"forZone{zone_id}",
                 )
             return primary(record_type, name, value)
 

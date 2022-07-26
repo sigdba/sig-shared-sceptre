@@ -474,6 +474,12 @@ class WafAclModel(HasWafVisibility):
         return values
 
 
+class Route53Model(BaseModel):
+    record_type: Literal["CNAME", "alias"] = Field(
+        "CNAME", description="Type of record to create in Route53."
+    )
+
+
 class UserDataModel(BaseModel):
     name = "${AWS::StackName}"
     listeners: List[ListenerModel] = Field(
@@ -540,6 +546,7 @@ class UserDataModel(BaseModel):
         ],
     )
     elb_tags: Dict[str, str] = Field({}, description="Tags to apply to the ELB object")
+    route53 = Field(Route53Model(), description="Extended options for Route53 records.")
     hosted_zone_id: Optional[str] = Field(
         description="""The Route53 hosted zone ID in which to create DNS entries for certificate
                        validation and for hostnames specified for

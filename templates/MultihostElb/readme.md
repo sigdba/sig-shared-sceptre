@@ -62,6 +62,9 @@ Creates an Elastic Load Balancer and associated resources.
 
 - `ns_update` ([NsUpdateModel](#NsUpdateModel) or List of [NsUpdateModel](#NsUpdateModel)) - Specifies how DNS entries should be updated when not using Route53.
 
+- `route53` ([Route53Model](#Route53Model)) - Extended options for Route53 records.
+  - **Default:** `{'record_type': 'CNAME'}`
+
 - `subnet_ids` (List of string) - At least two subnet IDs within the VPC for the ELB to occupy.
 
 - `subnet_mappings` (List of Dict[string:string]) - The IDs of the public subnets. You can specify only one subnet per
@@ -70,6 +73,14 @@ Creates an Elastic Load Balancer and associated resources.
   - **See Also:** [AWS::ElasticLoadBalancingV2::LoadBalancer SubnetMapping](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-loadbalancer-subnetmapping.html)
 
 - `waf_acls` (List of string or [WafAclModel](#WafAclModel)) - List of WAF WebACL ARNs and/or WafAclModel objects to associate with this ELB.
+
+
+
+### Route53Model
+
+- `record_type` (string) - Type of record to create in Route53.
+  - **Allowed Values:** `CNAME`, `alias`
+  - **Default:** `CNAME`
 
 
 

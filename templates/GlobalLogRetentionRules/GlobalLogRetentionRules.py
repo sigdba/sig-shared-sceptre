@@ -90,7 +90,7 @@ def lambda_function():
             Description="Sets CloudWatch log retentions based on rules",
             Handler="index.lambda_handler",
             Role=GetAtt("LambdaExecutionRole", "Arn"),
-            Runtime="python3.6",
+            Runtime="python3.9",
             MemorySize=128,
             Timeout=60,
             Code=Code(

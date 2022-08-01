@@ -218,7 +218,7 @@
           Fn::GetAtt:
           - LambdaExecutionRole
           - Arn
-        Runtime: python3.6
+        Runtime: python3.9
         Timeout: 60
       Type: AWS::Lambda::Function
     LambdaFunctionForCpsReset:
@@ -281,7 +281,7 @@
           Fn::GetAtt:
           - LambdaExecutionRole
           - Arn
-        Runtime: python3.6
+        Runtime: python3.9
         Timeout: 60
       Type: AWS::Lambda::Function
     LambdaInvokePermission:

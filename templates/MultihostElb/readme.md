@@ -33,6 +33,12 @@ Creates an Elastic Load Balancer and associated resources.
                `certificate_arn` values for each `hostname` entry specified
                under `listeners`.
 
+- `create_instance_sg` (boolean) - When True a security group will be created with a rule to
+                       allow all traffic from the ELB. Instances can then be
+                       assigned to this group as an alternative to using the
+                       `sg_id` option on targets.
+  - **Default:** `False`
+
 - `domain` (string) - The domain to append to short hostnames used elsewhere in the template.
   - Any hostname specified in the configuration which does not contain a dot (.)
                will be treated as "short" and this value will be appended. If a
@@ -325,6 +331,10 @@ cases where requests are handled by an ECS service.
 ##### HealthCheckModel
 
 - `healthy_threshold_count` (integer)
+
+- `http_codes` (string) - A range or list of HTTP status codes which will be considered success.
+  - **Default:** `200-399`
+  - **See Also:** [AWS::ElasticLoadBalancingV2::TargetGroup Matcher](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-targetgroup-matcher.html#cfn-elasticloadbalancingv2-targetgroup-matcher-httpcode)
 
 - `interval_seconds` (integer)
   - **Default:** The default value depends on the type of target group.

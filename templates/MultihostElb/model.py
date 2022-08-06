@@ -573,6 +573,13 @@ class UserDataModel(BaseModel):
         [],
         description="List of WAF WebACL ARNs and/or WafAclModel objects to associate with this ELB.",
     )
+    create_instance_sg = Field(
+        False,
+        description="""When True a security group will be created with a rule to
+                       allow all traffic from the ELB. Instances can then be
+                       assigned to this group as an alternative to using the
+                       `sg_id` option on targets.""",
+    )
 
     @validator("ns_update")
     def ns_update_force_list(cls, v):

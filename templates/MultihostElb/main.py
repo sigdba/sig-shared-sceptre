@@ -840,6 +840,26 @@ def waf_acl_assoc(acl_model):
     )
 
 
+def instance_sg():
+    return add_resource(
+        SecurityGroup(
+            "InstanceSecurityGroup",
+            VpcId=Ref("VpcId"),
+            GroupDescription=Sub("Instance security group for ${AWS::StackName}"),
+            GroupName=Sub("${AWS::StackName}-InstanceSg"),
+            SecurityGroupIngress=[
+                SecurityGroupRule(
+                    FromPort=-1,
+                    ToPort=-1,
+                    IpProtocol="TCP",
+                    Description=Sub("Allow all from ${AWS::StackName}"),
+                    SourceSecurityGroupId=Ref("DefaultSecurityGroup"),
+                )
+            ],
+        )
+    )
+
+
 def sceptre_handler(user_data):
     add_param(
         "VpcId",
@@ -863,6 +883,14 @@ def sceptre_handler(user_data):
 
     for acl in data.waf_acls:
         waf_acl_assoc(acl)
+
+    if data.create_instance_sg:
+        inst_sg = instance_sg()
+        add_export(
+            "InstanceSg",
+            Sub("${AWS::StackName}-instance-sg-id"),
+            Ref(inst_sg),
+        )
 
     TEMPLATE.add_mapping(
         "ElbAccountMap",

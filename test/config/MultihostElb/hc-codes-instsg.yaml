@@ -6,6 +6,7 @@ parameters:
 
 sceptre_user_data:
   internet_facing: yes
+  create_instance_sg: yes
   attributes:
     access_logs.s3.enabled: 'false'
   domain: sig.sh

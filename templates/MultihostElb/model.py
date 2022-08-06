@@ -126,6 +126,13 @@ class HealthCheckModel(BaseModel):
     protocol: Optional[str]
     healthy_threshold_count: Optional[int]
     unhealth_threshold_count: Optional[int]
+    http_codes = Field(
+        "200-399",
+        description="A range or list of HTTP status codes which will be considered success.",
+        notes=[
+            "**See Also:** [AWS::ElasticLoadBalancingV2::TargetGroup Matcher](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-targetgroup-matcher.html#cfn-elasticloadbalancingv2-targetgroup-matcher-httpcode)"
+        ],
+    )
 
 
 class FixedResponseModel(BaseModel):

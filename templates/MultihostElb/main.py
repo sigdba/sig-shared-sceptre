@@ -339,11 +339,13 @@ def target_group_with(user_data, title, default_hc_path, tg_data):
         "VpcId": Ref("VpcId"),
     }
 
+    http_codes = tg_data.health_check.http_codes if tg_data.health_check else "200-399"
+
     if user_data.elb_type == "application":
         args = {
             **args,
             "HealthCheckPath": default_hc_path,
-            "Matcher": Matcher(HttpCode="200-399"),
+            "Matcher": Matcher(HttpCode=http_codes),
         }
 
     if tg_data.health_check:

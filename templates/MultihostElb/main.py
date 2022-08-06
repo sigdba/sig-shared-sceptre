@@ -339,11 +339,13 @@ def target_group_with(user_data, title, default_hc_path, tg_data):
         "VpcId": Ref("VpcId"),
     }
 
+    http_codes = tg_data.health_check.http_codes if tg_data.health_check else "200-399"
+
     if user_data.elb_type == "application":
         args = {
             **args,
             "HealthCheckPath": default_hc_path,
-            "Matcher": Matcher(HttpCode="200-399"),
+            "Matcher": Matcher(HttpCode=http_codes),
         }
 
     if tg_data.health_check:
@@ -838,6 +840,26 @@ def waf_acl_assoc(acl_model):
     )
 
 
+def instance_sg():
+    return add_resource(
+        SecurityGroup(
+            "InstanceSecurityGroup",
+            VpcId=Ref("VpcId"),
+            GroupDescription=Sub("Instance security group for ${AWS::StackName}"),
+            GroupName=Sub("${AWS::StackName}-InstanceSg"),
+            SecurityGroupIngress=[
+                SecurityGroupRule(
+                    FromPort=-1,
+                    ToPort=-1,
+                    IpProtocol="TCP",
+                    Description=Sub("Allow all from ${AWS::StackName}"),
+                    SourceSecurityGroupId=Ref("DefaultSecurityGroup"),
+                )
+            ],
+        )
+    )
+
+
 def sceptre_handler(user_data):
     add_param(
         "VpcId",
@@ -861,6 +883,14 @@ def sceptre_handler(user_data):
 
     for acl in data.waf_acls:
         waf_acl_assoc(acl)
+
+    if data.create_instance_sg:
+        inst_sg = instance_sg()
+        add_export(
+            "InstanceSg",
+            Sub("${AWS::StackName}-instance-sg-id"),
+            Ref(inst_sg),
+        )
 
     TEMPLATE.add_mapping(
         "ElbAccountMap",

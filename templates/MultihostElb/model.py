@@ -126,6 +126,13 @@ class HealthCheckModel(BaseModel):
     protocol: Optional[str]
     healthy_threshold_count: Optional[int]
     unhealth_threshold_count: Optional[int]
+    http_codes = Field(
+        "200-399",
+        description="A range or list of HTTP status codes which will be considered success.",
+        notes=[
+            "**See Also:** [AWS::ElasticLoadBalancingV2::TargetGroup Matcher](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-targetgroup-matcher.html#cfn-elasticloadbalancingv2-targetgroup-matcher-httpcode)"
+        ],
+    )
 
 
 class FixedResponseModel(BaseModel):
@@ -565,6 +572,13 @@ class UserDataModel(BaseModel):
     waf_acls: List[Union[str, WafAclModel]] = Field(
         [],
         description="List of WAF WebACL ARNs and/or WafAclModel objects to associate with this ELB.",
+    )
+    create_instance_sg = Field(
+        False,
+        description="""When True a security group will be created with a rule to
+                       allow all traffic from the ELB. Instances can then be
+                       assigned to this group as an alternative to using the
+                       `sg_id` option on targets.""",
     )
 
     @validator("ns_update")

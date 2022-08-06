@@ -139,7 +139,7 @@
         - Description:
             Fn::Sub: Allow all from ${AWS::StackName}
           FromPort: -1
-          IpProtocol: TCP
+          IpProtocol: '-1'
           SourceSecurityGroupId:
             Ref: DefaultSecurityGroup
           ToPort: -1

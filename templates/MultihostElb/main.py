@@ -851,7 +851,7 @@ def instance_sg():
                 SecurityGroupRule(
                     FromPort=-1,
                     ToPort=-1,
-                    IpProtocol="TCP",
+                    IpProtocol="-1",
                     Description=Sub("Allow all from ${AWS::StackName}"),
                     SourceSecurityGroupId=Ref("DefaultSecurityGroup"),
                 )

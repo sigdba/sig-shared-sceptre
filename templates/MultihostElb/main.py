@@ -238,7 +238,7 @@ def load_balancer(user_data):
             Name=Sub(user_data.name),
             Scheme="internet-facing" if user_data.internet_facing else "internal",
             SecurityGroups=load_balancer_security_groups(user_data),
-            Tags=[Tag(k, v) for k, v in user_data.elb_tags],
+            Tags=[Tag(k, v) for k, v in user_data.elb_tags.items()],
             Type=user_data.elb_type,
             DependsOn=elb_depends_on,
             **opts_with(

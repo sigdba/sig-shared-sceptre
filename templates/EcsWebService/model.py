@@ -367,6 +367,13 @@ class ContainerModel(BaseModel):
         return v
 
 
+class AutoStopModel(BaseModel):
+    enabled = Field(
+        False,
+        description="When `True` the service will be stopped after a period of innactivity.",
+    )
+
+
 class UserDataModel(BaseModel):
     launch_type: Optional[Literal["EC2", "EXTERNAL", "FARGATE"]]
     cpu: Optional[str] = Field(
@@ -440,6 +447,11 @@ class UserDataModel(BaseModel):
     schedule: List[ScheduleModel] = Field(
         [],
         description="Specifies a schedule for modifying the DesiredCount of the service.",
+    )
+    auto_stop = Field(
+        AutoStopModel(),
+        description="Configuration for automatically stopping the service after a period of innactivity.",
+        default_description="This feature is disabled by default.",
     )
 
     @root_validator(pre=True)

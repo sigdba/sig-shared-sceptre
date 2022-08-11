@@ -699,4 +699,7 @@ def sceptre_handler(sceptre_user_data):
             rule = scheduling_rule(p)
             lambda_invoke_permission(rule)
 
+    for r in TEMPLATE.resources.items():
+        print(type(r.value))
+
     return TEMPLATE.to_json()

@@ -40,7 +40,12 @@ def waiter_execution_role():
                                     "logs:PutLogEvents",
                                 ],
                                 "Resource": "*",
-                            }
+                            },
+                            {
+                                "Effect": "Allow",
+                                "Action": ["ecs:DescribeServices"],
+                                "Resource": Ref("Service"),
+                            },
                         ],
                     },
                 )
@@ -73,6 +78,7 @@ def add_waiter_lambda(as_conf, template):
         lambda name: Function(
             name,
             Description="Presents a 'please wait' page while restarting a service.",
+            # TODO: VPCConfig?
             Handler="index.lambda_handler",
             Role=GetAtt(exec_role, "Arn"),
             Runtime="python3.9",

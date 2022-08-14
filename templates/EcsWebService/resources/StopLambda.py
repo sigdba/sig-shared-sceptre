@@ -77,9 +77,8 @@ def get_tg_metrics(start_time, end_time, tg_full_name):
 
 
 def get_service_date():
-    return ECS.describe_services(cluster=CLUSTER, services=[SERVICE])["services"][0][
-        "createdAt"
-    ]
+    res = ECS.describe_services(cluster=CLUSTER, services=[SERVICE])
+    return res["services"][0]["createdAt"]
 
 
 def is_active(event):
@@ -142,11 +141,11 @@ def lambda_handler(event, context):
 if __name__ == "__main__":
     event = {
         "idle_minutes": 5,
-        "target_group_names": ["x-Ecs-Targe-G3H44YWQYX1P/77bc0ab39459d456"],
-        "rule_param_name": "CFN-AutoStopRuleParam-V7dadTeYXvGR",
+        "target_group_names": ["x-Ecs-Targe-ATYXYAHBSXN5/094176d23d296ead"],
+        "rule_param_name": "CFN-AutoStopRuleParam-5fxL22RrvZm0",
         "rule_arns": [
-            "arn:aws:elasticloadbalancing:us-east-1:803071473383:listener-rule/app/sig-ban-alb/5597061b6c745440/893db79165865ecb/9fb7061f85216ed7"
+            "arn:aws:elasticloadbalancing:us-east-1:803071473383:listener-rule/app/sig-ban-alb/5597061b6c745440/893db79165865ecb/0e6b036baa2b26fb"
         ],
-        "waiter_tg_arn": "arn:aws:elasticloadbalancing:us-east-1:803071473383:targetgroup/x-Ecs-AutoS-1MRGU06R489R0/375bcf65f5db1b4c",
+        "waiter_tg_arn": "arn:aws:elasticloadbalancing:us-east-1:803071473383:targetgroup/x-Ecs-AutoS-SX5HIFZ2A2MT/f620e1869eb182ca",
     }
     lambda_handler(event, None)

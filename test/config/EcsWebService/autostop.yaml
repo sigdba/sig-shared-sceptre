@@ -7,6 +7,8 @@ parameters:
   ListenerArn: arn:aws:elasticloadbalancing:us-east-1:803071473383:listener/app/sig-ban-alb/5597061b6c745440/893db79165865ecb
 
 sceptre_user_data:
+  auto_stop:
+    enabled: yes
   containers:
     - name: httpd
       image: httpd

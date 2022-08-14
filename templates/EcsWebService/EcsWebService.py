@@ -47,6 +47,7 @@ else:
     from troposphere.elasticloadbalancingv2 import Action as ListenerRuleAction
 
 import model
+import autostop
 from util import (
     TEMPLATE,
     add_resource,
@@ -699,7 +700,7 @@ def sceptre_handler(sceptre_user_data):
             rule = scheduling_rule(p)
             lambda_invoke_permission(rule)
 
-    for r in TEMPLATE.resources.items():
-        print(type(r.value))
+    if user_data.auto_stop.enabled:
+        autostop.add_autostop(user_data, TEMPLATE)
 
     return TEMPLATE.to_json()

@@ -52,6 +52,7 @@ from util import (
     TEMPLATE,
     add_resource,
     add_resource_once,
+    add_output,
     clean_title,
     md5,
     opts_with,
@@ -476,6 +477,8 @@ def service(user_data, listener_rules, lb_mappings):
     return add_resource(
         Service(
             "Service",
+            # The service depends on listener rules to prevent "target group has
+            # no associated load balancer" errors during service creation.
             DependsOn=[r.title for r in listener_rules],
             TaskDefinition=Ref("TaskDef"),
             Cluster=Ref("ClusterArn"),
@@ -686,11 +689,12 @@ def sceptre_handler(sceptre_user_data):
             )
 
     task_def(user_data, containers, exec_role)
-    service(
+    svc = service(
         user_data,
         listener_rules,
         lb_mappings,
     )
+    add_output("EcsService", Ref(svc))
 
     schedule = user_data.schedule
     if len(schedule) > 0:

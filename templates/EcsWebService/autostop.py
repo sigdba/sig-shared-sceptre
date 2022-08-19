@@ -1,14 +1,12 @@
-from troposphere import Ref, Sub, GetAtt, Tags
+from troposphere import GetAtt, Ref, Sub, Tags
+from troposphere.awslambda import Code, Environment, Function, Permission
 from troposphere.elasticloadbalancingv2 import (
-    ListenerRule,
-    TargetGroup,
     TargetDescription,
+    TargetGroup,
+    ListenerRule,
 )
 from troposphere.iam import Policy, Role
-from troposphere.awslambda import Code, Function, Permission, Environment
 from troposphere.ssm import Parameter
-
-import json
 
 from util import add_resource, add_resource_once, read_resource, add_depends_on
 
@@ -44,7 +42,11 @@ def waiter_execution_role():
                             {
                                 "Effect": "Allow",
                                 "Action": ["ecs:DescribeServices"],
-                                "Resource": Ref("Service"),
+                                # "Resource": Ref("Service"),
+                                # We allow the Lambda to describe any service to
+                                # break a circular dependency since this is a
+                                # low-risk and read-only operation.
+                                "Resource": "*",
                             },
                         ],
                     },
@@ -119,6 +121,6 @@ def add_autostop(user_data, template):
     target_group_titles = get_target_group_full_names(template)
 
     waiter_tg = add_waiter_tg(user_data.auto_stop, template)
-    # for n, o in template.resources.items():
-    #     if type(o) is TargetGroup:
-    #         add_depends_on(o, "AutoStopWaiterTg")
+    for n, o in template.resources.items():
+        if type(o) is ListenerRule:
+            add_depends_on(o, waiter_tg.title)

@@ -1,13 +1,14 @@
 import os
 import json
+from functools import lru_cache
 from enum import Enum
 
 import boto3
 
 REGION = "${AWS::Region}"
-SERVICE = "${Service}"
 CLUSTER = "${ClusterArn}"
 DESIRED_COUNT = "${DesiredCount}"
+STACK_ID = "${AWS::StackId}"
 
 
 def env(k, default=None):
@@ -29,7 +30,7 @@ def env_list(k):
 if "AWS::Region" in REGION:
     REGION = env("AWS_DEFAULT_REGION", "us-east-1")
     CLUSTER = env("CLUSTER_ARN")
-    SERVICE = env("SERVICE_ARN")
+    STACK_ID = env("STACK_ID")
     DESIRED_COUNT = 1
     print("Test environment detected, setting REGION to", REGION)
 else:
@@ -39,6 +40,7 @@ else:
 ECS = boto3.client("ecs", region_name=REGION)
 ELB = boto3.client("elbv2", region_name=REGION)
 SSM = boto3.client("ssm", region_name=REGION)
+CFN = boto3.client("cloudformation", region_name=REGION)
 
 
 class Status(Enum):
@@ -52,6 +54,15 @@ class Status(Enum):
         self.label = label
 
 
+# We can't reference the service ARN directly because it creates a circular
+# dependency in the stack. To break the dependency we look up the Service ARN
+# from the stack output.
+@lru_cache
+def get_service_arn():
+    outputs = CFN.describe_stacks(StackName=STACK_ID)["Stacks"][0]["Outputs"]
+    return [o["OutputValue"] for o in outputs if o["OutputKey"] == "EcsService"][0]
+
+
 def get_rule_param_name():
     return env("RULE_PARAM_NAME")
 
@@ -63,14 +74,15 @@ def get_rules():
 
 
 def get_desired_count():
-    return ECS.describe_services(cluster=CLUSTER, services=[SERVICE])["services"][0][
-        "desiredCount"
-    ]
+    return ECS.describe_services(cluster=CLUSTER, services=[get_service_arn()])[
+        "services"
+    ][0]["desiredCount"]
 
 
 def set_desired_count(c):
-    print("Setting desiredCount of service %s to %d" % (SERVICE, c))
-    res = ECS.update_service(cluster=CLUSTER, service=SERVICE, desiredCount=c)
+    service_arn = get_service_arn()
+    print("Setting desiredCount of service %s to %d" % (service_arn, c))
+    ECS.update_service(cluster=CLUSTER, service=service_arn, desiredCount=c)
 
 
 def enable_real_tg(rules):

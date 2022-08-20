@@ -144,7 +144,7 @@ def starter_execution_policy(role, rule_names):
                     },
                     {
                         "Effect": "Allow",
-                        "Action": ["ssm:GetParameter"],
+                        "Action": ["ssm:GetParameter", "ssm:PutParameter"],
                         "Resource": Sub(
                             "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${AutoStopRuleParam}"
                         ),

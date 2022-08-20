@@ -1,6 +1,6 @@
 import os
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import boto3
 
@@ -60,20 +60,23 @@ def get_rule_param_name(event):
 
 def metric_spec(tg_full_name):
     return {
-        "Namespace": "ApplicationELB",
+        "Namespace": "AWS/ApplicationELB",
         "MetricName": "RequestCountPerTarget",
         "Dimensions": [{"Name": "TargetGroup", "Value": tg_full_name}],
     }
 
 
 def get_tg_metrics(start_time, end_time, tg_full_name):
-    return CW.get_metric_statistics(
+    print("time:", start_time, "-", end_time)
+    res = CW.get_metric_statistics(
         StartTime=start_time,
         EndTime=end_time,
-        Period=600,
+        Period=60,
         Statistics=["Sum"],
         **metric_spec(tg_full_name),
-    )["Datapoints"]
+    )
+
+    return res["Datapoints"]
 
 
 def get_service_date():
@@ -82,11 +85,19 @@ def get_service_date():
 
 
 def is_active(event):
-    # TODO: We need to make sure the deployment isn't younger than the start_time
     minutes = get_idle_minutes(event)
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     start_time = now - timedelta(minutes=minutes)
+
+    print("service_date:", get_service_date())
+    print("start_time:", start_time)
+
+    if get_service_date() > start_time:
+        print("Service is too new to shut down.")
+        return True
+
     for tg_name in get_tg_full_names(event):
+        print("tg_name:", tg_name)
         for dp in get_tg_metrics(start_time, now, tg_name):
             if dp["Sum"] > 0:
                 return True
@@ -99,10 +110,23 @@ def set_desired_count(c):
 
 
 def stash_rule_actions(event, rule_arns):
+    param_name = get_rule_param_name(event)
+
+    # To avoid putting the system into a weird state by, for instance, stashing
+    # the waiter action instead of the correct actions, we make sure that the
+    # parameter contains its initial value. This value is put in the parameter
+    # at stack creation and after successful restart. If it's not there then
+    # something weird's happening so we'll abort.
+    print("Checking parameter value")
+    if SSM.get_parameter(Name=param_name)["Parameter"]["Value"] != "NONE":
+        raise ValueError(
+            f"Parameter {param_name} does not have expected value of 'NONE'"
+        )
+
     print("Stashing rule actions")
     rules = ELB.describe_rules(RuleArns=rule_arns)["Rules"]
     SSM.put_parameter(
-        Name=get_rule_param_name(event),
+        Name=param_name,
         Value=json.dumps(
             [{"RuleArn": r["RuleArn"], "Actions": r["Actions"]} for r in rules]
         ),
@@ -126,7 +150,6 @@ def set_rules_to_wait(event, rule_arns):
 
 def lambda_handler(event, context):
     print("event:", event)
-    print(get_service_date())
     if is_active(event):
         print("Service is active. Will not shut down.")
         return
@@ -140,12 +163,12 @@ def lambda_handler(event, context):
 
 if __name__ == "__main__":
     event = {
-        "idle_minutes": 5,
-        "target_group_names": ["x-Ecs-Targe-11VYF5OXZANQS/4370fd23501dbeba"],
-        "rule_param_name": "CFN-AutoStopRuleParam-tI5BMFhPW9jZ",
+        "idle_minutes": 15,
+        "target_group_names": ["targetgroup/x-Ecs-Targe-4HFPSCSW1BQW/73aa4b45250d7b79"],
+        "rule_param_name": "CFN-AutoStopRuleParam-0oF3xIT923dy",
         "rule_arns": [
-            "arn:aws:elasticloadbalancing:us-east-1:803071473383:listener-rule/app/sig-ban-alb/5597061b6c745440/893db79165865ecb/5f985ce4e83233a3"
+            "arn:aws:elasticloadbalancing:us-east-1:803071473383:listener-rule/app/sig-ban-alb/5597061b6c745440/893db79165865ecb/2fe13434d34b1ab4"
         ],
-        "waiter_tg_arn": "arn:aws:elasticloadbalancing:us-east-1:803071473383:targetgroup/x-Ecs-AutoS-1XH46HEQ1YUUT/16637229e9ebde72",
+        "waiter_tg_arn": "arn:aws:elasticloadbalancing:us-east-1:803071473383:targetgroup/x-Ecs-AutoS-K6LUYPO403ON/a400f886418961ef",
     }
     lambda_handler(event, None)

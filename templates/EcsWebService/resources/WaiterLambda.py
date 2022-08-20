@@ -75,9 +75,10 @@ def get_refresh_seconds():
 
 
 def get_rules():
-    return json.loads(
-        SSM.get_parameter(Name=get_rule_param_name())["Parameter"]["Value"]
-    )
+    v = SSM.get_parameter(Name=get_rule_param_name())["Parameter"]["Value"]
+    if v == "NONE":
+        return None
+    return json.loads(v)
 
 
 def get_tg_arn(rule):
@@ -103,6 +104,10 @@ def starter_is_running():
 
 def all_tgs_have_targets():
     rules = get_rules()
+    if rules is None:
+        # The rules parameter has been reset, indicating the startup process has
+        # finished.
+        return True
     for rule in rules:
         healths = ELB.describe_target_health(TargetGroupArn=get_tg_arn(rule))[
             "TargetHealthDescriptions"

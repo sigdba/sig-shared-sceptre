@@ -83,7 +83,7 @@ States:
 
   RestoreActions:
     Type: Map
-    End: true
+    Next: PutParameter
     ItemsPath: "$.Value"
     Iterator:
       StartAt: ModifyRule
@@ -95,3 +95,12 @@ States:
             Actions.$: "$.Actions"
           Resource: arn:aws:states:::aws-sdk:elasticloadbalancingv2:modifyRule
           End: true
+
+  PutParameter:
+    Type: Task
+    End: true
+    Parameters:
+      Name: { Ref: AutoStopRuleParam }
+      Value: NONE
+      Overwrite: true
+    Resource: arn:aws:states:::aws-sdk:ssm:putParameter

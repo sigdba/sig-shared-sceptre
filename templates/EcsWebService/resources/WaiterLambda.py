@@ -10,6 +10,9 @@ CLUSTER = "${ClusterArn}"
 DESIRED_COUNT = "${DesiredCount}"
 STACK_ID = "${AWS::StackId}"
 
+# TODO: Split waiting and starting. Wait lambda should invoke a start lambda (or
+#       state machine).
+
 
 def env(k, default=None):
     if k in os.environ:

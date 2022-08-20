@@ -134,6 +134,12 @@ def add_waiter_tg(as_conf, rule_names):
 
 def add_autostop(user_data, template):
     rule_names = [n for n, o in template.resources.items() if type(o) is ListenerRule]
+
+    if len(rule_names) < 1:
+        raise ValueError(
+            "Auto-stop feature cannot be used on a service with no load-balancer rules."
+        )
+
     waiter_tg = add_waiter_tg(user_data.auto_stop, rule_names)
     for n, o in template.resources.items():
         if type(o) is ListenerRule:

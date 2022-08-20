@@ -7,6 +7,14 @@ from troposphere.elasticloadbalancingv2 import (
 )
 from troposphere.iam import PolicyType, Role
 from troposphere.ssm import Parameter
+from troposphere.stepfunctions import (
+    StateMachine,
+    LoggingConfiguration as SmLoggingConf,
+    LogDestination as SmLogDest,
+    CloudWatchLogsLogGroup as SmLogGroup,
+)
+from troposphere.logs import LogGroup
+import yaml
 
 from util import add_resource, add_resource_once, read_resource, add_depends_on
 
@@ -33,7 +41,7 @@ def waiter_execution_role():
     )
 
 
-def waiter_execution_policy(role, rule_names):
+def waiter_execution_policy(role):
     return add_resource_once(
         "WaiterLambdaExecutionRolePolicy",
         lambda name: PolicyType(
@@ -58,6 +66,63 @@ def waiter_execution_policy(role, rule_names):
                         "Effect": "Allow",
                         "Action": ["cloudformation:DescribeStacks"],
                         "Resource": Ref("AWS::StackId"),
+                    },
+                ],
+            },
+        ),
+    )
+
+
+def starter_execution_role():
+    return add_resource_once(
+        "StarterLambdaExecutionRole",
+        lambda name: Role(
+            name,
+            Policies=[],
+            AssumeRolePolicyDocument={
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Principal": {"Service": ["states.amazonaws.com"]},
+                        "Action": ["sts:AssumeRole"],
+                    }
+                ],
+            },
+            ManagedPolicyArns=[],
+            Path="/",
+        ),
+    )
+
+
+def starter_execution_policy(role, rule_names):
+    return add_resource_once(
+        "StarterLambdaExecutionRolePolicy",
+        lambda name: PolicyType(
+            name,
+            PolicyName="lambda-inline",
+            Roles=[Ref(role)],
+            PolicyDocument={
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Action": [
+                            "logs:CreateLogGroup",
+                            "logs:CreateLogStream",
+                            "logs:PutLogEvents",
+                            "logs:CreateLogDelivery",
+                            "logs:GetLogDelivery",
+                            "logs:UpdateLogDelivery",
+                            "logs:DeleteLogDelivery",
+                            "logs:ListLogDeliveries",
+                            "logs:PutResourcePolicy",
+                            "logs:DescribeResourcePolicies",
+                            "logs:DescribeLogGroups",
+                            "ecs:DescribeServices",
+                            "elasticloadbalancing:DescribeTargetHealth",
+                        ],
+                        "Resource": "*",
                     },
                     {
                         "Effect": "Allow",
@@ -86,9 +151,7 @@ def add_rules_param():
     return add_resource(Parameter("AutoStopRuleParam", Type="String", Value="NONE"))
 
 
-def add_waiter_lambda(as_conf, rule_names):
-    exec_role = waiter_execution_role()
-    waiter_execution_policy(exec_role, rule_names)
+def add_waiter_lambda(as_conf, exec_role):
     rules_param = add_rules_param()
     return add_resource_once(
         "WaiterLambdaFn",
@@ -118,8 +181,8 @@ def waiter_invoke_permission(fn):
     )
 
 
-def add_waiter_tg(as_conf, rule_names):
-    waiter_lambda = add_waiter_lambda(as_conf, rule_names)
+def add_waiter_tg(as_conf, exec_role):
+    waiter_lambda = add_waiter_lambda(as_conf, exec_role)
     invoke_perm = waiter_invoke_permission(waiter_lambda)
     return add_resource(
         TargetGroup(
@@ -132,6 +195,35 @@ def add_waiter_tg(as_conf, rule_names):
     )
 
 
+def add_starter_log_group():
+    return add_resource_once(
+        "StarterStateMachineLogGroup", lambda name: LogGroup(name, RetentionInDays=7)
+    )
+
+
+def add_starter_state_machine():
+    return add_resource_once(
+        "StarterStateMachine",
+        lambda name: StateMachine(
+            name,
+            Definition=yaml.safe_load(read_resource("StartStateMachine.yaml")),
+            RoleArn=GetAtt("StarterLambdaExecutionRole", "Arn"),
+            LoggingConfiguration=SmLoggingConf(
+                Level="ALL",
+                IncludeExecutionData=True,
+                Destinations=[
+                    SmLogDest(
+                        CloudWatchLogsLogGroup=SmLogGroup(
+                            LogGroupArn=GetAtt(add_starter_log_group(), "Arn")
+                        )
+                    )
+                ],
+            ),
+            DependsOn=["StarterLambdaExecutionRolePolicy"],
+        ),
+    )
+
+
 def add_autostop(user_data, template):
     rule_names = [n for n, o in template.resources.items() if type(o) is ListenerRule]
 
@@ -140,7 +232,14 @@ def add_autostop(user_data, template):
             "Auto-stop feature cannot be used on a service with no load-balancer rules."
         )
 
-    waiter_tg = add_waiter_tg(user_data.auto_stop, rule_names)
+    waiter_exec_role = waiter_execution_role()
+    waiter_execution_policy(waiter_exec_role)
+
+    starter_exec_role = starter_execution_role()
+    starter_execution_policy(starter_exec_role, rule_names)
+
+    add_starter_state_machine()
+    waiter_tg = add_waiter_tg(user_data.auto_stop, waiter_exec_role)
     for n, o in template.resources.items():
         if type(o) is ListenerRule:
             add_depends_on(o, waiter_tg.title)

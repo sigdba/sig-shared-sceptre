@@ -16,7 +16,13 @@ from troposphere.stepfunctions import (
 from troposphere.logs import LogGroup
 import yaml
 
-from util import add_resource, add_resource_once, read_resource, add_depends_on
+from util import (
+    add_resource,
+    add_resource_once,
+    read_resource,
+    add_depends_on,
+    add_output,
+)
 
 
 def waiter_execution_role():
@@ -66,6 +72,18 @@ def waiter_execution_policy(role):
                         "Effect": "Allow",
                         "Action": ["cloudformation:DescribeStacks"],
                         "Resource": Ref("AWS::StackId"),
+                    },
+                    {
+                        "Effect": "Allow",
+                        "Action": ["states:ListExecutions", "states:StartExecution"],
+                        "Resource": Ref("StarterStateMachine"),
+                    },
+                    {
+                        "Effect": "Allow",
+                        "Action": ["ssm:GetParameter"],
+                        "Resource": Sub(
+                            "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${AutoStopRuleParam}"
+                        ),
                     },
                 ],
             },
@@ -232,14 +250,15 @@ def add_autostop(user_data, template):
             "Auto-stop feature cannot be used on a service with no load-balancer rules."
         )
 
-    waiter_exec_role = waiter_execution_role()
-    waiter_execution_policy(waiter_exec_role)
-
     starter_exec_role = starter_execution_role()
     starter_execution_policy(starter_exec_role, rule_names)
+    starter = add_starter_state_machine()
+    add_output("StarterStateMachineArn", Ref(starter))
 
-    add_starter_state_machine()
+    waiter_exec_role = waiter_execution_role()
+    waiter_execution_policy(waiter_exec_role)
     waiter_tg = add_waiter_tg(user_data.auto_stop, waiter_exec_role)
+
     for n, o in template.resources.items():
         if type(o) is ListenerRule:
             add_depends_on(o, waiter_tg.title)

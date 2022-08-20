@@ -10,9 +10,6 @@ CLUSTER = "${ClusterArn}"
 DESIRED_COUNT = "${DesiredCount}"
 STACK_ID = "${AWS::StackId}"
 
-# TODO: Split waiting and starting. Wait lambda should invoke a start lambda (or
-#       state machine).
-
 
 def env(k, default=None):
     if k in os.environ:
@@ -45,6 +42,7 @@ ECS = boto3.client("ecs", region_name=REGION)
 ELB = boto3.client("elbv2", region_name=REGION)
 SSM = boto3.client("ssm", region_name=REGION)
 CFN = boto3.client("cloudformation", region_name=REGION)
+SFN = boto3.client("stepfunctions", region_name=REGION)
 
 
 class Status(Enum):
@@ -58,13 +56,12 @@ class Status(Enum):
         self.label = label
 
 
-# We can't reference the service ARN directly because it creates a circular
-# dependency in the stack. To break the dependency we look up the Service ARN
-# from the stack output.
 @lru_cache
-def get_service_arn():
+def get_starter_arn():
     outputs = CFN.describe_stacks(StackName=STACK_ID)["Stacks"][0]["Outputs"]
-    return [o["OutputValue"] for o in outputs if o["OutputKey"] == "EcsServiceArn"][0]
+    return [
+        o["OutputValue"] for o in outputs if o["OutputKey"] == "StarterStateMachineArn"
+    ][0]
 
 
 def get_rule_param_name():
@@ -77,28 +74,6 @@ def get_rules():
     )
 
 
-def get_desired_count():
-    return ECS.describe_services(cluster=CLUSTER, services=[get_service_arn()])[
-        "services"
-    ][0]["desiredCount"]
-
-
-def set_desired_count(c):
-    service_arn = get_service_arn()
-    print("Setting desiredCount of service %s to %d" % (service_arn, c))
-    ECS.update_service(cluster=CLUSTER, service=service_arn, desiredCount=c)
-
-
-def enable_real_tg(rules):
-    for rule in rules:
-        rule_arn = rule["RuleArn"]
-        print(f"Switching target for {rule_arn}")
-        ELB.modify_rule(
-            RuleArn=rule_arn,
-            Actions=rule["Actions"],
-        )
-
-
 def get_tg_arn(rule):
     for action in rule["Actions"]:
         if action["Type"] == "forward":
@@ -109,27 +84,40 @@ def get_tg_arn(rule):
     raise ValueError(f"Target group not found for {rule}")
 
 
-def get_service_status():
-    if get_desired_count() < DESIRED_COUNT:
-        set_desired_count(DESIRED_COUNT)
-        return Status.INITIAL
+def starter_is_running():
+    return (
+        len(
+            SFN.list_executions(
+                stateMachineArn=get_starter_arn(), statusFilter="RUNNING"
+            )["executions"]
+        )
+        > 0
+    )
+
+
+def all_tgs_have_targets():
     rules = get_rules()
     for rule in rules:
         healths = ELB.describe_target_health(TargetGroupArn=get_tg_arn(rule))[
             "TargetHealthDescriptions"
         ]
         if len(healths) < 1:
-            return Status.STARTING
+            return False
+    return True
 
-        # We can't wait for health checks because the health check won't run
-        # until the TG is associated with a rule.
-        #
-        # for health in healths:
-        #     if health["TargetHealth"]["State"] != "healthy":
-        #         return Status.LB_INITIAL
 
-    enable_real_tg(rules)
-    return Status.READY
+def start_service():
+    SFN.start_execution(stateMachineArn=get_starter_arn())
+
+
+def get_service_status():
+    if all_tgs_have_targets():
+        return Status.READY
+    if starter_is_running():
+        return Status.STARTING
+
+    start_service()
+    return Status.INITIAL
 
 
 def lambda_handler(event, context):

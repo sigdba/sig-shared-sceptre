@@ -9,6 +9,8 @@ parameters:
 sceptre_user_data:
   auto_stop:
     enabled: yes
+    idle_minutes: 15
+    idle_check_schedule: rate(5 minutes)
   containers:
     - name: httpd
       image: httpd

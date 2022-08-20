@@ -372,6 +372,18 @@ class AutoStopModel(BaseModel):
         False,
         description="When `True` the service will be stopped after a period of innactivity.",
     )
+    idle_minutes = Field(
+        240,
+        description="Number of minutes without a request before the service is considered idle and can be stopped.",
+    )
+    idle_check_schedule = Field(
+        "rate(1 hour)",
+        description="An EventBridge schedule expression for when the service should be checked for idleness.",
+        notes=[
+            "Do not set this too frequently since the idle check is a Lambda invocation and has a small cost.",
+            "See [Schedule Expressions for Rules](https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/ScheduledEvents.html) for details.",
+        ],
+    )
 
 
 class UserDataModel(BaseModel):

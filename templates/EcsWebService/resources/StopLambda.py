@@ -41,12 +41,10 @@ SSM = boto3.client("ssm", region_name=REGION)
 
 
 def get_idle_minutes(event):
-    # return int(env("IDLE_MINUTES"))
     return event["idle_minutes"]
 
 
 def get_tg_full_names(event):
-    # return env_list("TG_FULL_NAMES")
     return event["target_group_names"]
 
 

@@ -1,5 +1,6 @@
 import os
 import json
+import urllib
 from functools import lru_cache
 from enum import Enum
 
@@ -68,6 +69,11 @@ def get_rule_param_name():
     return env("RULE_PARAM_NAME")
 
 
+def get_refresh_seconds():
+    # TODO: Add this to the model
+    return int(env("REFRESH_SECONDS", 10))
+
+
 def get_rules():
     return json.loads(
         SSM.get_parameter(Name=get_rule_param_name())["Parameter"]["Value"]
@@ -120,6 +126,29 @@ def get_service_status():
     return Status.INITIAL
 
 
+def get_url(event):
+    proto = event.get("headers", {}).get("x-forwarded-proto", "https")
+    path = event.get("path", "/")
+    query = urllib.parse.urlencode(event.get("queryStringParameters", {}))
+    return urllib.parse.urlunsplit((proto, event["headers"]["host"], path, query, ""))
+
+
+def refresher_body(event, status):
+    refresh_seconds = get_refresh_seconds()
+    url = get_url(event)
+
+    return f"""
+    <html>
+    <head>
+      <meta http-equiv="refresh" content="{refresh_seconds}; url={url}">
+    </head>
+    <body>
+    </body>
+      <h1>{status.label}</h1>
+    </html>
+    """
+
+
 def lambda_handler(event, context):
     print("event:", event)
     status = get_service_status()
@@ -135,7 +164,7 @@ def lambda_handler(event, context):
         "statusCode": 200,
         "statusDescription": "200 OK",
         "headers": {"Content-Type": "text/html"},
-        "body": f"<h1>{status.label}</h1>",
+        "body": refresher_body(event, status),
     }
 
 

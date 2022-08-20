@@ -95,7 +95,7 @@ def is_active(event):
 
 def set_desired_count(c):
     print("Setting desiredCount of service %s to %d" % (SERVICE, c))
-    res = ECS.update_service(cluster=CLUSTER, service=SERVICE, desiredCount=c)
+    ECS.update_service(cluster=CLUSTER, service=SERVICE, desiredCount=c)
 
 
 def stash_rule_actions(event, rule_arns):
@@ -131,21 +131,21 @@ def lambda_handler(event, context):
         print("Service is active. Will not shut down.")
         return
 
-    print("Service is inactive. Shutting down.")
-    set_desired_count(0)
+    print("Service is inactive.")
     rule_arns = event["rule_arns"]
     stash_rule_actions(event, rule_arns)
+    set_desired_count(0)
     set_rules_to_wait(event, rule_arns)
 
 
 if __name__ == "__main__":
     event = {
         "idle_minutes": 5,
-        "target_group_names": ["x-Ecs-Targe-ATYXYAHBSXN5/094176d23d296ead"],
-        "rule_param_name": "CFN-AutoStopRuleParam-5fxL22RrvZm0",
+        "target_group_names": ["x-Ecs-Targe-11VYF5OXZANQS/4370fd23501dbeba"],
+        "rule_param_name": "CFN-AutoStopRuleParam-tI5BMFhPW9jZ",
         "rule_arns": [
-            "arn:aws:elasticloadbalancing:us-east-1:803071473383:listener-rule/app/sig-ban-alb/5597061b6c745440/893db79165865ecb/0e6b036baa2b26fb"
+            "arn:aws:elasticloadbalancing:us-east-1:803071473383:listener-rule/app/sig-ban-alb/5597061b6c745440/893db79165865ecb/5f985ce4e83233a3"
         ],
-        "waiter_tg_arn": "arn:aws:elasticloadbalancing:us-east-1:803071473383:targetgroup/x-Ecs-AutoS-SX5HIFZ2A2MT/f620e1869eb182ca",
+        "waiter_tg_arn": "arn:aws:elasticloadbalancing:us-east-1:803071473383:targetgroup/x-Ecs-AutoS-1XH46HEQ1YUUT/16637229e9ebde72",
     }
     lambda_handler(event, None)

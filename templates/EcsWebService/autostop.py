@@ -11,14 +11,6 @@ from troposphere.ssm import Parameter
 from util import add_resource, add_resource_once, read_resource, add_depends_on
 
 
-def get_target_group_full_names(template):
-    return [
-        GetAtt(n, "TargetGroupFullName")
-        for n, o in template.resources.items()
-        if type(o) is TargetGroup
-    ]
-
-
 def waiter_execution_role():
     return add_resource_once(
         "WaiterLambdaExecutionRole",
@@ -36,17 +28,24 @@ def waiter_execution_role():
                                     "logs:CreateLogGroup",
                                     "logs:CreateLogStream",
                                     "logs:PutLogEvents",
+                                    "ecs:DescribeServices",
+                                    "elasticloadbalancing:DescribeTargetHealth",
+                                    # We can't really tighten this without creating a circular dependency.
+                                    "elasticloadbalancing:ModifyRule",
                                 ],
                                 "Resource": "*",
                             },
                             {
                                 "Effect": "Allow",
-                                "Action": ["ecs:DescribeServices"],
-                                # "Resource": Ref("Service"),
-                                # We allow the Lambda to describe any service to
-                                # break a circular dependency since this is a
-                                # low-risk and read-only operation.
-                                "Resource": "*",
+                                "Action": ["cloudformation:DescribeStacks"],
+                                "Resource": Ref("AWS::StackId"),
+                            },
+                            {
+                                "Effect": "Allow",
+                                "Action": ["ssm:GetParameter"],
+                                "Resource": Sub(
+                                    "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${AutoStopRuleParam}"
+                                ),
                             },
                         ],
                     },
@@ -72,7 +71,7 @@ def add_rules_param():
     return add_resource(Parameter("AutoStopRuleParam", Type="String", Value="NONE"))
 
 
-def add_waiter_lambda(as_conf, template):
+def add_waiter_lambda(as_conf):
     exec_role = waiter_execution_role()
     rules_param = add_rules_param()
     return add_resource_once(
@@ -87,7 +86,7 @@ def add_waiter_lambda(as_conf, template):
             MemorySize=128,
             Timeout=900,
             Code=Code(ZipFile=Sub(read_resource("WaiterLambda.py"))),
-            Environment=Environment(Variables={"RULES_PARAM": Ref(rules_param)}),
+            Environment=Environment(Variables={"RULE_PARAM_NAME": Ref(rules_param)}),
         ),
     )
 
@@ -103,8 +102,8 @@ def waiter_invoke_permission(fn):
     )
 
 
-def add_waiter_tg(as_conf, template):
-    waiter_lambda = add_waiter_lambda(as_conf, template)
+def add_waiter_tg(as_conf):
+    waiter_lambda = add_waiter_lambda(as_conf)
     invoke_perm = waiter_invoke_permission(waiter_lambda)
     return add_resource(
         TargetGroup(
@@ -118,9 +117,7 @@ def add_waiter_tg(as_conf, template):
 
 
 def add_autostop(user_data, template):
-    target_group_titles = get_target_group_full_names(template)
-
-    waiter_tg = add_waiter_tg(user_data.auto_stop, template)
+    waiter_tg = add_waiter_tg(user_data.auto_stop)
     for n, o in template.resources.items():
         if type(o) is ListenerRule:
             add_depends_on(o, waiter_tg.title)

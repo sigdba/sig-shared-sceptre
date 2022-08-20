@@ -35,6 +35,7 @@ if "AWS::Region" in REGION:
     print("Test environment detected, setting REGION to", REGION)
 else:
     print("REGION:", REGION)
+    DESIRED_COUNT = int(DESIRED_COUNT)
 
 
 ECS = boto3.client("ecs", region_name=REGION)
@@ -60,7 +61,7 @@ class Status(Enum):
 @lru_cache
 def get_service_arn():
     outputs = CFN.describe_stacks(StackName=STACK_ID)["Stacks"][0]["Outputs"]
-    return [o["OutputValue"] for o in outputs if o["OutputKey"] == "EcsService"][0]
+    return [o["OutputValue"] for o in outputs if o["OutputKey"] == "EcsServiceArn"][0]
 
 
 def get_rule_param_name():
@@ -116,9 +117,14 @@ def get_service_status():
         ]
         if len(healths) < 1:
             return Status.STARTING
-        for health in healths:
-            if health["TargetHealth"]["State"] != "healthy":
-                return Status.LB_INITIAL
+
+        # We can't wait for health checks because the health check won't run
+        # until the TG is associated with a rule.
+        #
+        # for health in healths:
+        #     if health["TargetHealth"]["State"] != "healthy":
+        #         return Status.LB_INITIAL
+
     enable_real_tg(rules)
     return Status.READY
 
@@ -131,14 +137,14 @@ def lambda_handler(event, context):
             "statusCode": 100,
             "statusDescription": f"100 {status.value.label}",
             "headers": {"Content-Type": "text/html"},
-            "body": f"<h1>{status.label}</h1>",
+            "body": status.label,
         }
 
     return {
         "statusCode": 200,
         "statusDescription": "200 OK",
         "headers": {"Content-Type": "text/html"},
-        "body": status.label,
+        "body": f"<h1>{status.label}</h1>",
     }
 
 

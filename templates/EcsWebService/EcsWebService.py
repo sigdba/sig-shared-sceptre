@@ -694,7 +694,7 @@ def sceptre_handler(sceptre_user_data):
         listener_rules,
         lb_mappings,
     )
-    add_output("EcsService", Ref(svc))
+    add_output("EcsServiceArn", Ref(svc))
 
     schedule = user_data.schedule
     if len(schedule) > 0:

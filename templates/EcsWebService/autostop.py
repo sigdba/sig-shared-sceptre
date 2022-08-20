@@ -25,70 +25,8 @@ from util import (
 )
 
 
-def waiter_execution_role():
-    return add_resource_once(
-        "WaiterLambdaExecutionRole",
-        lambda name: Role(
-            name,
-            Policies=[],
-            AssumeRolePolicyDocument={
-                "Version": "2012-10-17",
-                "Statement": [
-                    {
-                        "Effect": "Allow",
-                        "Principal": {"Service": ["lambda.amazonaws.com"]},
-                        "Action": ["sts:AssumeRole"],
-                    }
-                ],
-            },
-            ManagedPolicyArns=[],
-            Path="/",
-        ),
-    )
-
-
-def waiter_execution_policy(role):
-    return add_resource_once(
-        "WaiterLambdaExecutionRolePolicy",
-        lambda name: PolicyType(
-            name,
-            PolicyName="lambda-inline",
-            Roles=[Ref(role)],
-            PolicyDocument={
-                "Version": "2012-10-17",
-                "Statement": [
-                    {
-                        "Effect": "Allow",
-                        "Action": [
-                            "logs:CreateLogGroup",
-                            "logs:CreateLogStream",
-                            "logs:PutLogEvents",
-                            "ecs:DescribeServices",
-                            "elasticloadbalancing:DescribeTargetHealth",
-                        ],
-                        "Resource": "*",
-                    },
-                    {
-                        "Effect": "Allow",
-                        "Action": ["cloudformation:DescribeStacks"],
-                        "Resource": Ref("AWS::StackId"),
-                    },
-                    {
-                        "Effect": "Allow",
-                        "Action": ["states:ListExecutions", "states:StartExecution"],
-                        "Resource": Ref("StarterStateMachine"),
-                    },
-                    {
-                        "Effect": "Allow",
-                        "Action": ["ssm:GetParameter"],
-                        "Resource": Sub(
-                            "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${AutoStopRuleParam}"
-                        ),
-                    },
-                ],
-            },
-        ),
-    )
+def add_rules_param():
+    return add_resource(Parameter("AutoStopRuleParam", Type="String", Value="NONE"))
 
 
 def starter_execution_role():
@@ -165,8 +103,99 @@ def starter_execution_policy(role, rule_names):
     )
 
 
-def add_rules_param():
-    return add_resource(Parameter("AutoStopRuleParam", Type="String", Value="NONE"))
+def add_starter_log_group():
+    return add_resource_once(
+        "StarterStateMachineLogGroup", lambda name: LogGroup(name, RetentionInDays=7)
+    )
+
+
+def add_starter_state_machine():
+    return add_resource_once(
+        "StarterStateMachine",
+        lambda name: StateMachine(
+            name,
+            Definition=yaml.safe_load(read_resource("StartStateMachine.yaml")),
+            RoleArn=GetAtt("StarterLambdaExecutionRole", "Arn"),
+            LoggingConfiguration=SmLoggingConf(
+                Level="ALL",
+                IncludeExecutionData=True,
+                Destinations=[
+                    SmLogDest(
+                        CloudWatchLogsLogGroup=SmLogGroup(
+                            LogGroupArn=GetAtt(add_starter_log_group(), "Arn")
+                        )
+                    )
+                ],
+            ),
+            DependsOn=["StarterLambdaExecutionRolePolicy"],
+        ),
+    )
+
+
+def waiter_execution_role():
+    return add_resource_once(
+        "WaiterLambdaExecutionRole",
+        lambda name: Role(
+            name,
+            Policies=[],
+            AssumeRolePolicyDocument={
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Principal": {"Service": ["lambda.amazonaws.com"]},
+                        "Action": ["sts:AssumeRole"],
+                    }
+                ],
+            },
+            ManagedPolicyArns=[],
+            Path="/",
+        ),
+    )
+
+
+def waiter_execution_policy(role):
+    return add_resource_once(
+        "WaiterLambdaExecutionRolePolicy",
+        lambda name: PolicyType(
+            name,
+            PolicyName="lambda-inline",
+            Roles=[Ref(role)],
+            PolicyDocument={
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Action": [
+                            "logs:CreateLogGroup",
+                            "logs:CreateLogStream",
+                            "logs:PutLogEvents",
+                            "ecs:DescribeServices",
+                            "elasticloadbalancing:DescribeTargetHealth",
+                        ],
+                        "Resource": "*",
+                    },
+                    {
+                        "Effect": "Allow",
+                        "Action": ["cloudformation:DescribeStacks"],
+                        "Resource": Ref("AWS::StackId"),
+                    },
+                    {
+                        "Effect": "Allow",
+                        "Action": ["states:ListExecutions", "states:StartExecution"],
+                        "Resource": Ref("StarterStateMachine"),
+                    },
+                    {
+                        "Effect": "Allow",
+                        "Action": ["ssm:GetParameter"],
+                        "Resource": Sub(
+                            "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${AutoStopRuleParam}"
+                        ),
+                    },
+                ],
+            },
+        ),
+    )
 
 
 def add_waiter_lambda(as_conf, exec_role):
@@ -213,36 +242,11 @@ def add_waiter_tg(as_conf, exec_role):
     )
 
 
-def add_starter_log_group():
-    return add_resource_once(
-        "StarterStateMachineLogGroup", lambda name: LogGroup(name, RetentionInDays=7)
-    )
-
-
-def add_starter_state_machine():
-    return add_resource_once(
-        "StarterStateMachine",
-        lambda name: StateMachine(
-            name,
-            Definition=yaml.safe_load(read_resource("StartStateMachine.yaml")),
-            RoleArn=GetAtt("StarterLambdaExecutionRole", "Arn"),
-            LoggingConfiguration=SmLoggingConf(
-                Level="ALL",
-                IncludeExecutionData=True,
-                Destinations=[
-                    SmLogDest(
-                        CloudWatchLogsLogGroup=SmLogGroup(
-                            LogGroupArn=GetAtt(add_starter_log_group(), "Arn")
-                        )
-                    )
-                ],
-            ),
-            DependsOn=["StarterLambdaExecutionRolePolicy"],
-        ),
-    )
-
-
 def add_autostop(user_data, template):
+    # TODO: Can the whole autostart process be represented as a step function?
+    #       The advantages are that the state would always be unambiguous and we
+    #       might not need to "stash" the action list in a parameter.
+
     rule_names = [n for n, o in template.resources.items() if type(o) is ListenerRule]
 
     if len(rule_names) < 1:

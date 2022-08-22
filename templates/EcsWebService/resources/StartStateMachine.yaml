@@ -100,9 +100,21 @@ States:
 
   PutParameter:
     Type: Task
-    End: true
+    Next: WaitBeforeEnablingRule
     Parameters:
       Name: { Ref: AutoStopRuleParam }
       Value: NONE
       Overwrite: true
     Resource: arn:aws:states:::aws-sdk:ssm:putParameter
+
+  WaitBeforeEnablingRule:
+    Type: Wait
+    Seconds: 300
+    Next: EnableRule
+
+  EnableRule:
+    Type: Task
+    End: true
+    Parameters:
+      Name: { Ref: AutoStopScheduleRule }
+    Resource: arn:aws:states:::aws-sdk:eventbridge:enableRule

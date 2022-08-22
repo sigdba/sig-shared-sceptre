@@ -6,6 +6,9 @@
     StarterStateMachineArn:
       Value:
         Ref: StarterStateMachine
+    StopperScheduleRuleName:
+      Value:
+        Ref: AutoStopScheduleRule
   Parameters:
     ClusterArn:
       Description: The ARN or name of the ECS cluster
@@ -40,7 +43,7 @@
       Properties:
         Description:
           Fn::Sub: Auto-stop check for ${AWS::StackName}
-        ScheduleExpression: rate(5 minutes)
+        ScheduleExpression: rate(2 minutes)
         Targets:
         - Arn:
             Fn::GetAtt:
@@ -165,6 +168,11 @@
             Effect: Allow
             Resource: '*'
           - Action:
+            - cloudformation:DescribeStacks
+            Effect: Allow
+            Resource:
+              Ref: AWS::StackId
+          - Action:
             - ssm:GetParameter
             - ssm:PutParameter
             Effect: Allow
@@ -182,6 +190,14 @@
             Effect: Allow
             Resource:
               Ref: Service
+          - Action:
+            - events:EnableRule
+            - events:DisableRule
+            Effect: Allow
+            Resource:
+              Fn::GetAtt:
+              - AutoStopScheduleRule
+              - Arn
           Version: '2012-10-17'
         PolicyName: lambda-inline
         Roles:
@@ -212,6 +228,13 @@
                 Services:
                 - Ref: Service
               Resource: arn:aws:states:::aws-sdk:ecs:describeServices
+              Type: Task
+            EnableRule:
+              End: true
+              Parameters:
+                Name:
+                  Ref: AutoStopScheduleRule
+              Resource: arn:aws:states:::aws-sdk:eventbridge:enableRule
               Type: Task
             GetCurrentDesiredCount:
               Next: CheckServiceCount
@@ -262,7 +285,7 @@
               Next: GetParameter
               Type: Map
             PutParameter:
-              End: true
+              Next: WaitBeforeEnablingRule
               Parameters:
                 Name:
                   Ref: AutoStopRuleParam
@@ -294,6 +317,10 @@
                   Ref: Service
               Resource: arn:aws:states:::aws-sdk:ecs:updateService
               Type: Task
+            WaitBeforeEnablingRule:
+              Next: EnableRule
+              Seconds: 300
+              Type: Wait
         LoggingConfiguration:
           Destinations:
           - CloudWatchLogsLogGroup:
@@ -333,29 +360,34 @@
           ZipFile:
             Fn::Sub: "import os\nimport json\nfrom datetime import datetime, timedelta,\
               \ timezone\n\nimport boto3\n\nREGION = \"${AWS::Region}\"\nSERVICE =\
-              \ \"${Service}\"\nCLUSTER = \"${ClusterArn}\"\n\n\ndef env(k, default=None):\n\
-              \    if k in os.environ:\n        ret = os.environ[k].strip()\n    \
-              \    if len(ret) > 0:\n            return ret\n    if default:\n   \
-              \     return default\n    raise ValueError(f\"Required environment variable\
-              \ {k} not set\")\n\n\ndef env_list(k):\n    return [v.strip() for v\
-              \ in env(k).split(\",\")]\n\n\n# Check if we're in a test environment,\
-              \ and if so set the region from the\n# environment or use a default.\n\
-              if \"AWS::Region\" in REGION:\n    REGION = env(\"AWS_DEFAULT_REGION\"\
-              , \"us-east-1\")\n    CLUSTER = env(\"CLUSTER_ARN\")\n    SERVICE =\
-              \ env(\"SERVICE_ARN\")\n    print(\"Test environment detected, setting\
-              \ REGION to\", REGION)\nelse:\n    print(\"REGION:\", REGION)\n\n\n\
-              ECS = boto3.client(\"ecs\", region_name=REGION)\nCW = boto3.client(\"\
-              cloudwatch\", region_name=REGION)\nELB = boto3.client(\"elbv2\", region_name=REGION)\n\
-              SSM = boto3.client(\"ssm\", region_name=REGION)\n\n\ndef get_idle_minutes(event):\n\
-              \    return event[\"idle_minutes\"]\n\n\ndef get_tg_full_names(event):\n\
+              \ \"${Service}\"\nCLUSTER = \"${ClusterArn}\"\nSTACK_ID = \"${AWS::StackId}\"\
+              \n\n\ndef env(k, default=None):\n    if k in os.environ:\n        ret\
+              \ = os.environ[k].strip()\n        if len(ret) > 0:\n            return\
+              \ ret\n    if default:\n        return default\n    raise ValueError(f\"\
+              Required environment variable {k} not set\")\n\n\ndef env_list(k):\n\
+              \    return [v.strip() for v in env(k).split(\",\")]\n\n\n# Check if\
+              \ we're in a test environment, and if so set the region from the\n#\
+              \ environment or use a default.\nif \"AWS::Region\" in REGION:\n   \
+              \ REGION = env(\"AWS_DEFAULT_REGION\", \"us-east-1\")\n    CLUSTER =\
+              \ env(\"CLUSTER_ARN\")\n    SERVICE = env(\"SERVICE_ARN\")\n    print(\"\
+              Test environment detected, setting REGION to\", REGION)\nelse:\n   \
+              \ print(\"REGION:\", REGION)\n\n\nECS = boto3.client(\"ecs\", region_name=REGION)\n\
+              CW = boto3.client(\"cloudwatch\", region_name=REGION)\nELB = boto3.client(\"\
+              elbv2\", region_name=REGION)\nSSM = boto3.client(\"ssm\", region_name=REGION)\n\
+              CFN = boto3.client(\"cloudformation\", region_name=REGION)\nEB = boto3.client(\"\
+              events\", region_name=REGION)\n\n\ndef get_idle_minutes(event):\n  \
+              \  return event[\"idle_minutes\"]\n\n\ndef get_tg_full_names(event):\n\
               \    return event[\"target_group_names\"]\n\n\ndef get_waiter_tg_arn(event):\n\
               \    return event[\"waiter_tg_arn\"]\n\n\ndef get_rule_param_name(event):\n\
-              \    return event[\"rule_param_name\"]\n\n\ndef metric_spec(tg_full_name):\n\
-              \    return {\n        \"Namespace\": \"AWS/ApplicationELB\",\n    \
-              \    \"MetricName\": \"RequestCountPerTarget\",\n        \"Dimensions\"\
-              : [{\"Name\": \"TargetGroup\", \"Value\": tg_full_name}],\n    }\n\n\
-              \ndef get_tg_metrics(start_time, end_time, tg_full_name):\n    print(\"\
-              time:\", start_time, \"-\", end_time)\n    res = CW.get_metric_statistics(\n\
+              \    return event[\"rule_param_name\"]\n\n\ndef get_schedule_rule_name():\n\
+              \    outputs = CFN.describe_stacks(StackName=STACK_ID)[\"Stacks\"][0][\"\
+              Outputs\"]\n    return [\n        o[\"OutputValue\"] for o in outputs\
+              \ if o[\"OutputKey\"] == \"StopperScheduleRuleName\"\n    ][0]\n\n\n\
+              def metric_spec(tg_full_name):\n    return {\n        \"Namespace\"\
+              : \"AWS/ApplicationELB\",\n        \"MetricName\": \"RequestCountPerTarget\"\
+              ,\n        \"Dimensions\": [{\"Name\": \"TargetGroup\", \"Value\": tg_full_name}],\n\
+              \    }\n\n\ndef get_tg_metrics(start_time, end_time, tg_full_name):\n\
+              \    print(\"time:\", start_time, \"-\", end_time)\n    res = CW.get_metric_statistics(\n\
               \        StartTime=start_time,\n        EndTime=end_time,\n        Period=60,\n\
               \        Statistics=[\"Sum\"],\n        **metric_spec(tg_full_name),\n\
               \    )\n\n    return res[\"Datapoints\"]\n\n\ndef get_service_date():\n\
@@ -389,12 +421,15 @@
               \ target for {rule_arn}\")\n        ELB.modify_rule(\n            RuleArn=rule_arn,\n\
               \            Actions=[\n                {\n                    \"Type\"\
               : \"forward\",\n                    \"TargetGroupArn\": get_waiter_tg_arn(event),\n\
-              \                }\n            ],\n        )\n\n\ndef lambda_handler(event,\
-              \ context):\n    print(\"event:\", event)\n    if is_active(event):\n\
-              \        print(\"Service is active. Will not shut down.\")\n       \
-              \ return\n\n    print(\"Service is inactive.\")\n    rule_arns = event[\"\
-              rule_arns\"]\n    stash_rule_actions(event, rule_arns)\n    set_desired_count(0)\n\
-              \    set_rules_to_wait(event, rule_arns)\n\n\nif __name__ == \"__main__\"\
+              \                }\n            ],\n        )\n\n\ndef disable_schedule_rule():\n\
+              \    rule_name = get_schedule_rule_name()\n    print(\"Disabling stopper\
+              \ schedule rule:\", rule_name)\n    EB.disable_rule(Name=rule_name)\n\
+              \n\ndef lambda_handler(event, context):\n    print(\"event:\", event)\n\
+              \    if is_active(event):\n        print(\"Service is active. Will not\
+              \ shut down.\")\n        return\n\n    print(\"Service is inactive.\"\
+              )\n    rule_arns = event[\"rule_arns\"]\n    stash_rule_actions(event,\
+              \ rule_arns)\n    set_desired_count(0)\n    set_rules_to_wait(event,\
+              \ rule_arns)\n    disable_schedule_rule()\n\n\nif __name__ == \"__main__\"\
               :\n    event = {\n        \"idle_minutes\": 15,\n        \"target_group_names\"\
               : [\"targetgroup/x-Ecs-Targe-4HFPSCSW1BQW/73aa4b45250d7b79\"],\n   \
               \     \"rule_param_name\": \"CFN-AutoStopRuleParam-0oF3xIT923dy\",\n\

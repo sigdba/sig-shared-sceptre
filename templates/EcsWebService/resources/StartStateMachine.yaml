@@ -1,0 +1,108 @@
+---
+# TODO: Add a bogus rule which associates the real TG with the LB so that we can
+#       wait for health checks before restoring the real rule.
+Comment: A description of my state machine
+StartAt: GetCurrentDesiredCount
+States:
+  GetCurrentDesiredCount:
+    Type: Task
+    Parameters:
+      Cluster: {Ref: ClusterArn}
+      Services:
+      - Ref: Service
+    Resource: arn:aws:states:::aws-sdk:ecs:describeServices
+    Next: CheckServiceCount
+    OutputPath: "$.Services[0].DesiredCount"
+
+  CheckServiceCount:
+    Type: Choice
+    Choices:
+    - Variable: "$"
+      NumericLessThan: 1
+      Comment: ServiceCountLow
+      Next: SetDesiredCount
+    Default: DescribeService
+
+  DescribeService:
+    Type: Task
+    Parameters:
+      Cluster: {Ref: ClusterArn}
+      Services:
+      - Ref: Service
+    Resource: arn:aws:states:::aws-sdk:ecs:describeServices
+    Next: LoopOverTargetGroups
+
+  LoopOverTargetGroups:
+    Type: Map
+    Next: GetParameter
+    ItemsPath: "$.Services[0].LoadBalancers"
+    Iterator:
+      StartAt: GetTgHealth
+      States:
+        GetTgHealth:
+          Type: Task
+          Parameters:
+            TargetGroupArn.$: "$.TargetGroupArn"
+          Resource: arn:aws:states:::aws-sdk:elasticloadbalancingv2:describeTargetHealth
+          Next: TargetRegistered?
+          ResultPath: "$.Result"
+
+        TargetRegistered?:
+          Type: Choice
+          Choices:
+          - Variable: "$.Result.TargetHealthDescriptions[0]"
+            IsPresent: true
+            Comment: TargetPresent
+            Next: DoneWaitingForTarget
+          Default: WaitForTarget
+
+        WaitForTarget:
+          Type: Wait
+          Seconds: 5
+          Next: GetTgHealth
+
+        DoneWaitingForTarget:
+          Type: Pass
+          End: true
+
+  SetDesiredCount:
+    Type: Task
+    Parameters:
+      Cluster: {Ref: ClusterArn}
+      Service: {Ref: Service}
+      DesiredCount: 1
+    Resource: arn:aws:states:::aws-sdk:ecs:updateService
+    Next: DescribeService
+
+  GetParameter:
+    Type: Task
+    Next: RestoreActions
+    Parameters:
+      Name: { Ref: AutoStopRuleParam }
+    Resource: arn:aws:states:::aws-sdk:ssm:getParameter
+    ResultSelector:
+      Value.$: States.StringToJson($.Parameter.Value)
+
+  RestoreActions:
+    Type: Map
+    Next: PutParameter
+    ItemsPath: "$.Value"
+    Iterator:
+      StartAt: ModifyRule
+      States:
+        ModifyRule:
+          Type: Task
+          Parameters:
+            RuleArn.$: "$.RuleArn"
+            Actions.$: "$.Actions"
+          Resource: arn:aws:states:::aws-sdk:elasticloadbalancingv2:modifyRule
+          End: true
+
+  PutParameter:
+    Type: Task
+    End: true
+    Parameters:
+      Name: { Ref: AutoStopRuleParam }
+      Value: NONE
+      Overwrite: true
+    Resource: arn:aws:states:::aws-sdk:ssm:putParameter

@@ -1,5 +1,9 @@
 ---
-- Parameters:
+- Outputs:
+    EcsServiceArn:
+      Value:
+        Ref: Service
+  Parameters:
     ClusterArn:
       Description: The ARN or name of the ECS cluster
       Type: String

@@ -1,0 +1,22 @@
+---
+template_path: EcsWebService/EcsWebService.py
+
+parameters:
+  VpcId: vpc-0dbae7ba38515d201
+  ClusterArn: arn:aws:ecs:us-east-1:803071473383:cluster/banner
+  ListenerArn: arn:aws:elasticloadbalancing:us-east-1:803071473383:listener/app/sig-ban-alb/5597061b6c745440/893db79165865ecb
+
+sceptre_user_data:
+  auto_stop:
+    enabled: yes
+    idle_minutes: 15
+    idle_check_schedule: rate(5 minutes)
+  containers:
+    - name: httpd
+      image: httpd
+      container_port: 80
+      protocol: HTTP
+      container_memory: 128
+      rules:
+        - path: /
+          host: wiki.*

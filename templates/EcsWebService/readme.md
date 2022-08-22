@@ -31,6 +31,9 @@ listener rules and a target group.
 
 ## sceptre_user_data
 
+- `auto_stop` ([AutoStopModel](#AutoStopModel)) - Configuration for automatically stopping the service after a period of innactivity.
+  - **Default:** This feature is disabled by default.
+
 - `containers` (List of [ContainerModel](#ContainerModel)) - **required** - Defines the containers for this service.
 
 - `cpu` (string) - The number of cpu units used by the task.
@@ -77,6 +80,39 @@ listener rules and a target group.
 
 - `subnet_ids` (List of string) - The IDs of the subnets associated with the task or service.
   - This property only applies when `network_mode` is `awsvpc`.
+
+
+
+### AutoStopModel
+
+**WARNING:** This feature is in alpha state and is subject to change without notice.
+
+- `enabled` (boolean) - When `True` the service will be stopped after a period of innactivity.
+  - **Default:** `False`
+
+- `idle_check_schedule` (string) - An EventBridge schedule expression for when the service should be checked for idleness.
+  - **Default:** `rate(1 hour)`
+  - Do not set this too frequently since the idle check is a Lambda invocation and has a small cost.
+  - See [Schedule Expressions for Rules](https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/ScheduledEvents.html) for details.
+
+- `idle_minutes` (integer) - Number of minutes without a request before the service is considered idle and can be stopped.
+  - **Default:** `240`
+
+- `waiter_css` (string) - CSS to apply to the 'please wait' page.
+  - **Default:** `/* */`
+
+- `waiter_explanation` (string) - The explanatory text that appears on the 'please wait' page.
+  - **Default:** `This service has been shut down due to inactivity. It is now being
+           restarted and will be available again shortly.`
+
+- `waiter_heading` (string) - The heading that appears at the top of the 'please wait' page.
+  - **Default:** `Please wait while the service starts...`
+
+- `waiter_page_title` (string) - Title for the 'please wait' page.
+  - **Default:** If no value is provided, the name of the stack will be used.
+
+- `waiter_refresh_seconds` (integer) - Number of seconds between refreshes of the 'please wait' page.
+  - **Default:** `10`
 
 
 

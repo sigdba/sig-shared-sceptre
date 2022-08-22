@@ -367,6 +367,44 @@ class ContainerModel(BaseModel):
         return v
 
 
+class AutoStopModel(BaseModel):
+    """**WARNING:** This feature is in alpha state and is subject to change without notice."""
+
+    enabled = Field(
+        False,
+        description="When `True` the service will be stopped after a period of innactivity.",
+    )
+    idle_minutes = Field(
+        240,
+        description="Number of minutes without a request before the service is considered idle and can be stopped.",
+    )
+    idle_check_schedule = Field(
+        "rate(1 hour)",
+        description="An EventBridge schedule expression for when the service should be checked for idleness.",
+        notes=[
+            "Do not set this too frequently since the idle check is a Lambda invocation and has a small cost.",
+            "See [Schedule Expressions for Rules](https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/ScheduledEvents.html) for details.",
+        ],
+    )
+    waiter_refresh_seconds = Field(
+        10, description="Number of seconds between refreshes of the 'please wait' page."
+    )
+    waiter_css = Field("/* */", description="CSS to apply to the 'please wait' page.")
+    waiter_page_title: Optional[str] = Field(
+        description="Title for the 'please wait' page.",
+        default_description="If no value is provided, the name of the stack will be used.",
+    )
+    waiter_heading = Field(
+        "Please wait while the service starts...",
+        description="The heading that appears at the top of the 'please wait' page.",
+    )
+    waiter_explanation = Field(
+        """This service has been shut down due to inactivity. It is now being
+           restarted and will be available again shortly.""",
+        description="The explanatory text that appears on the 'please wait' page.",
+    )
+
+
 class UserDataModel(BaseModel):
     launch_type: Optional[Literal["EC2", "EXTERNAL", "FARGATE"]]
     cpu: Optional[str] = Field(
@@ -440,6 +478,11 @@ class UserDataModel(BaseModel):
     schedule: List[ScheduleModel] = Field(
         [],
         description="Specifies a schedule for modifying the DesiredCount of the service.",
+    )
+    auto_stop = Field(
+        AutoStopModel(),
+        description="Configuration for automatically stopping the service after a period of innactivity.",
+        default_description="This feature is disabled by default.",
     )
 
     @root_validator(pre=True)

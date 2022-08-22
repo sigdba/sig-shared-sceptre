@@ -194,3 +194,10 @@ def model_exclusive(values, *keys, required=False):
 def md5(*s):
     hs = "".join(map(str, s))
     return hashlib.md5(hs.encode("utf-8")).hexdigest()
+
+
+def add_depends_on(obj: AWSObject, title: str):
+    l = obj.resource.get("DependsOn", [])
+    if type(l) is str:
+        l = [l]
+    obj.resource["DependsOn"] = [*l, title]

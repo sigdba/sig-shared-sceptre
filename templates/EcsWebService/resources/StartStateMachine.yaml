@@ -1,4 +1,6 @@
 ---
+# TODO: Add a bogus rule which associates the real TG with the LB so that we can
+#       wait for health checks before restoring the real rule.
 Comment: A description of my state machine
 StartAt: GetCurrentDesiredCount
 States:

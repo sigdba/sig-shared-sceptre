@@ -70,8 +70,27 @@ def get_rule_param_name():
 
 
 def get_refresh_seconds():
-    # TODO: Add this to the model
     return int(env("REFRESH_SECONDS", 10))
+
+
+def get_user_css():
+    return env("USER_CSS", "")
+
+
+def get_title():
+    return env("PAGE_TITLE", "${AWS::StackName}")
+
+
+def get_heading():
+    return env("HEADING", "Please wait while the service starts...")
+
+
+def get_explanation():
+    return env(
+        "EXPLANATION",
+        """This service has been shut down due to inactivity. It is now being
+           restarted and will be available again shortly.""",
+    )
 
 
 def get_rules():
@@ -139,17 +158,72 @@ def get_url(event):
 
 
 def refresher_body(event, status):
-    refresh_seconds = get_refresh_seconds()
-    url = get_url(event)
-
+    progress_pct = 100 / (len(Status.__members__) + 1) * (status.order + 1)
     return f"""
     <html>
     <head>
-      <meta http-equiv="refresh" content="{refresh_seconds}; url={url}">
+        <title>{get_title()}</title>
+        <style>
+            body {{
+               font-family: 'Lucida Grande', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            }}
+
+            .external {{
+                display: table;
+                position: absolute;
+                top: 0;
+                left: 0;
+                height: 100%;
+                width: 100%;
+            }}
+
+            .middle {{
+                display: table-cell;
+                vertical-align: middle;
+            }}
+
+            .internal {{
+                margin-left: auto;
+                margin-right: auto;
+                width: 80%;
+            }}
+
+            #progress {{
+                border: 1px solid black;
+                width: 100%;
+                margin: auto;
+            }}
+
+            #progress_fill {{
+                background-color: blue;
+                height: 2em;
+            }}
+
+            #status {{
+                margin: auto;
+                text-align: center;
+                padding: 3px;
+            }}
+        </style>
+        <style>
+        {get_user_css()}
+        </style>
+        <meta http-equiv="refresh" content="{get_refresh_seconds()}; url={get_url(event)}">
     </head>
     <body>
+        <div class="external">
+            <div class="middle">
+                <div class="internal">
+                    <h1>{get_heading()}</h1>
+                    <p id="explanation">{get_explanation()} </p>
+                    <div id="progress">
+                        <div id="progress_fill" style="width: {progress_pct}%">&nbsp;</div>
+                    </div>
+                    <div id="status">{status.label}</div>
+                </div>
+            </div>
+        </div>
     </body>
-      <h1>{status.label}</h1>
     </html>
     """
 

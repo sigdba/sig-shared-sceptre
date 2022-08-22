@@ -240,7 +240,16 @@ def add_waiter_lambda(as_conf, exec_role):
             MemorySize=128,
             Timeout=900,
             Code=Code(ZipFile=Sub(read_resource("WaiterLambda.py"))),
-            Environment=Environment(Variables={"RULE_PARAM_NAME": Ref(rules_param)}),
+            Environment=Environment(
+                Variables={
+                    "RULE_PARAM_NAME": Ref(rules_param),
+                    "REFRESH_SECONDS": as_conf.waiter_refresh_seconds,
+                    "USER_CSS": as_conf.waiter_css,
+                    "PAGE_TITLE": as_conf.waiter_page_title or Ref("AWS::StackName"),
+                    "HEADING": as_conf.waiter_heading,
+                    "EXPLANATION": as_conf.waiter_explanation,
+                }
+            ),
         ),
     )
 

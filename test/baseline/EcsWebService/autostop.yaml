@@ -1,0 +1,659 @@
+---
+- Outputs:
+    EcsServiceArn:
+      Value:
+        Ref: Service
+    StarterStateMachineArn:
+      Value:
+        Ref: StarterStateMachine
+  Parameters:
+    ClusterArn:
+      Description: The ARN or name of the ECS cluster
+      Type: String
+    DesiredCount:
+      Default: '1'
+      Description: The desired number of instances of this service
+      Type: Number
+    ListenerArn:
+      Description: The ARN of the ELB listener which will be used by this service
+      Type: String
+    MaximumPercent:
+      Default: '200'
+      Description: The maximum percent of `DesiredCount` allowed to be running during
+        updates.
+      Type: Number
+    MinimumHealthyPercent:
+      Default: '100'
+      Description: The minimum number of running instances of this service to keep
+        running during an update.
+      Type: Number
+    VpcId:
+      Description: The ID of the VPC of the ECS cluster
+      Type: String
+  Resources:
+    AutoStopRuleParam:
+      Properties:
+        Type: String
+        Value: NONE
+      Type: AWS::SSM::Parameter
+    AutoStopScheduleRule:
+      Properties:
+        Description:
+          Fn::Sub: Auto-stop check for ${AWS::StackName}
+        ScheduleExpression: rate(5 minutes)
+        Targets:
+        - Arn:
+            Fn::GetAtt:
+            - StopperLambdaFn
+            - Arn
+          Id: ScheduleRule
+          Input:
+            Fn::Sub:
+            - "{\n                            \"idle_minutes\": ${idle_minutes},\n\
+              \                            \"target_group_names\": [\"${tg_names}\"\
+              ],\n                            \"rule_param_name\": \"${param_name}\"\
+              ,\n                            \"rule_arns\": [\"${rule_arns}\"],\n\
+              \                            \"waiter_tg_arn\": \"${waiter_tg_arn}\"\
+              \n                        }"
+            - idle_minutes: 15
+              param_name:
+                Ref: AutoStopRuleParam
+              rule_arns:
+                Fn::Join:
+                - '","'
+                - - Ref: ListenerRule18018
+              tg_names:
+                Fn::Join:
+                - '","'
+                - - Fn::GetAtt:
+                    - TargetGroupFORSLASHSLASH
+                    - TargetGroupFullName
+              waiter_tg_arn:
+                Ref: AutoStopWaiterTg
+      Type: AWS::Events::Rule
+    AutoStopWaiterTg:
+      DependsOn:
+      - WaiterLambdaInvokePermission
+      Properties:
+        Tags:
+        - Key: Name
+          Value:
+            Fn::Sub: ${AWS::StackName} Waiter
+        TargetType: lambda
+        Targets:
+        - Id:
+            Fn::GetAtt:
+            - WaiterLambdaFn
+            - Arn
+      Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    ListenerRule18018:
+      DependsOn:
+      - AutoStopWaiterTg
+      Properties:
+        Actions:
+        - TargetGroupArn:
+            Ref: TargetGroupFORSLASHSLASH
+          Type: forward
+        Conditions:
+        - Field: host-header
+          HostHeaderConfig:
+            Values:
+            - wiki.*
+        ListenerArn:
+          Ref: ListenerArn
+        Priority: 18018
+      Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Service:
+      DependsOn:
+      - ListenerRule18018
+      Properties:
+        Cluster:
+          Ref: ClusterArn
+        DeploymentConfiguration:
+          MaximumPercent:
+            Ref: MaximumPercent
+          MinimumHealthyPercent:
+            Ref: MinimumHealthyPercent
+        DesiredCount:
+          Ref: DesiredCount
+        LoadBalancers:
+        - ContainerName: httpd
+          ContainerPort: 80
+          TargetGroupArn:
+            Ref: TargetGroupFORSLASHSLASH
+        PlacementStrategies:
+        - Field: memory
+          Type: binpack
+        TaskDefinition:
+          Ref: TaskDef
+      Type: AWS::ECS::Service
+    StarterLambdaExecutionRole:
+      Properties:
+        AssumeRolePolicyDocument:
+          Statement:
+          - Action:
+            - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+              - states.amazonaws.com
+          Version: '2012-10-17'
+        ManagedPolicyArns: []
+        Path: /
+        Policies: []
+      Type: AWS::IAM::Role
+    StarterLambdaExecutionRolePolicy:
+      Properties:
+        PolicyDocument:
+          Statement:
+          - Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            - logs:CreateLogDelivery
+            - logs:GetLogDelivery
+            - logs:UpdateLogDelivery
+            - logs:DeleteLogDelivery
+            - logs:ListLogDeliveries
+            - logs:PutResourcePolicy
+            - logs:DescribeResourcePolicies
+            - logs:DescribeLogGroups
+            - ecs:DescribeServices
+            - elasticloadbalancing:DescribeRules
+            - elasticloadbalancing:DescribeTargetHealth
+            - cloudwatch:GetMetricStatistics
+            Effect: Allow
+            Resource: '*'
+          - Action:
+            - ssm:GetParameter
+            - ssm:PutParameter
+            Effect: Allow
+            Resource:
+              Fn::Sub: arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${AutoStopRuleParam}
+          - Action:
+            - elasticloadbalancing:ModifyRule
+            Effect: Allow
+            Resource:
+            - Fn::GetAtt:
+              - ListenerRule18018
+              - RuleArn
+          - Action:
+            - ecs:UpdateService
+            Effect: Allow
+            Resource:
+              Ref: Service
+          Version: '2012-10-17'
+        PolicyName: lambda-inline
+        Roles:
+        - Ref: StarterLambdaExecutionRole
+        - Ref: StopperLambdaExecutionRole
+      Type: AWS::IAM::Policy
+    StarterStateMachine:
+      DependsOn:
+      - StarterLambdaExecutionRolePolicy
+      Properties:
+        Definition:
+          Comment: A description of my state machine
+          StartAt: GetCurrentDesiredCount
+          States:
+            CheckServiceCount:
+              Choices:
+              - Comment: ServiceCountLow
+                Next: SetDesiredCount
+                NumericLessThan: 1
+                Variable: $
+              Default: DescribeService
+              Type: Choice
+            DescribeService:
+              Next: LoopOverTargetGroups
+              Parameters:
+                Cluster:
+                  Ref: ClusterArn
+                Services:
+                - Ref: Service
+              Resource: arn:aws:states:::aws-sdk:ecs:describeServices
+              Type: Task
+            GetCurrentDesiredCount:
+              Next: CheckServiceCount
+              OutputPath: $.Services[0].DesiredCount
+              Parameters:
+                Cluster:
+                  Ref: ClusterArn
+                Services:
+                - Ref: Service
+              Resource: arn:aws:states:::aws-sdk:ecs:describeServices
+              Type: Task
+            GetParameter:
+              Next: RestoreActions
+              Parameters:
+                Name:
+                  Ref: AutoStopRuleParam
+              Resource: arn:aws:states:::aws-sdk:ssm:getParameter
+              ResultSelector:
+                Value.$: States.StringToJson($.Parameter.Value)
+              Type: Task
+            LoopOverTargetGroups:
+              ItemsPath: $.Services[0].LoadBalancers
+              Iterator:
+                StartAt: GetTgHealth
+                States:
+                  DoneWaitingForTarget:
+                    End: true
+                    Type: Pass
+                  GetTgHealth:
+                    Next: TargetRegistered?
+                    Parameters:
+                      TargetGroupArn.$: $.TargetGroupArn
+                    Resource: arn:aws:states:::aws-sdk:elasticloadbalancingv2:describeTargetHealth
+                    ResultPath: $.Result
+                    Type: Task
+                  TargetRegistered?:
+                    Choices:
+                    - Comment: TargetPresent
+                      IsPresent: true
+                      Next: DoneWaitingForTarget
+                      Variable: $.Result.TargetHealthDescriptions[0]
+                    Default: WaitForTarget
+                    Type: Choice
+                  WaitForTarget:
+                    Next: GetTgHealth
+                    Seconds: 5
+                    Type: Wait
+              Next: GetParameter
+              Type: Map
+            PutParameter:
+              End: true
+              Parameters:
+                Name:
+                  Ref: AutoStopRuleParam
+                Overwrite: true
+                Value: NONE
+              Resource: arn:aws:states:::aws-sdk:ssm:putParameter
+              Type: Task
+            RestoreActions:
+              ItemsPath: $.Value
+              Iterator:
+                StartAt: ModifyRule
+                States:
+                  ModifyRule:
+                    End: true
+                    Parameters:
+                      Actions.$: $.Actions
+                      RuleArn.$: $.RuleArn
+                    Resource: arn:aws:states:::aws-sdk:elasticloadbalancingv2:modifyRule
+                    Type: Task
+              Next: PutParameter
+              Type: Map
+            SetDesiredCount:
+              Next: DescribeService
+              Parameters:
+                Cluster:
+                  Ref: ClusterArn
+                DesiredCount: 1
+                Service:
+                  Ref: Service
+              Resource: arn:aws:states:::aws-sdk:ecs:updateService
+              Type: Task
+        LoggingConfiguration:
+          Destinations:
+          - CloudWatchLogsLogGroup:
+              LogGroupArn:
+                Fn::GetAtt:
+                - StarterStateMachineLogGroup
+                - Arn
+          IncludeExecutionData: true
+          Level: ALL
+        RoleArn:
+          Fn::GetAtt:
+          - StarterLambdaExecutionRole
+          - Arn
+      Type: AWS::StepFunctions::StateMachine
+    StarterStateMachineLogGroup:
+      Properties:
+        RetentionInDays: 7
+      Type: AWS::Logs::LogGroup
+    StopperLambdaExecutionRole:
+      Properties:
+        AssumeRolePolicyDocument:
+          Statement:
+          - Action:
+            - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+              - lambda.amazonaws.com
+          Version: '2012-10-17'
+        ManagedPolicyArns: []
+        Path: /
+        Policies: []
+      Type: AWS::IAM::Role
+    StopperLambdaFn:
+      Properties:
+        Code:
+          ZipFile:
+            Fn::Sub: "import os\nimport json\nfrom datetime import datetime, timedelta,\
+              \ timezone\n\nimport boto3\n\nREGION = \"${AWS::Region}\"\nSERVICE =\
+              \ \"${Service}\"\nCLUSTER = \"${ClusterArn}\"\n\n\ndef env(k, default=None):\n\
+              \    if k in os.environ:\n        ret = os.environ[k].strip()\n    \
+              \    if len(ret) > 0:\n            return ret\n    if default:\n   \
+              \     return default\n    raise ValueError(f\"Required environment variable\
+              \ {k} not set\")\n\n\ndef env_list(k):\n    return [v.strip() for v\
+              \ in env(k).split(\",\")]\n\n\n# Check if we're in a test environment,\
+              \ and if so set the region from the\n# environment or use a default.\n\
+              if \"AWS::Region\" in REGION:\n    REGION = env(\"AWS_DEFAULT_REGION\"\
+              , \"us-east-1\")\n    CLUSTER = env(\"CLUSTER_ARN\")\n    SERVICE =\
+              \ env(\"SERVICE_ARN\")\n    print(\"Test environment detected, setting\
+              \ REGION to\", REGION)\nelse:\n    print(\"REGION:\", REGION)\n\n\n\
+              ECS = boto3.client(\"ecs\", region_name=REGION)\nCW = boto3.client(\"\
+              cloudwatch\", region_name=REGION)\nELB = boto3.client(\"elbv2\", region_name=REGION)\n\
+              SSM = boto3.client(\"ssm\", region_name=REGION)\n\n\ndef get_idle_minutes(event):\n\
+              \    return event[\"idle_minutes\"]\n\n\ndef get_tg_full_names(event):\n\
+              \    return event[\"target_group_names\"]\n\n\ndef get_waiter_tg_arn(event):\n\
+              \    return event[\"waiter_tg_arn\"]\n\n\ndef get_rule_param_name(event):\n\
+              \    return event[\"rule_param_name\"]\n\n\ndef metric_spec(tg_full_name):\n\
+              \    return {\n        \"Namespace\": \"AWS/ApplicationELB\",\n    \
+              \    \"MetricName\": \"RequestCountPerTarget\",\n        \"Dimensions\"\
+              : [{\"Name\": \"TargetGroup\", \"Value\": tg_full_name}],\n    }\n\n\
+              \ndef get_tg_metrics(start_time, end_time, tg_full_name):\n    print(\"\
+              time:\", start_time, \"-\", end_time)\n    res = CW.get_metric_statistics(\n\
+              \        StartTime=start_time,\n        EndTime=end_time,\n        Period=60,\n\
+              \        Statistics=[\"Sum\"],\n        **metric_spec(tg_full_name),\n\
+              \    )\n\n    return res[\"Datapoints\"]\n\n\ndef get_service_date():\n\
+              \    res = ECS.describe_services(cluster=CLUSTER, services=[SERVICE])\n\
+              \    return res[\"services\"][0][\"createdAt\"]\n\n\ndef is_active(event):\n\
+              \    minutes = get_idle_minutes(event)\n    now = datetime.now(timezone.utc)\n\
+              \    start_time = now - timedelta(minutes=minutes)\n\n    print(\"service_date:\"\
+              , get_service_date())\n    print(\"start_time:\", start_time)\n\n  \
+              \  if get_service_date() > start_time:\n        print(\"Service is too\
+              \ new to shut down.\")\n        return True\n\n    for tg_name in get_tg_full_names(event):\n\
+              \        print(\"tg_name:\", tg_name)\n        for dp in get_tg_metrics(start_time,\
+              \ now, tg_name):\n            if dp[\"Sum\"] > 0:\n                return\
+              \ True\n    return False\n\n\ndef set_desired_count(c):\n    print(\"\
+              Setting desiredCount of service %s to %d\" % (SERVICE, c))\n    ECS.update_service(cluster=CLUSTER,\
+              \ service=SERVICE, desiredCount=c)\n\n\ndef stash_rule_actions(event,\
+              \ rule_arns):\n    param_name = get_rule_param_name(event)\n\n    #\
+              \ To avoid putting the system into a weird state by, for instance, stashing\n\
+              \    # the waiter action instead of the correct actions, we make sure\
+              \ that the\n    # parameter contains its initial value. This value is\
+              \ put in the parameter\n    # at stack creation and after successful\
+              \ restart. If it's not there then\n    # something weird's happening\
+              \ so we'll abort.\n    print(\"Checking parameter value\")\n    if SSM.get_parameter(Name=param_name)[\"\
+              Parameter\"][\"Value\"] != \"NONE\":\n        raise ValueError(\n  \
+              \          f\"Parameter {param_name} does not have expected value of\
+              \ 'NONE'\"\n        )\n\n    print(\"Stashing rule actions\")\n    rules\
+              \ = ELB.describe_rules(RuleArns=rule_arns)[\"Rules\"]\n    SSM.put_parameter(\n\
+              \        Name=param_name,\n        Value=json.dumps(\n            [{\"\
+              RuleArn\": r[\"RuleArn\"], \"Actions\": r[\"Actions\"]} for r in rules]\n\
+              \        ),\n        Overwrite=True,\n    )\n\n\ndef set_rules_to_wait(event,\
+              \ rule_arns):\n    for rule_arn in rule_arns:\n        print(f\"Switching\
+              \ target for {rule_arn}\")\n        ELB.modify_rule(\n            RuleArn=rule_arn,\n\
+              \            Actions=[\n                {\n                    \"Type\"\
+              : \"forward\",\n                    \"TargetGroupArn\": get_waiter_tg_arn(event),\n\
+              \                }\n            ],\n        )\n\n\ndef lambda_handler(event,\
+              \ context):\n    print(\"event:\", event)\n    if is_active(event):\n\
+              \        print(\"Service is active. Will not shut down.\")\n       \
+              \ return\n\n    print(\"Service is inactive.\")\n    rule_arns = event[\"\
+              rule_arns\"]\n    stash_rule_actions(event, rule_arns)\n    set_desired_count(0)\n\
+              \    set_rules_to_wait(event, rule_arns)\n\n\nif __name__ == \"__main__\"\
+              :\n    event = {\n        \"idle_minutes\": 15,\n        \"target_group_names\"\
+              : [\"targetgroup/x-Ecs-Targe-4HFPSCSW1BQW/73aa4b45250d7b79\"],\n   \
+              \     \"rule_param_name\": \"CFN-AutoStopRuleParam-0oF3xIT923dy\",\n\
+              \        \"rule_arns\": [\n            \"arn:aws:elasticloadbalancing:us-east-1:803071473383:listener-rule/app/sig-ban-alb/5597061b6c745440/893db79165865ecb/2fe13434d34b1ab4\"\
+              \n        ],\n        \"waiter_tg_arn\": \"arn:aws:elasticloadbalancing:us-east-1:803071473383:targetgroup/x-Ecs-AutoS-K6LUYPO403ON/a400f886418961ef\"\
+              ,\n    }\n    lambda_handler(event, None)\n"
+        Description: Polls TG metrics and auto-stops idle ECS service.
+        Handler: index.lambda_handler
+        MemorySize: 128
+        Role:
+          Fn::GetAtt:
+          - StopperLambdaExecutionRole
+          - Arn
+        Runtime: python3.9
+        Timeout: 900
+      Type: AWS::Lambda::Function
+    StopperLambdaInvokePermission:
+      Properties:
+        Action: lambda:InvokeFunction
+        FunctionName:
+          Fn::GetAtt:
+          - StopperLambdaFn
+          - Arn
+        Principal: events.amazonaws.com
+      Type: AWS::Lambda::Permission
+    TargetGroupFORSLASHSLASH:
+      Properties:
+        HealthCheckIntervalSeconds: 60
+        HealthCheckPath: //
+        HealthCheckProtocol: HTTP
+        HealthCheckTimeoutSeconds: 30
+        Matcher:
+          HttpCode: 200-399
+        Port: 8080
+        Protocol: HTTP
+        Tags:
+        - Key: Name
+          Value:
+            Fn::Sub: '${AWS::StackName}: //'
+        TargetGroupAttributes:
+        - Key: stickiness.enabled
+          Value: 'true'
+        - Key: stickiness.type
+          Value: lb_cookie
+        TargetType: instance
+        UnhealthyThresholdCount: 5
+        VpcId:
+          Ref: VpcId
+      Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    TaskDef:
+      Properties:
+        ContainerDefinitions:
+        - Environment:
+          - Name: AWS_DEFAULT_REGION
+            Value:
+              Ref: AWS::Region
+          Essential: true
+          Hostname:
+            Ref: AWS::StackName
+          Image: httpd
+          Links: []
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-create-group: true
+              awslogs-group:
+                Fn::Sub: /ecs/${AWS::StackName}
+              awslogs-region:
+                Ref: AWS::Region
+              awslogs-stream-prefix: ecs
+          Memory: 128
+          MemoryReservation: 128
+          MountPoints: []
+          Name: httpd
+          PortMappings:
+          - ContainerPort: 80
+          Secrets: []
+        Family:
+          Ref: AWS::StackName
+        Volumes: []
+      Type: AWS::ECS::TaskDefinition
+    WaiterLambdaExecutionRole:
+      Properties:
+        AssumeRolePolicyDocument:
+          Statement:
+          - Action:
+            - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+              - lambda.amazonaws.com
+          Version: '2012-10-17'
+        ManagedPolicyArns: []
+        Path: /
+        Policies: []
+      Type: AWS::IAM::Role
+    WaiterLambdaExecutionRolePolicy:
+      Properties:
+        PolicyDocument:
+          Statement:
+          - Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            - ecs:DescribeServices
+            - elasticloadbalancing:DescribeTargetHealth
+            Effect: Allow
+            Resource: '*'
+          - Action:
+            - cloudformation:DescribeStacks
+            Effect: Allow
+            Resource:
+              Ref: AWS::StackId
+          - Action:
+            - states:ListExecutions
+            - states:StartExecution
+            Effect: Allow
+            Resource:
+              Ref: StarterStateMachine
+          - Action:
+            - ssm:GetParameter
+            Effect: Allow
+            Resource:
+              Fn::Sub: arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${AutoStopRuleParam}
+          Version: '2012-10-17'
+        PolicyName: lambda-inline
+        Roles:
+        - Ref: WaiterLambdaExecutionRole
+      Type: AWS::IAM::Policy
+    WaiterLambdaFn:
+      Properties:
+        Code:
+          ZipFile:
+            Fn::Sub: "import os\nimport json\nimport urllib\nfrom functools import\
+              \ lru_cache\nfrom enum import Enum\n\nimport boto3\n\nREGION = \"${AWS::Region}\"\
+              \nCLUSTER = \"${ClusterArn}\"\nDESIRED_COUNT = \"${DesiredCount}\"\n\
+              STACK_ID = \"${AWS::StackId}\"\n\n\ndef env(k, default=None):\n    if\
+              \ k in os.environ:\n        ret = os.environ[k].strip()\n        if\
+              \ len(ret) > 0:\n            return ret\n    if default:\n        return\
+              \ default\n    raise ValueError(f\"Required environment variable {k}\
+              \ not set\")\n\n\ndef env_list(k):\n    return [v.strip() for v in env(k).split(\"\
+              ,\")]\n\n\n# Check if we're in a test environment, and if so set the\
+              \ region from the\n# environment or use a default.\nif \"AWS::Region\"\
+              \ in REGION:\n    REGION = env(\"AWS_DEFAULT_REGION\", \"us-east-1\"\
+              )\n    CLUSTER = env(\"CLUSTER_ARN\")\n    STACK_ID = env(\"STACK_ID\"\
+              )\n    DESIRED_COUNT = 1\n    print(\"Test environment detected, setting\
+              \ REGION to\", REGION)\nelse:\n    print(\"REGION:\", REGION)\n    DESIRED_COUNT\
+              \ = int(DESIRED_COUNT)\n\n\nECS = boto3.client(\"ecs\", region_name=REGION)\n\
+              ELB = boto3.client(\"elbv2\", region_name=REGION)\nSSM = boto3.client(\"\
+              ssm\", region_name=REGION)\nCFN = boto3.client(\"cloudformation\", region_name=REGION)\n\
+              SFN = boto3.client(\"stepfunctions\", region_name=REGION)\n\n\nclass\
+              \ Status(Enum):\n    INITIAL = (0, \"Service startup requested\")\n\
+              \    STARTING = (1, \"Service starting\")\n    LB_INITIAL = (2, \"Checking\
+              \ service health\")\n    READY = (3, \"Service ready\")\n\n    def __init__(self,\
+              \ order, label):\n        self.order = order\n        self.label = label\n\
+              \n\n@lru_cache\ndef get_starter_arn():\n    outputs = CFN.describe_stacks(StackName=STACK_ID)[\"\
+              Stacks\"][0][\"Outputs\"]\n    return [\n        o[\"OutputValue\"]\
+              \ for o in outputs if o[\"OutputKey\"] == \"StarterStateMachineArn\"\
+              \n    ][0]\n\n\ndef get_rule_param_name():\n    return env(\"RULE_PARAM_NAME\"\
+              )\n\n\ndef get_refresh_seconds():\n    return int(env(\"REFRESH_SECONDS\"\
+              , 10))\n\n\ndef get_user_css():\n    return env(\"USER_CSS\", \"\")\n\
+              \n\ndef get_title():\n    return env(\"PAGE_TITLE\", \"${AWS::StackName}\"\
+              )\n\n\ndef get_heading():\n    return env(\"HEADING\", \"Please wait\
+              \ while the service starts...\")\n\n\ndef get_explanation():\n    return\
+              \ env(\n        \"EXPLANATION\",\n        \"\"\"This service has been\
+              \ shut down due to inactivity. It is now being\n           restarted\
+              \ and will be available again shortly.\"\"\",\n    )\n\n\ndef get_rules():\n\
+              \    v = SSM.get_parameter(Name=get_rule_param_name())[\"Parameter\"\
+              ][\"Value\"]\n    if v == \"NONE\":\n        return None\n    return\
+              \ json.loads(v)\n\n\ndef get_tg_arn(rule):\n    for action in rule[\"\
+              Actions\"]:\n        if action[\"Type\"] == \"forward\":\n         \
+              \   tg_arn = action.get(\"TargetGroupArn\")\n            if tg_arn:\n\
+              \                return tg_arn\n            return action[\"ForwardConfig\"\
+              ][\"TargetGroups\"][0][\"TargetGroupArn\"]\n    raise ValueError(f\"\
+              Target group not found for {rule}\")\n\n\ndef starter_is_running():\n\
+              \    return (\n        len(\n            SFN.list_executions(\n    \
+              \            stateMachineArn=get_starter_arn(), statusFilter=\"RUNNING\"\
+              \n            )[\"executions\"]\n        )\n        > 0\n    )\n\n\n\
+              def all_tgs_have_targets():\n    rules = get_rules()\n    if rules is\
+              \ None:\n        # The rules parameter has been reset, indicating the\
+              \ startup process has\n        # finished.\n        return True\n  \
+              \  for rule in rules:\n        healths = ELB.describe_target_health(TargetGroupArn=get_tg_arn(rule))[\n\
+              \            \"TargetHealthDescriptions\"\n        ]\n        if len(healths)\
+              \ < 1:\n            return False\n    return True\n\n\ndef start_service():\n\
+              \    SFN.start_execution(stateMachineArn=get_starter_arn())\n\n\ndef\
+              \ get_service_status():\n    if all_tgs_have_targets():\n        return\
+              \ Status.READY\n    if starter_is_running():\n        return Status.STARTING\n\
+              \n    start_service()\n    return Status.INITIAL\n\n\ndef get_url(event):\n\
+              \    proto = event.get(\"headers\", {}).get(\"x-forwarded-proto\", \"\
+              https\")\n    path = event.get(\"path\", \"/\")\n    query = urllib.parse.urlencode(event.get(\"\
+              queryStringParameters\", {}))\n    return urllib.parse.urlunsplit((proto,\
+              \ event[\"headers\"][\"host\"], path, query, \"\"))\n\n\ndef refresher_body(event,\
+              \ status):\n    progress_pct = 100 / (len(Status.__members__) + 1) *\
+              \ (status.order + 1)\n    return f\"\"\"\n    <html>\n    <head>\n \
+              \       <title>{get_title()}</title>\n        <style>\n            body\
+              \ {{\n               font-family: 'Lucida Grande', 'Helvetica Neue',\
+              \ Helvetica, Arial, sans-serif;\n            }}\n\n            .external\
+              \ {{\n                display: table;\n                position: absolute;\n\
+              \                top: 0;\n                left: 0;\n               \
+              \ height: 100%;\n                width: 100%;\n            }}\n\n  \
+              \          .middle {{\n                display: table-cell;\n      \
+              \          vertical-align: middle;\n            }}\n\n            .internal\
+              \ {{\n                margin-left: auto;\n                margin-right:\
+              \ auto;\n                width: 80%;\n            }}\n\n           \
+              \ #progress {{\n                border: 1px solid black;\n         \
+              \       width: 100%;\n                margin: auto;\n            }}\n\
+              \n            #progress_fill {{\n                background-color: blue;\n\
+              \                height: 2em;\n            }}\n\n            #status\
+              \ {{\n                margin: auto;\n                text-align: center;\n\
+              \                padding: 3px;\n            }}\n        </style>\n \
+              \       <style>\n        {get_user_css()}\n        </style>\n      \
+              \  <meta http-equiv=\"refresh\" content=\"{get_refresh_seconds()}; url={get_url(event)}\"\
+              >\n    </head>\n    <body>\n        <div class=\"external\">\n     \
+              \       <div class=\"middle\">\n                <div class=\"internal\"\
+              >\n                    <h1>{get_heading()}</h1>\n                  \
+              \  <p id=\"explanation\">{get_explanation()} </p>\n                \
+              \    <div id=\"progress\">\n                        <div id=\"progress_fill\"\
+              \ style=\"width: {progress_pct}%\">&nbsp;</div>\n                  \
+              \  </div>\n                    <div id=\"status\">{status.label}</div>\n\
+              \                </div>\n            </div>\n        </div>\n    </body>\n\
+              \    </html>\n    \"\"\"\n\n\ndef lambda_handler(event, context):\n\
+              \    print(\"event:\", event)\n    status = get_service_status()\n \
+              \   if event[\"httpMethod\"] != \"GET\":\n        return {\n       \
+              \     \"statusCode\": 100,\n            \"statusDescription\": f\"100\
+              \ {status.value.label}\",\n            \"headers\": {\"Content-Type\"\
+              : \"text/html\"},\n            \"body\": status.label,\n        }\n\n\
+              \    return {\n        \"statusCode\": 200,\n        \"statusDescription\"\
+              : \"200 OK\",\n        \"headers\": {\"Content-Type\": \"text/html\"\
+              },\n        \"body\": refresher_body(event, status),\n    }\n\n\nif\
+              \ __name__ == \"__main__\":\n    import yaml\n\n    event = {\"httpMethod\"\
+              : \"GET\"}\n    print(yaml.dump(lambda_handler(event, None)))\n"
+        Description: Presents a 'please wait' page while restarting a service.
+        Environment:
+          Variables:
+            EXPLANATION: "This service has been shut down due to inactivity. It is\
+              \ now being\n           restarted and will be available again shortly."
+            HEADING: Please wait while the service starts...
+            PAGE_TITLE:
+              Ref: AWS::StackName
+            REFRESH_SECONDS: 10
+            RULE_PARAM_NAME:
+              Ref: AutoStopRuleParam
+            USER_CSS: /* */
+        Handler: index.lambda_handler
+        MemorySize: 128
+        Role:
+          Fn::GetAtt:
+          - WaiterLambdaExecutionRole
+          - Arn
+        Runtime: python3.9
+        Timeout: 900
+      Type: AWS::Lambda::Function
+    WaiterLambdaInvokePermission:
+      Properties:
+        Action: lambda:InvokeFunction
+        FunctionName:
+          Fn::GetAtt:
+          - WaiterLambdaFn
+          - Arn
+        Principal: elasticloadbalancing.amazonaws.com
+      Type: AWS::Lambda::Permission
+

@@ -368,6 +368,8 @@ class ContainerModel(BaseModel):
 
 
 class AutoStopModel(BaseModel):
+    """**WARNING:** This feature is in alpha state and is subject to change without notice."""
+
     enabled = Field(
         False,
         description="When `True` the service will be stopped after a period of innactivity.",
@@ -383,6 +385,23 @@ class AutoStopModel(BaseModel):
             "Do not set this too frequently since the idle check is a Lambda invocation and has a small cost.",
             "See [Schedule Expressions for Rules](https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/ScheduledEvents.html) for details.",
         ],
+    )
+    waiter_refresh_seconds = Field(
+        10, description="Number of seconds between refreshes of the 'please wait' page."
+    )
+    waiter_css = Field("/* */", description="CSS to apply to the 'please wait' page.")
+    waiter_page_title: Optional[str] = Field(
+        description="Title for the 'please wait' page.",
+        default_description="If no value is provided, the name of the stack will be used.",
+    )
+    waiter_heading = Field(
+        "Please wait while the service starts...",
+        description="The heading that appears at the top of the 'please wait' page.",
+    )
+    waiter_explanation = Field(
+        """This service has been shut down due to inactivity. It is now being
+           restarted and will be available again shortly.""",
+        description="The explanatory text that appears on the 'please wait' page.",
     )
 
 

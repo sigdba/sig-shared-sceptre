@@ -102,6 +102,11 @@ def starter_execution_policy(rule_names):
                     },
                     {
                         "Effect": "Allow",
+                        "Action": ["cloudformation:DescribeStacks"],
+                        "Resource": Ref("AWS::StackId"),
+                    },
+                    {
+                        "Effect": "Allow",
                         "Action": ["ssm:GetParameter", "ssm:PutParameter"],
                         "Resource": Sub(
                             "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${AutoStopRuleParam}"
@@ -116,6 +121,11 @@ def starter_execution_policy(rule_names):
                         "Effect": "Allow",
                         "Action": ["ecs:UpdateService"],
                         "Resource": Ref("Service"),
+                    },
+                    {
+                        "Effect": "Allow",
+                        "Action": ["events:EnableRule", "events:DisableRule"],
+                        "Resource": GetAtt("AutoStopScheduleRule", "Arn"),
                     },
                 ],
             },
@@ -397,7 +407,11 @@ def add_autostop(user_data, template):
     add_stopper_execution_role()
     stopper_fn = add_stopper_lambda(user_data.auto_stop)
     add_stopper_invoke_permission(stopper_fn)
-    add_stopper_scheduling_rule(user_data.auto_stop, tg_names, rule_names)
+
+    schedule_rule = add_stopper_scheduling_rule(
+        user_data.auto_stop, tg_names, rule_names
+    )
+    add_output("StopperScheduleRuleName", Ref(schedule_rule))
 
     for n, o in template.resources.items():
         if type(o) is ListenerRule:

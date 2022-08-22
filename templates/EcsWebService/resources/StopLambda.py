@@ -7,6 +7,7 @@ import boto3
 REGION = "${AWS::Region}"
 SERVICE = "${Service}"
 CLUSTER = "${ClusterArn}"
+STACK_ID = "${AWS::StackId}"
 
 
 def env(k, default=None):
@@ -38,6 +39,8 @@ ECS = boto3.client("ecs", region_name=REGION)
 CW = boto3.client("cloudwatch", region_name=REGION)
 ELB = boto3.client("elbv2", region_name=REGION)
 SSM = boto3.client("ssm", region_name=REGION)
+CFN = boto3.client("cloudformation", region_name=REGION)
+EB = boto3.client("events", region_name=REGION)
 
 
 def get_idle_minutes(event):
@@ -54,6 +57,13 @@ def get_waiter_tg_arn(event):
 
 def get_rule_param_name(event):
     return event["rule_param_name"]
+
+
+def get_schedule_rule_name():
+    outputs = CFN.describe_stacks(StackName=STACK_ID)["Stacks"][0]["Outputs"]
+    return [
+        o["OutputValue"] for o in outputs if o["OutputKey"] == "StopperScheduleRuleName"
+    ][0]
 
 
 def metric_spec(tg_full_name):
@@ -146,6 +156,12 @@ def set_rules_to_wait(event, rule_arns):
         )
 
 
+def disable_schedule_rule():
+    rule_name = get_schedule_rule_name()
+    print("Disabling stopper schedule rule:", rule_name)
+    EB.disable_rule(Name=rule_name)
+
+
 def lambda_handler(event, context):
     print("event:", event)
     if is_active(event):
@@ -157,6 +173,7 @@ def lambda_handler(event, context):
     stash_rule_actions(event, rule_arns)
     set_desired_count(0)
     set_rules_to_wait(event, rule_arns)
+    disable_schedule_rule()
 
 
 if __name__ == "__main__":

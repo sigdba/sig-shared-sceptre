@@ -171,8 +171,8 @@ def lambda_handler(event, context):
     print("Service is inactive.")
     rule_arns = event["rule_arns"]
     stash_rule_actions(event, rule_arns)
-    set_desired_count(0)
     set_rules_to_wait(event, rule_arns)
+    set_desired_count(0)
     disable_schedule_rule()
 
 

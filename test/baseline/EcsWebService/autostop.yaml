@@ -74,6 +74,20 @@
               waiter_tg_arn:
                 Ref: AutoStopWaiterTg
       Type: AWS::Events::Rule
+    AutoStopSnsPublishPolicy:
+      Properties:
+        PolicyDocument:
+          Statement:
+          - Action:
+            - sns:Publish
+            Effect: Allow
+            Resource: arn:aws:sns:us-east-1:803071473383:SigBannerTestingAlerts
+          Version: '2012-10-17'
+        PolicyName: AutoStopSnsPublish
+        Roles:
+        - Ref: StarterLambdaExecutionRole
+        - Ref: StopperLambdaExecutionRole
+      Type: AWS::IAM::Policy
     AutoStopWaiterTg:
       DependsOn:
       - WaiterLambdaInvokePermission
@@ -355,10 +369,12 @@
         Policies: []
       Type: AWS::IAM::Role
     StopperLambdaFn:
+      DependsOn:
+      - AutoStopSnsPublishPolicy
       Properties:
         Code:
           ZipFile:
-            Fn::Sub: "import os\nimport json\nfrom datetime import datetime, timedelta,\
+            Fn::Sub: "import json\nimport os\nfrom datetime import datetime, timedelta,\
               \ timezone\n\nimport boto3\n\nREGION = \"${AWS::Region}\"\nSERVICE =\
               \ \"${Service}\"\nCLUSTER = \"${ClusterArn}\"\nSTACK_ID = \"${AWS::StackId}\"\
               \n\n\ndef env(k, default=None):\n    if k in os.environ:\n        ret\
@@ -379,41 +395,46 @@
               \  return event[\"idle_minutes\"]\n\n\ndef get_tg_full_names(event):\n\
               \    return event[\"target_group_names\"]\n\n\ndef get_waiter_tg_arn(event):\n\
               \    return event[\"waiter_tg_arn\"]\n\n\ndef get_rule_param_name(event):\n\
-              \    return event[\"rule_param_name\"]\n\n\ndef get_schedule_rule_name():\n\
-              \    outputs = CFN.describe_stacks(StackName=STACK_ID)[\"Stacks\"][0][\"\
+              \    return event[\"rule_param_name\"]\n\n\ndef describe_stack():\n\
+              \    return CFN.describe_stacks(StackName=STACK_ID)[\"Stacks\"][0]\n\
+              \n\ndef get_schedule_rule_name():\n    outputs = describe_stack()[\"\
               Outputs\"]\n    return [\n        o[\"OutputValue\"] for o in outputs\
               \ if o[\"OutputKey\"] == \"StopperScheduleRuleName\"\n    ][0]\n\n\n\
-              def metric_spec(tg_full_name):\n    return {\n        \"Namespace\"\
-              : \"AWS/ApplicationELB\",\n        \"MetricName\": \"RequestCountPerTarget\"\
-              ,\n        \"Dimensions\": [{\"Name\": \"TargetGroup\", \"Value\": tg_full_name}],\n\
-              \    }\n\n\ndef get_tg_metrics(start_time, end_time, tg_full_name):\n\
-              \    print(\"time:\", start_time, \"-\", end_time)\n    res = CW.get_metric_statistics(\n\
-              \        StartTime=start_time,\n        EndTime=end_time,\n        Period=60,\n\
-              \        Statistics=[\"Sum\"],\n        **metric_spec(tg_full_name),\n\
-              \    )\n\n    return res[\"Datapoints\"]\n\n\ndef get_service_date():\n\
-              \    res = ECS.describe_services(cluster=CLUSTER, services=[SERVICE])\n\
-              \    return res[\"services\"][0][\"createdAt\"]\n\n\ndef is_active(event):\n\
-              \    minutes = get_idle_minutes(event)\n    now = datetime.now(timezone.utc)\n\
-              \    start_time = now - timedelta(minutes=minutes)\n\n    print(\"service_date:\"\
-              , get_service_date())\n    print(\"start_time:\", start_time)\n\n  \
-              \  if get_service_date() > start_time:\n        print(\"Service is too\
-              \ new to shut down.\")\n        return True\n\n    for tg_name in get_tg_full_names(event):\n\
-              \        print(\"tg_name:\", tg_name)\n        for dp in get_tg_metrics(start_time,\
-              \ now, tg_name):\n            if dp[\"Sum\"] > 0:\n                return\
-              \ True\n    return False\n\n\ndef set_desired_count(c):\n    print(\"\
-              Setting desiredCount of service %s to %d\" % (SERVICE, c))\n    ECS.update_service(cluster=CLUSTER,\
-              \ service=SERVICE, desiredCount=c)\n\n\ndef stash_rule_actions(event,\
-              \ rule_arns):\n    param_name = get_rule_param_name(event)\n\n    #\
-              \ To avoid putting the system into a weird state by, for instance, stashing\n\
-              \    # the waiter action instead of the correct actions, we make sure\
-              \ that the\n    # parameter contains its initial value. This value is\
-              \ put in the parameter\n    # at stack creation and after successful\
-              \ restart. If it's not there then\n    # something weird's happening\
-              \ so we'll abort.\n    print(\"Checking parameter value\")\n    if SSM.get_parameter(Name=param_name)[\"\
-              Parameter\"][\"Value\"] != \"NONE\":\n        raise ValueError(\n  \
-              \          f\"Parameter {param_name} does not have expected value of\
-              \ 'NONE'\"\n        )\n\n    print(\"Stashing rule actions\")\n    rules\
-              \ = ELB.describe_rules(RuleArns=rule_arns)[\"Rules\"]\n    SSM.put_parameter(\n\
+              def is_stack_updating():\n    status = describe_stack()[\"StackStatus\"\
+              ]\n    print(\"Stack status:\", status)\n    return not status.endswith(\"\
+              _COMPLETE\")\n\n\ndef metric_spec(tg_full_name):\n    return {\n   \
+              \     \"Namespace\": \"AWS/ApplicationELB\",\n        \"MetricName\"\
+              : \"RequestCountPerTarget\",\n        \"Dimensions\": [{\"Name\": \"\
+              TargetGroup\", \"Value\": tg_full_name}],\n    }\n\n\ndef get_tg_metrics(start_time,\
+              \ end_time, tg_full_name):\n    print(\"time:\", start_time, \"-\",\
+              \ end_time)\n    res = CW.get_metric_statistics(\n        StartTime=start_time,\n\
+              \        EndTime=end_time,\n        Period=60,\n        Statistics=[\"\
+              Sum\"],\n        **metric_spec(tg_full_name),\n    )\n\n    return res[\"\
+              Datapoints\"]\n\n\ndef get_service_date():\n    res = ECS.describe_services(cluster=CLUSTER,\
+              \ services=[SERVICE])\n    return res[\"services\"][0][\"createdAt\"\
+              ]\n\n\ndef is_active(event):\n    minutes = get_idle_minutes(event)\n\
+              \    now = datetime.now(timezone.utc)\n    start_time = now - timedelta(minutes=minutes)\n\
+              \n    print(\"service_date:\", get_service_date())\n    print(\"start_time:\"\
+              , start_time)\n\n    if get_service_date() > start_time:\n        print(\"\
+              Service is too new to shut down.\")\n        return True\n\n    for\
+              \ tg_name in get_tg_full_names(event):\n        print(\"tg_name:\",\
+              \ tg_name)\n        for dp in get_tg_metrics(start_time, now, tg_name):\n\
+              \            if dp[\"Sum\"] > 0:\n                return True\n    return\
+              \ False\n\n\ndef set_desired_count(c):\n    print(\"Setting desiredCount\
+              \ of service %s to %d\" % (SERVICE, c))\n    ECS.update_service(cluster=CLUSTER,\
+              \ service=SERVICE, desiredCount=c)\n\n\ndef check_rule_param(param_name):\n\
+              \    # To avoid putting the system into a weird state by, for instance,\
+              \ stashing\n    # the waiter action instead of the correct actions,\
+              \ we make sure that the\n    # parameter contains its initial value.\
+              \ This value is put in the parameter\n    # at stack creation and after\
+              \ successful restart. If it's not there then\n    # something weird's\
+              \ happening so we'll abort.\n    print(\"Checking parameter value\"\
+              )\n    if SSM.get_parameter(Name=param_name)[\"Parameter\"][\"Value\"\
+              ] != \"NONE\":\n        raise ValueError(\n            f\"Parameter\
+              \ {param_name} does not have expected value of 'NONE'\"\n        )\n\
+              \n\ndef get_rules(rule_arns):\n    print(\"Fetching rules\")\n    return\
+              \ ELB.describe_rules(RuleArns=rule_arns)[\"Rules\"]\n\n\ndef stash_rule_actions(param_name,\
+              \ rules):\n    print(\"Stashing rule actions\")\n    SSM.put_parameter(\n\
               \        Name=param_name,\n        Value=json.dumps(\n            [{\"\
               RuleArn\": r[\"RuleArn\"], \"Actions\": r[\"Actions\"]} for r in rules]\n\
               \        ),\n        Overwrite=True,\n    )\n\n\ndef set_rules_to_wait(event,\
@@ -421,21 +442,26 @@
               \ target for {rule_arn}\")\n        ELB.modify_rule(\n            RuleArn=rule_arn,\n\
               \            Actions=[\n                {\n                    \"Type\"\
               : \"forward\",\n                    \"TargetGroupArn\": get_waiter_tg_arn(event),\n\
-              \                }\n            ],\n        )\n\n\ndef disable_schedule_rule():\n\
-              \    rule_name = get_schedule_rule_name()\n    print(\"Disabling stopper\
-              \ schedule rule:\", rule_name)\n    EB.disable_rule(Name=rule_name)\n\
+              \                }\n            ],\n        )\n\n\ndef disable_schedule_rule(rule_name):\n\
+              \    print(\"Disabling stopper schedule rule:\", rule_name)\n    EB.disable_rule(Name=rule_name)\n\
               \n\ndef lambda_handler(event, context):\n    print(\"event:\", event)\n\
-              \    if is_active(event):\n        print(\"Service is active. Will not\
-              \ shut down.\")\n        return\n\n    print(\"Service is inactive.\"\
-              )\n    rule_arns = event[\"rule_arns\"]\n    stash_rule_actions(event,\
-              \ rule_arns)\n    set_desired_count(0)\n    set_rules_to_wait(event,\
-              \ rule_arns)\n    disable_schedule_rule()\n\n\nif __name__ == \"__main__\"\
-              :\n    event = {\n        \"idle_minutes\": 15,\n        \"target_group_names\"\
-              : [\"targetgroup/x-Ecs-Targe-4HFPSCSW1BQW/73aa4b45250d7b79\"],\n   \
-              \     \"rule_param_name\": \"CFN-AutoStopRuleParam-0oF3xIT923dy\",\n\
-              \        \"rule_arns\": [\n            \"arn:aws:elasticloadbalancing:us-east-1:803071473383:listener-rule/app/sig-ban-alb/5597061b6c745440/893db79165865ecb/2fe13434d34b1ab4\"\
+              \n    if is_stack_updating():\n        print(\"Stack is not in a COMPLETE\
+              \ state. Will not shut down.\")\n        return\n\n    if is_active(event):\n\
+              \        print(\"Service is active. Will not shut down.\")\n       \
+              \ return\n\n    print(\"Service is inactive.\")\n    rule_arns = event[\"\
+              rule_arns\"]\n    param_name = get_rule_param_name(event)\n    rules\
+              \ = get_rules(rule_arns)\n    schedule_rule_name = get_schedule_rule_name()\n\
+              \n    check_rule_param(param_name)\n    stash_rule_actions(param_name,\
+              \ rules)\n    set_rules_to_wait(event, rule_arns)\n    set_desired_count(0)\n\
+              \    disable_schedule_rule(schedule_rule_name)\n\n\nif __name__ == \"\
+              __main__\":\n    event = {\n        \"idle_minutes\": 15,\n        \"\
+              target_group_names\": [\"targetgroup/x-Ecs-Targe-4HFPSCSW1BQW/73aa4b45250d7b79\"\
+              ],\n        \"rule_param_name\": \"CFN-AutoStopRuleParam-0oF3xIT923dy\"\
+              ,\n        \"rule_arns\": [\n            \"arn:aws:elasticloadbalancing:us-east-1:803071473383:listener-rule/app/sig-ban-alb/5597061b6c745440/893db79165865ecb/2fe13434d34b1ab4\"\
               \n        ],\n        \"waiter_tg_arn\": \"arn:aws:elasticloadbalancing:us-east-1:803071473383:targetgroup/x-Ecs-AutoS-K6LUYPO403ON/a400f886418961ef\"\
               ,\n    }\n    lambda_handler(event, None)\n"
+        DeadLetterConfig:
+          TargetArn: arn:aws:sns:us-east-1:803071473383:SigBannerTestingAlerts
         Description: Polls TG metrics and auto-stops idle ECS service.
         Handler: index.lambda_handler
         MemorySize: 128

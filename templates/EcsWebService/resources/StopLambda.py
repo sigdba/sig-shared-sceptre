@@ -117,9 +117,7 @@ def set_desired_count(c):
     ECS.update_service(cluster=CLUSTER, service=SERVICE, desiredCount=c)
 
 
-def stash_rule_actions(event, rule_arns):
-    param_name = get_rule_param_name(event)
-
+def check_rule_param(param_name):
     # To avoid putting the system into a weird state by, for instance, stashing
     # the waiter action instead of the correct actions, we make sure that the
     # parameter contains its initial value. This value is put in the parameter
@@ -131,8 +129,14 @@ def stash_rule_actions(event, rule_arns):
             f"Parameter {param_name} does not have expected value of 'NONE'"
         )
 
+
+def get_rules(rule_arns):
+    print("Fetching rules")
+    return ELB.describe_rules(RuleArns=rule_arns)["Rules"]
+
+
+def stash_rule_actions(param_name, rules):
     print("Stashing rule actions")
-    rules = ELB.describe_rules(RuleArns=rule_arns)["Rules"]
     SSM.put_parameter(
         Name=param_name,
         Value=json.dumps(
@@ -156,8 +160,7 @@ def set_rules_to_wait(event, rule_arns):
         )
 
 
-def disable_schedule_rule():
-    rule_name = get_schedule_rule_name()
+def disable_schedule_rule(rule_name):
     print("Disabling stopper schedule rule:", rule_name)
     EB.disable_rule(Name=rule_name)
 
@@ -170,10 +173,15 @@ def lambda_handler(event, context):
 
     print("Service is inactive.")
     rule_arns = event["rule_arns"]
-    stash_rule_actions(event, rule_arns)
+    param_name = get_rule_param_name(event)
+    rules = get_rules(rule_arns)
+    schedule_rule_name = get_schedule_rule_name()
+
+    check_rule_param(param_name)
+    stash_rule_actions(param_name, rules)
     set_rules_to_wait(event, rule_arns)
     set_desired_count(0)
-    disable_schedule_rule()
+    disable_schedule_rule(schedule_rule_name)
 
 
 if __name__ == "__main__":

@@ -1,5 +1,5 @@
-import os
 import json
+import os
 from datetime import datetime, timedelta, timezone
 
 import boto3
@@ -59,11 +59,21 @@ def get_rule_param_name(event):
     return event["rule_param_name"]
 
 
+def describe_stack():
+    return CFN.describe_stacks(StackName=STACK_ID)["Stacks"][0]
+
+
 def get_schedule_rule_name():
-    outputs = CFN.describe_stacks(StackName=STACK_ID)["Stacks"][0]["Outputs"]
+    outputs = describe_stack()["Outputs"]
     return [
         o["OutputValue"] for o in outputs if o["OutputKey"] == "StopperScheduleRuleName"
     ][0]
+
+
+def is_stack_updating():
+    status = describe_stack()["StackStatus"]
+    print("Stack status:", status)
+    return not status.endswith("_COMPLETE")
 
 
 def metric_spec(tg_full_name):
@@ -167,6 +177,11 @@ def disable_schedule_rule(rule_name):
 
 def lambda_handler(event, context):
     print("event:", event)
+
+    if is_stack_updating():
+        print("Stack is not in a COMPLETE state. Will not shut down.")
+        return
+
     if is_active(event):
         print("Service is active. Will not shut down.")
         return

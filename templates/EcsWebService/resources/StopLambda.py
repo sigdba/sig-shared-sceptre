@@ -1,5 +1,5 @@
-import os
 import json
+import os
 from datetime import datetime, timedelta, timezone
 
 import boto3
@@ -59,11 +59,21 @@ def get_rule_param_name(event):
     return event["rule_param_name"]
 
 
+def describe_stack():
+    return CFN.describe_stacks(StackName=STACK_ID)["Stacks"][0]
+
+
 def get_schedule_rule_name():
-    outputs = CFN.describe_stacks(StackName=STACK_ID)["Stacks"][0]["Outputs"]
+    outputs = describe_stack()["Outputs"]
     return [
         o["OutputValue"] for o in outputs if o["OutputKey"] == "StopperScheduleRuleName"
     ][0]
+
+
+def is_stack_updating():
+    status = describe_stack()["StackStatus"]
+    print("Stack status:", status)
+    return not status.endswith("_COMPLETE")
 
 
 def metric_spec(tg_full_name):
@@ -117,9 +127,7 @@ def set_desired_count(c):
     ECS.update_service(cluster=CLUSTER, service=SERVICE, desiredCount=c)
 
 
-def stash_rule_actions(event, rule_arns):
-    param_name = get_rule_param_name(event)
-
+def check_rule_param(param_name):
     # To avoid putting the system into a weird state by, for instance, stashing
     # the waiter action instead of the correct actions, we make sure that the
     # parameter contains its initial value. This value is put in the parameter
@@ -131,8 +139,14 @@ def stash_rule_actions(event, rule_arns):
             f"Parameter {param_name} does not have expected value of 'NONE'"
         )
 
+
+def get_rules(rule_arns):
+    print("Fetching rules")
+    return ELB.describe_rules(RuleArns=rule_arns)["Rules"]
+
+
+def stash_rule_actions(param_name, rules):
     print("Stashing rule actions")
-    rules = ELB.describe_rules(RuleArns=rule_arns)["Rules"]
     SSM.put_parameter(
         Name=param_name,
         Value=json.dumps(
@@ -156,24 +170,33 @@ def set_rules_to_wait(event, rule_arns):
         )
 
 
-def disable_schedule_rule():
-    rule_name = get_schedule_rule_name()
+def disable_schedule_rule(rule_name):
     print("Disabling stopper schedule rule:", rule_name)
     EB.disable_rule(Name=rule_name)
 
 
 def lambda_handler(event, context):
     print("event:", event)
+
+    if is_stack_updating():
+        print("Stack is not in a COMPLETE state. Will not shut down.")
+        return
+
     if is_active(event):
         print("Service is active. Will not shut down.")
         return
 
     print("Service is inactive.")
     rule_arns = event["rule_arns"]
-    stash_rule_actions(event, rule_arns)
-    set_desired_count(0)
+    param_name = get_rule_param_name(event)
+    rules = get_rules(rule_arns)
+    schedule_rule_name = get_schedule_rule_name()
+
+    check_rule_param(param_name)
+    stash_rule_actions(param_name, rules)
     set_rules_to_wait(event, rule_arns)
-    disable_schedule_rule()
+    set_desired_count(0)
+    disable_schedule_rule(schedule_rule_name)
 
 
 if __name__ == "__main__":

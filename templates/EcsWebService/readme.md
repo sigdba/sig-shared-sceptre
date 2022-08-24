@@ -87,6 +87,8 @@ listener rules and a target group.
 
 **WARNING:** This feature is in alpha state and is subject to change without notice.
 
+- `alert_topic_arn` (string) - ARN of an SNS topic to which error alerts will be sent.
+
 - `enabled` (boolean) - When `True` the service will be stopped after a period of innactivity.
   - **Default:** `False`
 

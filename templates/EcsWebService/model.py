@@ -374,6 +374,9 @@ class AutoStopModel(BaseModel):
         False,
         description="When `True` the service will be stopped after a period of innactivity.",
     )
+    alert_topic_arn: Optional[str] = Field(
+        description="ARN of an SNS topic to which error alerts will be sent."
+    )
     idle_minutes = Field(
         240,
         description="Number of minutes without a request before the service is considered idle and can be stopped.",

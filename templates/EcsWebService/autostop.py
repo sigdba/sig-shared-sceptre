@@ -1,6 +1,12 @@
 import yaml
 from troposphere import GetAtt, Join, Ref, Sub, Tags
-from troposphere.awslambda import Code, Environment, Function, Permission
+from troposphere.awslambda import (
+    Code,
+    DeadLetterConfig,
+    Environment,
+    Function,
+    Permission,
+)
 from troposphere.elasticloadbalancingv2 import (
     ListenerRule,
     TargetDescription,
@@ -11,16 +17,19 @@ from troposphere.events import Target as EventTarget
 from troposphere.iam import PolicyType, Role
 from troposphere.logs import LogGroup
 from troposphere.ssm import Parameter
-from troposphere.stepfunctions import CloudWatchLogsLogGroup as SmLogGroup
-from troposphere.stepfunctions import LogDestination as SmLogDest
-from troposphere.stepfunctions import LoggingConfiguration as SmLoggingConf
-from troposphere.stepfunctions import StateMachine
+from troposphere.stepfunctions import (
+    CloudWatchLogsLogGroup as SmLogGroup,
+    LogDestination as SmLogDest,
+    LoggingConfiguration as SmLoggingConf,
+    StateMachine,
+)
 
 from util import (
     add_depends_on,
     add_output,
     add_resource,
     add_resource_once,
+    opts_with,
     read_resource,
 )
 
@@ -34,6 +43,30 @@ from util import (
 
 def add_rules_param():
     return add_resource(Parameter("AutoStopRuleParam", Type="String", Value="NONE"))
+
+
+def add_sns_publish_policy(topic_arn):
+    return add_resource_once(
+        "AutoStopSnsPublishPolicy",
+        lambda name: PolicyType(
+            name,
+            PolicyName="AutoStopSnsPublish",
+            Roles=[
+                Ref("StarterLambdaExecutionRole"),
+                Ref("StopperLambdaExecutionRole"),
+            ],
+            PolicyDocument={
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Action": ["sns:Publish"],
+                        "Resource": topic_arn,
+                    }
+                ],
+            },
+        ),
+    )
 
 
 #
@@ -331,6 +364,16 @@ def add_stopper_lambda(as_conf):
             MemorySize=128,
             Timeout=900,
             Code=Code(ZipFile=Sub(read_resource("StopLambda.py"))),
+            **opts_with(
+                DeadLetterConfig=(
+                    as_conf.alert_topic_arn,
+                    lambda arn: DeadLetterConfig(TargetArn=arn),
+                ),
+                DependsOn=(
+                    as_conf.alert_topic_arn,
+                    lambda _: ["AutoStopSnsPublishPolicy"],
+                ),
+            )
         ),
     )
 
@@ -394,6 +437,9 @@ def add_autostop(user_data, template):
         raise ValueError(
             "Auto-stop feature cannot be used on a service with no target groups."
         )
+
+    if user_data.auto_stop.alert_topic_arn:
+        add_sns_publish_policy(user_data.auto_stop.alert_topic_arn)
 
     starter_execution_role()
     starter_execution_policy(rule_names)

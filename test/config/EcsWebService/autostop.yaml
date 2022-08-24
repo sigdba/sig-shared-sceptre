@@ -11,6 +11,7 @@ sceptre_user_data:
     enabled: yes
     idle_minutes: 15
     idle_check_schedule: rate(2 minutes)
+    alert_topic_arn: arn:aws:sns:us-east-1:803071473383:SigBannerTestingAlerts
   containers:
     - name: httpd
       image: httpd

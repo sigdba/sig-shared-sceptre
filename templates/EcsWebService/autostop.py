@@ -8,15 +8,18 @@ from troposphere.awslambda import (
     Permission,
 )
 from troposphere.elasticloadbalancingv2 import (
+    Action,
+    Condition,
     ListenerRule,
     TargetDescription,
     TargetGroup,
+    QueryStringConfig,
+    QueryStringKeyValue,
 )
 from troposphere.events import Rule as EventRule
 from troposphere.events import Target as EventTarget
 from troposphere.iam import PolicyType, Role
 from troposphere.logs import LogGroup
-from troposphere.ssm import Parameter
 from troposphere.stepfunctions import (
     CloudWatchLogsLogGroup as SmLogGroup,
     LogDestination as SmLogDest,
@@ -32,17 +35,6 @@ from util import (
     opts_with,
     read_resource,
 )
-
-#
-# The "rules parameter" is an SSM parameter used to store the original actions
-# for the listener rule. When the service is stopped, the rule's actions are
-# "stashed" in this parameter. When the service is restarted, the actions are
-# "restored" to the listener rule.
-#
-
-
-def add_rules_param():
-    return add_resource(Parameter("AutoStopRuleParam", Type="String", Value="NONE"))
 
 
 def add_sns_publish_policy(topic_arn):
@@ -140,15 +132,9 @@ def starter_execution_policy(rule_names):
                     },
                     {
                         "Effect": "Allow",
-                        "Action": ["ssm:GetParameter", "ssm:PutParameter"],
-                        "Resource": Sub(
-                            "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${AutoStopRuleParam}"
-                        ),
-                    },
-                    {
-                        "Effect": "Allow",
                         "Action": ["elasticloadbalancing:ModifyRule"],
-                        "Resource": [GetAtt(n, "RuleArn") for n in rule_names],
+                        "Resource": [GetAtt(n, "RuleArn") for n in rule_names]
+                        + [GetAtt(n + "WAIT", "RuleArn") for n in rule_names],
                     },
                     {
                         "Effect": "Allow",
@@ -172,12 +158,17 @@ def add_starter_log_group():
     )
 
 
-def add_starter_state_machine():
+def add_starter_state_machine(rules):
+    d = yaml.safe_load(read_resource("StartStateMachine.yaml"))
+    d["States"]["RuleData"]["Result"]["rules"] = [
+        {"arn": Ref(r), "conditions": r.to_dict()["Properties"]["Conditions"]}
+        for r in rules
+    ]
     return add_resource_once(
         "StarterStateMachine",
         lambda name: StateMachine(
             name,
-            Definition=yaml.safe_load(read_resource("StartStateMachine.yaml")),
+            Definition=d,
             RoleArn=GetAtt("StarterLambdaExecutionRole", "Arn"),
             LoggingConfiguration=SmLoggingConf(
                 Level="ALL",
@@ -256,13 +247,6 @@ def waiter_execution_policy(role):
                         "Action": ["states:ListExecutions", "states:StartExecution"],
                         "Resource": Ref("StarterStateMachine"),
                     },
-                    {
-                        "Effect": "Allow",
-                        "Action": ["ssm:GetParameter"],
-                        "Resource": Sub(
-                            "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${AutoStopRuleParam}"
-                        ),
-                    },
                 ],
             },
         ),
@@ -270,7 +254,6 @@ def waiter_execution_policy(role):
 
 
 def add_waiter_lambda(as_conf, exec_role):
-    rules_param = add_rules_param()
     return add_resource_once(
         "WaiterLambdaFn",
         lambda name: Function(
@@ -285,7 +268,8 @@ def add_waiter_lambda(as_conf, exec_role):
             Code=Code(ZipFile=Sub(read_resource("WaiterLambda.py"))),
             Environment=Environment(
                 Variables={
-                    "RULE_PARAM_NAME": Ref(rules_param),
+                    "CLUSTER_ARN": Ref("ClusterArn"),
+                    "SERVICE_ARN": Ref("Service"),
                     "REFRESH_SECONDS": as_conf.waiter_refresh_seconds,
                     "USER_CSS": as_conf.waiter_css,
                     "PAGE_TITLE": as_conf.waiter_page_title or Ref("AWS::StackName"),
@@ -403,17 +387,47 @@ def add_stopper_scheduling_rule(as_conf, tg_names, rule_names):
                         """{
                             "idle_minutes": ${idle_minutes},
                             "target_group_names": ["${tg_names}"],
-                            "rule_param_name": "${param_name}",
                             "rule_arns": ["${rule_arns}"],
-                            "waiter_tg_arn": "${waiter_tg_arn}"
+                            "waiter_tg_arn": "${waiter_tg_arn}",
+                            "rule_skipper_key": "${rule_skipper_key}"
                         }""",
                         idle_minutes=as_conf.idle_minutes,
                         tg_names=Join(
                             '","', [GetAtt(n, "TargetGroupFullName") for n in tg_names]
                         ),
-                        param_name=Ref("AutoStopRuleParam"),
                         rule_arns=Join('","', [Ref(n) for n in rule_names]),
                         waiter_tg_arn=Ref("AutoStopWaiterTg"),
+                        rule_skipper_key=as_conf.waiter_rule.query_string_key,
+                    ),
+                )
+            ],
+        )
+    )
+
+
+def add_waiter_rule(as_conf, rule):
+    return add_resource(
+        ListenerRule(
+            rule.title + "WAIT",
+            ListenerArn=Ref("ListenerArn"),
+            Priority=rule.Priority - as_conf.waiter_rule.priority_offset,
+            Actions=[
+                Action(
+                    Type="forward",
+                    TargetGroupArn=Ref("AutoStopWaiterTg"),
+                )
+            ],
+            Conditions=rule.Conditions
+            + [
+                Condition(
+                    Field="query-string",
+                    QueryStringConfig=QueryStringConfig(
+                        Values=[
+                            QueryStringKeyValue(
+                                Key=as_conf.waiter_rule.query_string_key,
+                                Value=as_conf.waiter_rule.query_string_value,
+                            )
+                        ]
                     ),
                 )
             ],
@@ -423,10 +437,10 @@ def add_stopper_scheduling_rule(as_conf, tg_names, rule_names):
 
 def add_autostop(user_data, template):
     # TODO: Can the whole autostart process be represented as a step function?
-    #       The advantages are that the state would always be unambiguous and we
-    #       might not need to "stash" the action list in a parameter.
+    #       The advantages are that the state would always be unambiguous.
 
-    rule_names = [n for n, o in template.resources.items() if type(o) is ListenerRule]
+    rules = [o for _, o in template.resources.items() if type(o) is ListenerRule]
+    rule_names = [r.title for r in rules]
     if len(rule_names) < 1:
         raise ValueError(
             "Auto-stop feature cannot be used on a service with no load-balancer rules."
@@ -441,24 +455,26 @@ def add_autostop(user_data, template):
     if user_data.auto_stop.alert_topic_arn:
         add_sns_publish_policy(user_data.auto_stop.alert_topic_arn)
 
-    starter_execution_role()
-    starter_execution_policy(rule_names)
-    starter = add_starter_state_machine()
-    add_output("StarterStateMachineArn", Ref(starter))
-
     waiter_exec_role = waiter_execution_role()
     waiter_execution_policy(waiter_exec_role)
     waiter_tg = add_waiter_tg(user_data.auto_stop, waiter_exec_role)
+    waiter_rules = [add_waiter_rule(user_data.auto_stop, rule) for rule in rules]
+    waiter_rule_names = [r.title for r in waiter_rules]
+
+    starter_execution_role()
+    starter_execution_policy(rule_names)
+    starter = add_starter_state_machine(waiter_rules)
+    add_output("StarterStateMachineArn", Ref(starter))
 
     add_stopper_execution_role()
     stopper_fn = add_stopper_lambda(user_data.auto_stop)
     add_stopper_invoke_permission(stopper_fn)
 
     schedule_rule = add_stopper_scheduling_rule(
-        user_data.auto_stop, tg_names, rule_names
+        user_data.auto_stop, tg_names, waiter_rule_names
     )
     add_output("StopperScheduleRuleName", Ref(schedule_rule))
 
-    for n, o in template.resources.items():
-        if type(o) is ListenerRule:
-            add_depends_on(o, waiter_tg.title)
+    # for n, o in template.resources.items():
+    #     if type(o) is ListenerRule:
+    #         add_depends_on(o, waiter_tg.title)

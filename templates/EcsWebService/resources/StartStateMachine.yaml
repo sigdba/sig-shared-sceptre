@@ -34,7 +34,7 @@ States:
 
   LoopOverTargetGroups:
     Type: Map
-    Next: GetParameter
+    Next: RuleData
     ItemsPath: "$.Services[0].LoadBalancers"
     Iterator:
       StartAt: GetTgHealth
@@ -44,13 +44,15 @@ States:
           Parameters:
             TargetGroupArn.$: "$.TargetGroupArn"
           Resource: arn:aws:states:::aws-sdk:elasticloadbalancingv2:describeTargetHealth
-          Next: TargetRegistered?
+          Next: TargetHasHealthy?
           ResultPath: "$.Result"
+          ResultSelector:
+            "healthy.$": "$.TargetHealthDescriptions[?(@.TargetHealth.State=='healthy')]"
 
-        TargetRegistered?:
+        TargetHasHealthy?:
           Type: Choice
           Choices:
-          - Variable: "$.Result.TargetHealthDescriptions[0]"
+          - Variable: '$.Result.healthy[0]'
             IsPresent: true
             Comment: TargetPresent
             Next: DoneWaitingForTarget
@@ -74,38 +76,25 @@ States:
     Resource: arn:aws:states:::aws-sdk:ecs:updateService
     Next: DescribeService
 
-  GetParameter:
-    Type: Task
-    Next: RestoreActions
-    Parameters:
-      Name: { Ref: AutoStopRuleParam }
-    Resource: arn:aws:states:::aws-sdk:ssm:getParameter
-    ResultSelector:
-      Value.$: States.StringToJson($.Parameter.Value)
+  RuleData:
+    Type: Pass
+    Next: RestoreConditions
+    Result: {}
 
-  RestoreActions:
-    Type: Map
-    Next: PutParameter
-    ItemsPath: "$.Value"
+  RestoreConditions:
+    ItemsPath: "$.rules"
     Iterator:
       StartAt: ModifyRule
       States:
         ModifyRule:
-          Type: Task
-          Parameters:
-            RuleArn.$: "$.RuleArn"
-            Actions.$: "$.Actions"
-          Resource: arn:aws:states:::aws-sdk:elasticloadbalancingv2:modifyRule
           End: true
-
-  PutParameter:
-    Type: Task
+          Parameters:
+            Conditions.$: "$.conditions"
+            RuleArn.$: "$.arn"
+          Resource: arn:aws:states:::aws-sdk:elasticloadbalancingv2:modifyRule
+          Type: Task
     Next: WaitBeforeEnablingRule
-    Parameters:
-      Name: { Ref: AutoStopRuleParam }
-      Value: NONE
-      Overwrite: true
-    Resource: arn:aws:states:::aws-sdk:ssm:putParameter
+    Type: Map
 
   WaitBeforeEnablingRule:
     Type: Wait

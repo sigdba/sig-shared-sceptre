@@ -1,5 +1,4 @@
 import os
-import json
 import urllib
 from functools import lru_cache
 from enum import Enum
@@ -22,10 +21,6 @@ def env(k, default=None):
     raise ValueError(f"Required environment variable {k} not set")
 
 
-def env_list(k):
-    return [v.strip() for v in env(k).split(",")]
-
-
 # Check if we're in a test environment, and if so set the region from the
 # environment or use a default.
 if "AWS::Region" in REGION:
@@ -41,7 +36,6 @@ else:
 
 ECS = boto3.client("ecs", region_name=REGION)
 ELB = boto3.client("elbv2", region_name=REGION)
-SSM = boto3.client("ssm", region_name=REGION)
 CFN = boto3.client("cloudformation", region_name=REGION)
 SFN = boto3.client("stepfunctions", region_name=REGION)
 
@@ -65,8 +59,12 @@ def get_starter_arn():
     ][0]
 
 
-def get_rule_param_name():
-    return env("RULE_PARAM_NAME")
+def get_cluster_arn():
+    return env("CLUSTER_ARN")
+
+
+def get_service_arn():
+    return env("SERVICE_ARN")
 
 
 def get_refresh_seconds():
@@ -93,23 +91,6 @@ def get_explanation():
     )
 
 
-def get_rules():
-    v = SSM.get_parameter(Name=get_rule_param_name())["Parameter"]["Value"]
-    if v == "NONE":
-        return None
-    return json.loads(v)
-
-
-def get_tg_arn(rule):
-    for action in rule["Actions"]:
-        if action["Type"] == "forward":
-            tg_arn = action.get("TargetGroupArn")
-            if tg_arn:
-                return tg_arn
-            return action["ForwardConfig"]["TargetGroups"][0]["TargetGroupArn"]
-    raise ValueError(f"Target group not found for {rule}")
-
-
 def starter_is_running():
     return (
         len(
@@ -121,17 +102,37 @@ def starter_is_running():
     )
 
 
-def all_tgs_have_targets():
-    rules = get_rules()
-    if rules is None:
-        # The rules parameter has been reset, indicating the startup process has
-        # finished.
-        return True
-    for rule in rules:
-        healths = ELB.describe_target_health(TargetGroupArn=get_tg_arn(rule))[
-            "TargetHealthDescriptions"
+def get_tg_arns():
+    return {
+        lb["targetGroupArn"]
+        for lb in ECS.describe_services(
+            cluster=get_cluster_arn(), services=[get_service_arn()]
+        )["services"][0]["loadBalancers"]
+    }
+
+
+def get_tg_healths():
+    return [
+        [
+            h["TargetHealth"]["State"]
+            for h in ELB.describe_target_health(TargetGroupArn=tg_arn)[
+                "TargetHealthDescriptions"
+            ]
         ]
-        if len(healths) < 1:
+        for tg_arn in get_tg_arns()
+    ]
+
+
+def all_tgs_have_targets(tg_healths):
+    for statuses in tg_healths:
+        if len(statuses) < 1:
+            return False
+    return True
+
+
+def all_tgs_have_healthy(tg_healths):
+    for statuses in tg_healths:
+        if "healthy" not in statuses:
             return False
     return True
 
@@ -141,8 +142,11 @@ def start_service():
 
 
 def get_service_status():
-    if all_tgs_have_targets():
+    tg_healths = get_tg_healths()
+    if all_tgs_have_healthy(tg_healths):
         return Status.READY
+    if all_tgs_have_targets(tg_healths):
+        return Status.LB_INITIAL
     if starter_is_running():
         return Status.STARTING
 
@@ -159,6 +163,8 @@ def get_url(event):
 
 def refresher_body(event, status):
     progress_pct = 100 / (len(Status.__members__) + 1) * (status.order + 1)
+    # refresher_seconds = 1 if status == Status.READY else get_refresh_seconds()
+    refresh_seconds = get_refresh_seconds()
     return f"""
     <html>
     <head>
@@ -208,7 +214,7 @@ def refresher_body(event, status):
         <style>
         {get_user_css()}
         </style>
-        <meta http-equiv="refresh" content="{get_refresh_seconds()}; url={get_url(event)}">
+        <meta http-equiv="refresh" content="{refresh_seconds}; url={get_url(event)}">
     </head>
     <body>
         <div class="external">

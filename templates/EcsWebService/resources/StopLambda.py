@@ -1,4 +1,3 @@
-import json
 import os
 from datetime import datetime, timedelta, timezone
 
@@ -38,7 +37,6 @@ else:
 ECS = boto3.client("ecs", region_name=REGION)
 CW = boto3.client("cloudwatch", region_name=REGION)
 ELB = boto3.client("elbv2", region_name=REGION)
-SSM = boto3.client("ssm", region_name=REGION)
 CFN = boto3.client("cloudformation", region_name=REGION)
 EB = boto3.client("events", region_name=REGION)
 
@@ -55,8 +53,8 @@ def get_waiter_tg_arn(event):
     return event["waiter_tg_arn"]
 
 
-def get_rule_param_name(event):
-    return event["rule_param_name"]
+def get_rule_skipper_key(event):
+    return event["rule_skipper_key"]
 
 
 def describe_stack():
@@ -127,16 +125,17 @@ def set_desired_count(c):
     ECS.update_service(cluster=CLUSTER, service=SERVICE, desiredCount=c)
 
 
-def check_rule_param(param_name):
-    # To avoid putting the system into a weird state by, for instance, stashing
-    # the waiter action instead of the correct actions, we make sure that the
-    # parameter contains its initial value. This value is put in the parameter
-    # at stack creation and after successful restart. If it's not there then
-    # something weird's happening so we'll abort.
-    print("Checking parameter value")
-    if SSM.get_parameter(Name=param_name)["Parameter"]["Value"] != "NONE":
-        raise ValueError(
-            f"Parameter {param_name} does not have expected value of 'NONE'"
+def get_task_ids():
+    return ECS.list_tasks(cluster=CLUSTER, serviceName=SERVICE)["taskArns"]
+
+
+def stop_tasks():
+    for task_id in get_task_ids():
+        print("Stopping task:", task_id)
+        ECS.stop_task(
+            cluster=CLUSTER,
+            task=task_id,
+            reason="Service automatically stopped due to idleness",
         )
 
 
@@ -145,28 +144,34 @@ def get_rules(rule_arns):
     return ELB.describe_rules(RuleArns=rule_arns)["Rules"]
 
 
-def stash_rule_actions(param_name, rules):
-    print("Stashing rule actions")
-    SSM.put_parameter(
-        Name=param_name,
-        Value=json.dumps(
-            [{"RuleArn": r["RuleArn"], "Actions": r["Actions"]} for r in rules]
-        ),
-        Overwrite=True,
-    )
+def is_normal_condition(skipper_key, c):
+    """Returns True if the condition is NOT the skipping condition"""
+    q = c.get("QueryStringConfig")
+    if not q:
+        return True
+    return q["Values"][0]["Key"] != skipper_key
 
 
-def set_rules_to_wait(event, rule_arns):
-    for rule_arn in rule_arns:
-        print(f"Switching target for {rule_arn}")
+def normalize_condition(c):
+    """The DescribeRules API call returns conditions with both the Values and _Config which is invalid for modify_rule."""
+    config_keys = [k for k in c if k.endswith("Config")]
+    if len(config_keys) > 0 and "Values" in c:
+        del c["Values"]
+    return c
+
+
+def enable_rules(skipper_key, rule_arns):
+    for rule in get_rules(rule_arns):
+        rule_arn = rule["RuleArn"]
+        conditions = [
+            normalize_condition(c)
+            for c in rule["Conditions"]
+            if is_normal_condition(skipper_key, c)
+        ]
+        print(f"Un-skipping {rule_arn}: {conditions}")
         ELB.modify_rule(
             RuleArn=rule_arn,
-            Actions=[
-                {
-                    "Type": "forward",
-                    "TargetGroupArn": get_waiter_tg_arn(event),
-                }
-            ],
+            Conditions=conditions,
         )
 
 
@@ -188,14 +193,12 @@ def lambda_handler(event, context):
 
     print("Service is inactive.")
     rule_arns = event["rule_arns"]
-    param_name = get_rule_param_name(event)
-    rules = get_rules(rule_arns)
     schedule_rule_name = get_schedule_rule_name()
+    skipper_key = get_rule_skipper_key(event)
 
-    check_rule_param(param_name)
-    stash_rule_actions(param_name, rules)
-    set_rules_to_wait(event, rule_arns)
+    enable_rules(skipper_key, rule_arns)
     set_desired_count(0)
+    stop_tasks()
     disable_schedule_rule(schedule_rule_name)
 
 

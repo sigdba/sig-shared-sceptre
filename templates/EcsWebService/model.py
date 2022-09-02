@@ -367,6 +367,20 @@ class ContainerModel(BaseModel):
         return v
 
 
+class AutoStopWaiterRuleModel(BaseModel):
+    priority_offset = Field(
+        1,
+        description="This value is subtracted from the primary rule priority to set the waiter rule's priority.",
+    )
+    query_string_key = Field(
+        "_ECS_AUTO_STOP",
+        description="This key is used to prevent the waiter rule from being matched.",
+    )
+    query_string_value = Field(
+        "y", description="This is the value matched by the `query_string_key`."
+    )
+
+
 class AutoStopModel(BaseModel):
     """**WARNING:** This feature is in alpha state and is subject to change without notice."""
 
@@ -405,6 +419,9 @@ class AutoStopModel(BaseModel):
         """This service has been shut down due to inactivity. It is now being
            restarted and will be available again shortly.""",
         description="The explanatory text that appears on the 'please wait' page.",
+    )
+    waiter_rule = Field(
+        AutoStopWaiterRuleModel(), description="Configuration for the waiter's rule."
     )
 
 

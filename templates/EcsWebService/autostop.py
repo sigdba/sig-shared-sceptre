@@ -11,24 +11,21 @@ from troposphere.elasticloadbalancingv2 import (
     Action,
     Condition,
     ListenerRule,
-    TargetDescription,
-    TargetGroup,
     QueryStringConfig,
     QueryStringKeyValue,
+    TargetDescription,
+    TargetGroup,
 )
 from troposphere.events import Rule as EventRule
 from troposphere.events import Target as EventTarget
 from troposphere.iam import PolicyType, Role
 from troposphere.logs import LogGroup
-from troposphere.stepfunctions import (
-    CloudWatchLogsLogGroup as SmLogGroup,
-    LogDestination as SmLogDest,
-    LoggingConfiguration as SmLoggingConf,
-    StateMachine,
-)
+from troposphere.stepfunctions import CloudWatchLogsLogGroup as SmLogGroup
+from troposphere.stepfunctions import LogDestination as SmLogDest
+from troposphere.stepfunctions import LoggingConfiguration as SmLoggingConf
+from troposphere.stepfunctions import StateMachine
 
 from util import (
-    add_depends_on,
     add_output,
     add_resource,
     add_resource_once,
@@ -119,6 +116,8 @@ def starter_execution_policy(rule_names):
                             "logs:DescribeResourcePolicies",
                             "logs:DescribeLogGroups",
                             "ecs:DescribeServices",
+                            "ecs:ListTasks",
+                            "ecs:StopTask",
                             "elasticloadbalancing:DescribeRules",
                             "elasticloadbalancing:DescribeTargetHealth",
                             "cloudwatch:GetMetricStatistics",

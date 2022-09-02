@@ -116,6 +116,22 @@ listener rules and a target group.
 - `waiter_refresh_seconds` (integer) - Number of seconds between refreshes of the 'please wait' page.
   - **Default:** `10`
 
+- `waiter_rule` ([AutoStopWaiterRuleModel](#AutoStopWaiterRuleModel)) - Configuration for the waiter's rule.
+  - **Default:** `{'priority_offset': 1, 'query_string_key': '_ECS_AUTO_STOP', 'query_string_value': 'y'}`
+
+
+
+#### AutoStopWaiterRuleModel
+
+- `priority_offset` (integer) - This value is subtracted from the primary rule priority to set the waiter rule's priority.
+  - **Default:** `1`
+
+- `query_string_key` (string) - This key is used to prevent the waiter rule from being matched.
+  - **Default:** `_ECS_AUTO_STOP`
+
+- `query_string_value` (string) - This is the value matched by the `query_string_key`.
+  - **Default:** `y`
+
 
 
 ### ScheduleModel

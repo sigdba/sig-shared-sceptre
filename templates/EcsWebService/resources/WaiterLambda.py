@@ -142,16 +142,17 @@ def start_service():
 
 
 def get_service_status():
+    if not starter_is_running():
+        start_service()
+        return Status.INITIAL
+
     tg_healths = get_tg_healths()
-    if all_tgs_have_healthy(tg_healths):
-        return Status.READY
+    # if all_tgs_have_healthy(tg_healths):
+    #     return Status.READY
     if all_tgs_have_targets(tg_healths):
         return Status.LB_INITIAL
-    if starter_is_running():
-        return Status.STARTING
 
-    start_service()
-    return Status.INITIAL
+    return Status.READY
 
 
 def get_url(event):

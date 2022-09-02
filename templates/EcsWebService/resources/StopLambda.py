@@ -125,6 +125,20 @@ def set_desired_count(c):
     ECS.update_service(cluster=CLUSTER, service=SERVICE, desiredCount=c)
 
 
+def get_task_ids():
+    return ECS.list_tasks(cluster=CLUSTER, serviceName=SERVICE)["taskArns"]
+
+
+def stop_tasks():
+    for task_id in get_task_ids():
+        print("Stopping task:", task_id)
+        ECS.stop_task(
+            cluster=CLUSTER,
+            task=task_id,
+            reason="Service automatically stopped due to idleness",
+        )
+
+
 def get_rules(rule_arns):
     print("Fetching rules")
     return ELB.describe_rules(RuleArns=rule_arns)["Rules"]
@@ -184,6 +198,7 @@ def lambda_handler(event, context):
 
     enable_rules(skipper_key, rule_arns)
     set_desired_count(0)
+    stop_tasks()
     disable_schedule_rule(schedule_rule_name)
 
 

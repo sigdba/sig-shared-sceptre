@@ -95,4 +95,10 @@ script
   service awslogs start
   chkconfig awslogs on
 end script
+
 --==BOUNDARY==--
+Content-Type: text/x-shellscript; charset="us-ascii"
+#!/bin/bash -xe
+
+${ExtraUserData}
+--==BOUNDARY==

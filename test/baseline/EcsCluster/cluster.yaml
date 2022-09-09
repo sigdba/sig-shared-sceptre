@@ -119,7 +119,7 @@
           Fn::GetAtt:
           - LambdaFunctionForCpsReset
           - Arn
-        StrategyHash: 31b5af1b389401ba3e4e04c1dba8fb9f
+        StrategyHash: 69eab82d06ba9503dda43341b8b4fd15
       Type: Custom::CpsReset
     EcsCluster:
       Properties:
@@ -317,32 +317,34 @@
         - sg-67890
         UserData:
           Fn::Base64:
-            Fn::Sub: "Content-Type: multipart/mixed; boundary=\"==BOUNDARY==\"\nMIME-Version:\
+            Fn::Sub:
+            - "Content-Type: multipart/mixed; boundary=\"==BOUNDARY==\"\nMIME-Version:\
               \ 1.0\n\n--==BOUNDARY==\nContent-Type: text/x-shellscript; charset=\"\
               us-ascii\"\n#!/bin/bash -xe\n# Install awslogs and the jq JSON parser\n\
               yum update -y\nyum install -y awslogs jq wget nfs-utils aws-cfn-bootstrap\
-              \ aws-cli\npip3 install botocore --upgrade\n\nhostname ecs-node-${EnvName}\n\
-              \ncat > /etc/ecs/ecs.config <<EOF\nECS_CLUSTER=${EnvName}\nECS_AVAILABLE_LOGGING_DRIVERS=[\"\
-              json-file\",\"awslogs\"]\nEOF\n\n# Inject the CloudWatch Logs configuration\
-              \ file contents\ncat > /etc/awslogs/awslogs.conf <<- EOF\n[general]\n\
-              state_file = /var/lib/awslogs/agent-state\n\n[/var/log/dmesg]\nfile\
-              \ = /var/log/dmesg\nlog_group_name = /var/log/dmesg\nlog_stream_name\
-              \ = {cluster}/{container_instance_id}\n\n[/var/log/messages]\nfile =\
-              \ /var/log/messages\nlog_group_name = /var/log/messages\nlog_stream_name\
-              \ = {cluster}/{container_instance_id}\ndatetime_format = %b %d %H:%M:%S\n\
-              \n[/var/log/docker]\nfile = /var/log/docker\nlog_group_name = /var/log/docker\n\
+              \ aws-cli ntp\npip3 install botocore --upgrade\n\nsystemctl enable --now\
+              \ ntpd\n\nhostname ecs-node-${EnvName}\n\ncat > /etc/ecs/ecs.config\
+              \ <<EOF\nECS_CLUSTER=${EnvName}\nECS_AVAILABLE_LOGGING_DRIVERS=[\"json-file\"\
+              ,\"awslogs\"]\nEOF\n\n# Inject the CloudWatch Logs configuration file\
+              \ contents\ncat > /etc/awslogs/awslogs.conf <<- EOF\n[general]\nstate_file\
+              \ = /var/lib/awslogs/agent-state\n\n[/var/log/dmesg]\nfile = /var/log/dmesg\n\
+              log_group_name = /var/log/dmesg\nlog_stream_name = {cluster}/{container_instance_id}\n\
+              \n[/var/log/messages]\nfile = /var/log/messages\nlog_group_name = /var/log/messages\n\
               log_stream_name = {cluster}/{container_instance_id}\ndatetime_format\
-              \ = %Y-%m-%dT%H:%M:%S.%f\n\n[/var/log/ecs/ecs-init.log]\nfile = /var/log/ecs/ecs-init.log\n\
-              log_group_name = /var/log/ecs/ecs-init.log\nlog_stream_name = {cluster}/{container_instance_id}\n\
-              datetime_format = %Y-%m-%dT%H:%M:%SZ\n\n[/var/log/ecs/ecs-agent.log]\n\
-              file = /var/log/ecs/ecs-agent.log.*\nlog_group_name = /var/log/ecs/ecs-agent.log\n\
+              \ = %b %d %H:%M:%S\n\n[/var/log/docker]\nfile = /var/log/docker\nlog_group_name\
+              \ = /var/log/docker\nlog_stream_name = {cluster}/{container_instance_id}\n\
+              datetime_format = %Y-%m-%dT%H:%M:%S.%f\n\n[/var/log/ecs/ecs-init.log]\n\
+              file = /var/log/ecs/ecs-init.log\nlog_group_name = /var/log/ecs/ecs-init.log\n\
               log_stream_name = {cluster}/{container_instance_id}\ndatetime_format\
-              \ = %Y-%m-%dT%H:%M:%SZ\n\n[/var/log/ecs/audit.log]\nfile = /var/log/ecs/audit.log.*\n\
-              log_group_name = /var/log/ecs/audit.log\nlog_stream_name = {cluster}/{container_instance_id}\n\
-              datetime_format = %Y-%m-%dT%H:%M:%SZ\n\nEOF\n\n--==BOUNDARY==\nContent-Type:\
-              \ text/x-shellscript; charset=\"us-ascii\"\n#!/bin/bash\n# Set the region\
-              \ to send CloudWatch Logs data to (the region where the container instance\
-              \ is located)\nregion=$(curl -s 169.254.169.254/latest/dynamic/instance-identity/document\
+              \ = %Y-%m-%dT%H:%M:%SZ\n\n[/var/log/ecs/ecs-agent.log]\nfile = /var/log/ecs/ecs-agent.log.*\n\
+              log_group_name = /var/log/ecs/ecs-agent.log\nlog_stream_name = {cluster}/{container_instance_id}\n\
+              datetime_format = %Y-%m-%dT%H:%M:%SZ\n\n[/var/log/ecs/audit.log]\nfile\
+              \ = /var/log/ecs/audit.log.*\nlog_group_name = /var/log/ecs/audit.log\n\
+              log_stream_name = {cluster}/{container_instance_id}\ndatetime_format\
+              \ = %Y-%m-%dT%H:%M:%SZ\n\nEOF\n\n--==BOUNDARY==\nContent-Type: text/x-shellscript;\
+              \ charset=\"us-ascii\"\n#!/bin/bash\n# Set the region to send CloudWatch\
+              \ Logs data to (the region where the container instance is located)\n\
+              region=$(curl -s 169.254.169.254/latest/dynamic/instance-identity/document\
               \ | jq -r .region)\nsed -i -e \"s/region = us-east-1/region = $region/g\"\
               \ /etc/awslogs/awscli.conf\n\n--==BOUNDARY==\nContent-Type: text/upstart-job;\
               \ charset=\"us-ascii\"\n\n#upstart-job\ndescription \"Configure and\
@@ -357,7 +359,9 @@
               \ with the actual values\n  sed -i -e \"s/{cluster}/$cluster/g\" /etc/awslogs/awslogs.conf\n\
               \  sed -i -e \"s/{container_instance_id}/$container_instance_id/g\"\
               \ /etc/awslogs/awslogs.conf\n\n  service awslogs start\n  chkconfig\
-              \ awslogs on\nend script\n--==BOUNDARY==--\n"
+              \ awslogs on\nend script\n\n--==BOUNDARY==--\nContent-Type: text/x-shellscript;\
+              \ charset=\"us-ascii\"\n#!/bin/bash -xe\n\n${ExtraUserData}\n--==BOUNDARY==\n"
+            - ExtraUserData: ''
       Type: AWS::AutoScaling::LaunchConfiguration
     NodeInstanceProfile:
       Properties:

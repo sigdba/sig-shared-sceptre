@@ -49,6 +49,15 @@ class ScalingGroupModel(BaseModel):
     tags: Dict[str, str] = Field(
         {}, description="Tags to apply to this ASG's EC2 instances."
     )
+    extra_node_user_data = Field(
+        "",
+        description="""String to be appended to the user data of the scaling
+                       group's nodes. This can be used to install additional
+                       packages, modify the hosts file, etc.""",
+        notes=[
+            "**Warning:** Changing this value will trigger the replacement of all nodes in this group."
+        ],
+    )
 
 
 class UserDataModel(BaseModel):

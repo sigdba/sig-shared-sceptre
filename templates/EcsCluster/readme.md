@@ -64,6 +64,12 @@ Creates an EC2-backed cluster in ECS with optional auto-scaling.
 - `desired_size` (integer) - **required** - The desired number of container instances in this scaling group.
   - If `auto_scaling_enabled` is true, then ECS may modify the desired size of the scaling group to match demand.
 
+- `extra_node_user_data` (string) - String to be appended to the user data of the scaling
+                       group's nodes. This can be used to install additional
+                       packages, modify the hosts file, etc.
+  - **Default:** ``
+  - **Warning:** Changing this value will trigger the replacement of all nodes in this group.
+
 - `in_default_cps` (boolean) - When true, this scaling group will participate in the
                        default capacity provider strategy for the cluster. This
                        option has no effect if `auto_scaling_enabled` is false.

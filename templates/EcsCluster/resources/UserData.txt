@@ -6,8 +6,10 @@ Content-Type: text/x-shellscript; charset="us-ascii"
 #!/bin/bash -xe
 # Install awslogs and the jq JSON parser
 yum update -y
-yum install -y awslogs jq wget nfs-utils aws-cfn-bootstrap aws-cli
+yum install -y awslogs jq wget nfs-utils aws-cfn-bootstrap aws-cli ntp
 pip3 install botocore --upgrade
+
+systemctl enable --now ntpd
 
 hostname ecs-node-${EnvName}
 
@@ -93,4 +95,10 @@ script
   service awslogs start
   chkconfig awslogs on
 end script
+
 --==BOUNDARY==--
+Content-Type: text/x-shellscript; charset="us-ascii"
+#!/bin/bash -xe
+
+${ExtraUserData}
+--==BOUNDARY==

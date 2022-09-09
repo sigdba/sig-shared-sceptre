@@ -193,7 +193,7 @@ def auto_scaling_group(
     )
 
 
-def launch_config(name, sgs, inst_type, inst_prof, keyName):
+def launch_config(name, sgs, inst_type, inst_prof, keyName, extra_node_user_data):
     return add_resource(
         LaunchConfiguration(
             "LaunchConf" + name,
@@ -202,7 +202,9 @@ def launch_config(name, sgs, inst_type, inst_prof, keyName):
             InstanceType=inst_type,
             IamInstanceProfile=Ref(inst_prof),
             KeyName=keyName,
-            UserData=Base64(Sub(read_resource("UserData.txt"))),
+            UserData=Base64(
+                Sub(read_resource("UserData.txt"), ExtraUserData=extra_node_user_data)
+            ),
         )
     )
 
@@ -435,6 +437,7 @@ def scaling_group_with_resources(
         sg_model.node_type,
         node_profile,
         sg_model.key_name,
+        sg_model.extra_node_user_data,
     )
     asg = auto_scaling_group(
         sg_model.name,

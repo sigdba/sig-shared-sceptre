@@ -374,8 +374,7 @@
               \ with the actual values\n  sed -i -e \"s/{cluster}/$cluster/g\" /etc/awslogs/awslogs.conf\n\
               \  sed -i -e \"s/{container_instance_id}/$container_instance_id/g\"\
               \ /etc/awslogs/awslogs.conf\n\n  service awslogs start\n  chkconfig\
-              \ awslogs on\nend script\n\n--==BOUNDARY==--\nContent-Type: text/x-shellscript;\
-              \ charset=\"us-ascii\"\n#!/bin/bash -xe\n\n${ExtraUserData}\n--==BOUNDARY==\n"
+              \ awslogs on\nend script\n\n\n--==BOUNDARY==\n${ExtraUserData}\n"
             - ExtraUserData: ''
       Type: AWS::AutoScaling::LaunchConfiguration
     NodeInstanceProfile:

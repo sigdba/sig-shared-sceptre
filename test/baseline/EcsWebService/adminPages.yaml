@@ -173,7 +173,7 @@
       Properties:
         Actions:
         - TargetGroupArn:
-            Ref: TargetGroupFORSLASHBannerAdminSLASH
+            Ref: TargetGroupFORSLASHBannerAdmin
           Type: forward
         Conditions:
         - Field: path-pattern
@@ -193,7 +193,7 @@
       Properties:
         Actions:
         - TargetGroupArn:
-            Ref: TargetGroupFORSLASHBannerAdminSLASH
+            Ref: TargetGroupFORSLASHBannerAdmin
           Type: forward
         Conditions:
         - Field: path-pattern
@@ -227,14 +227,14 @@
         - ContainerName: tomcat
           ContainerPort: 8080
           TargetGroupArn:
-            Ref: TargetGroupFORSLASHBannerAdminSLASH
+            Ref: TargetGroupFORSLASHBannerAdmin
         PlacementStrategies:
         - Field: memory
           Type: binpack
         TaskDefinition:
           Ref: TaskDef
       Type: AWS::ECS::Service
-    TargetGroupFORSLASHBannerAdminSLASH:
+    TargetGroupFORSLASHBannerAdmin:
       Properties:
         HealthCheckIntervalSeconds: 60
         HealthCheckPath: /BannerAdmin/
@@ -247,7 +247,7 @@
         Tags:
         - Key: Name
           Value:
-            Fn::Sub: '${AWS::StackName}: /BannerAdmin/'
+            Fn::Sub: '${AWS::StackName}: /BannerAdmin'
         TargetGroupAttributes:
         - Key: stickiness.enabled
           Value: 'true'

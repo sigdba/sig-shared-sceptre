@@ -170,7 +170,7 @@
       Properties:
         Actions:
         - TargetGroupArn:
-            Ref: TargetGroupFORSLASHStudentRegistrationSsbSLASH
+            Ref: TargetGroupFORSLASHStudentRegistrationSsb
           Type: forward
         Conditions:
         - Field: path-pattern
@@ -203,7 +203,7 @@
         - ContainerName: tomcat
           ContainerPort: 8080
           TargetGroupArn:
-            Ref: TargetGroupFORSLASHStudentRegistrationSsbSLASH
+            Ref: TargetGroupFORSLASHStudentRegistrationSsb
         PlacementStrategies:
         - Field: memory
           Type: binpack
@@ -217,7 +217,7 @@
         TaskDefinition:
           Ref: TaskDef
       Type: AWS::ECS::Service
-    TargetGroupFORSLASHStudentRegistrationSsbSLASH:
+    TargetGroupFORSLASHStudentRegistrationSsb:
       Properties:
         HealthCheckIntervalSeconds: 60
         HealthCheckPath: /StudentRegistrationSsb/
@@ -230,7 +230,7 @@
         Tags:
         - Key: Name
           Value:
-            Fn::Sub: '${AWS::StackName}: /StudentRegistrationSsb/'
+            Fn::Sub: '${AWS::StackName}: /StudentRegistrationSsb'
         TargetGroupAttributes:
         - Key: stickiness.enabled
           Value: 'true'

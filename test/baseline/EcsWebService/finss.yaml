@@ -170,7 +170,7 @@
       Properties:
         Actions:
         - TargetGroupArn:
-            Ref: TargetGroupFORSLASHFinanceSelfServiceSLASH
+            Ref: TargetGroupFORSLASHFinanceSelfService
           Type: forward
         Conditions:
         - Field: path-pattern
@@ -203,7 +203,7 @@
         - ContainerName: tomcat
           ContainerPort: 8080
           TargetGroupArn:
-            Ref: TargetGroupFORSLASHFinanceSelfServiceSLASH
+            Ref: TargetGroupFORSLASHFinanceSelfService
         PlacementStrategies:
         - Field: memory
           Type: binpack
@@ -217,7 +217,7 @@
         TaskDefinition:
           Ref: TaskDef
       Type: AWS::ECS::Service
-    TargetGroupFORSLASHFinanceSelfServiceSLASH:
+    TargetGroupFORSLASHFinanceSelfService:
       Properties:
         HealthCheckIntervalSeconds: 60
         HealthCheckPath: /FinanceSelfService/
@@ -230,7 +230,7 @@
         Tags:
         - Key: Name
           Value:
-            Fn::Sub: '${AWS::StackName}: /FinanceSelfService/'
+            Fn::Sub: '${AWS::StackName}: /FinanceSelfService'
         TargetGroupAttributes:
         - Key: stickiness.enabled
           Value: 'true'

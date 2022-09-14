@@ -170,7 +170,7 @@
       Properties:
         Actions:
         - TargetGroupArn:
-            Ref: TargetGroupFORSLASHethosapimanagementcenterSLASH
+            Ref: TargetGroupFORSLASHethosapimanagementcenter
           Type: forward
         Conditions:
         - Field: path-pattern
@@ -203,7 +203,7 @@
         - ContainerName: tomcat
           ContainerPort: 8080
           TargetGroupArn:
-            Ref: TargetGroupFORSLASHethosapimanagementcenterSLASH
+            Ref: TargetGroupFORSLASHethosapimanagementcenter
         PlacementStrategies:
         - Field: memory
           Type: binpack
@@ -217,7 +217,7 @@
         TaskDefinition:
           Ref: TaskDef
       Type: AWS::ECS::Service
-    TargetGroupFORSLASHethosapimanagementcenterSLASH:
+    TargetGroupFORSLASHethosapimanagementcenter:
       Properties:
         HealthCheckIntervalSeconds: 60
         HealthCheckPath: /ethosapimanagementcenter/
@@ -230,7 +230,7 @@
         Tags:
         - Key: Name
           Value:
-            Fn::Sub: '${AWS::StackName}: /ethosapimanagementcenter/'
+            Fn::Sub: '${AWS::StackName}: /ethosapimanagementcenter'
         TargetGroupAttributes:
         - Key: stickiness.enabled
           Value: 'true'

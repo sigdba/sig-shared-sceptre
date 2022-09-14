@@ -63,7 +63,7 @@
                 Fn::Join:
                 - '","'
                 - - Fn::GetAtt:
-                    - TargetGroupFORSLASHSLASH
+                    - TargetGroupFORSLASH
                     - TargetGroupFullName
               waiter_tg_arn:
                 Ref: AutoStopWaiterTg
@@ -101,7 +101,7 @@
       Properties:
         Actions:
         - TargetGroupArn:
-            Ref: TargetGroupFORSLASHSLASH
+            Ref: TargetGroupFORSLASH
           Type: forward
         Conditions:
         - Field: host-header
@@ -149,7 +149,7 @@
         - ContainerName: httpd
           ContainerPort: 80
           TargetGroupArn:
-            Ref: TargetGroupFORSLASHSLASH
+            Ref: TargetGroupFORSLASH
         PlacementStrategies:
         - Field: memory
           Type: binpack
@@ -491,7 +491,7 @@
           - Arn
         Principal: events.amazonaws.com
       Type: AWS::Lambda::Permission
-    TargetGroupFORSLASHSLASH:
+    TargetGroupFORSLASH:
       Properties:
         HealthCheckIntervalSeconds: 60
         HealthCheckPath: //
@@ -504,7 +504,7 @@
         Tags:
         - Key: Name
           Value:
-            Fn::Sub: '${AWS::StackName}: //'
+            Fn::Sub: '${AWS::StackName}: /'
         TargetGroupAttributes:
         - Key: stickiness.enabled
           Value: 'true'

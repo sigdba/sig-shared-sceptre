@@ -35,6 +35,8 @@ sceptre_user_data:
       rules:
         - path: /BannerExtensibility
           host: banner.*
+          health_check:
+            path: /BannerExtensibility/actuator/health
 
       mount_points:
         - container_path: /content

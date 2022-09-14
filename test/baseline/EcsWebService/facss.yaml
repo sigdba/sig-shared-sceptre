@@ -170,7 +170,7 @@
       Properties:
         Actions:
         - TargetGroupArn:
-            Ref: TargetGroupFORSLASHFacultySelfServiceSLASH
+            Ref: TargetGroupFORSLASHFacultySelfService
           Type: forward
         Conditions:
         - Field: path-pattern
@@ -203,7 +203,7 @@
         - ContainerName: tomcat
           ContainerPort: 8080
           TargetGroupArn:
-            Ref: TargetGroupFORSLASHFacultySelfServiceSLASH
+            Ref: TargetGroupFORSLASHFacultySelfService
         PlacementStrategies:
         - Field: memory
           Type: binpack
@@ -217,7 +217,7 @@
         TaskDefinition:
           Ref: TaskDef
       Type: AWS::ECS::Service
-    TargetGroupFORSLASHFacultySelfServiceSLASH:
+    TargetGroupFORSLASHFacultySelfService:
       Properties:
         HealthCheckIntervalSeconds: 60
         HealthCheckPath: /FacultySelfService/
@@ -230,7 +230,7 @@
         Tags:
         - Key: Name
           Value:
-            Fn::Sub: '${AWS::StackName}: /FacultySelfService/'
+            Fn::Sub: '${AWS::StackName}: /FacultySelfService'
         TargetGroupAttributes:
         - Key: stickiness.enabled
           Value: 'true'

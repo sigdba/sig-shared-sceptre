@@ -32,7 +32,7 @@
       Properties:
         Actions:
         - TargetGroupArn:
-            Ref: TargetGroupFORSLASHworkflowSLASH
+            Ref: TargetGroupFORSLASHworkflow
           Type: forward
         Conditions:
         - Field: path-pattern
@@ -65,7 +65,7 @@
         - ContainerName: tomcat
           ContainerPort: 8080
           TargetGroupArn:
-            Ref: TargetGroupFORSLASHworkflowSLASH
+            Ref: TargetGroupFORSLASHworkflow
         PlacementStrategies:
         - Field: memory
           Type: binpack
@@ -79,7 +79,7 @@
         TaskDefinition:
           Ref: TaskDef
       Type: AWS::ECS::Service
-    TargetGroupFORSLASHworkflowSLASH:
+    TargetGroupFORSLASHworkflow:
       Properties:
         HealthCheckIntervalSeconds: 60
         HealthCheckPath: /workflow/
@@ -92,7 +92,7 @@
         Tags:
         - Key: Name
           Value:
-            Fn::Sub: '${AWS::StackName}: /workflow/'
+            Fn::Sub: '${AWS::StackName}: /workflow'
         TargetGroupAttributes:
         - Key: stickiness.enabled
           Value: 'true'

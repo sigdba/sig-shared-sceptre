@@ -173,7 +173,7 @@
       Properties:
         Actions:
         - TargetGroupArn:
-            Ref: TargetGroupFORSLASHCommunicationManagementSLASH
+            Ref: TargetGroupFORSLASHCommunicationManagement
           Type: forward
         Conditions:
         - Field: path-pattern
@@ -206,7 +206,7 @@
         - ContainerName: tomcat
           ContainerPort: 8080
           TargetGroupArn:
-            Ref: TargetGroupFORSLASHCommunicationManagementSLASH
+            Ref: TargetGroupFORSLASHCommunicationManagement
         PlacementStrategies:
         - Field: memory
           Type: binpack
@@ -220,7 +220,7 @@
         TaskDefinition:
           Ref: TaskDef
       Type: AWS::ECS::Service
-    TargetGroupFORSLASHCommunicationManagementSLASH:
+    TargetGroupFORSLASHCommunicationManagement:
       Properties:
         HealthCheckIntervalSeconds: 60
         HealthCheckPath: /CommunicationManagement/
@@ -233,7 +233,7 @@
         Tags:
         - Key: Name
           Value:
-            Fn::Sub: '${AWS::StackName}: /CommunicationManagement/'
+            Fn::Sub: '${AWS::StackName}: /CommunicationManagement'
         TargetGroupAttributes:
         - Key: stickiness.enabled
           Value: 'true'

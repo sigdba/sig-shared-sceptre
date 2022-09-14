@@ -374,11 +374,14 @@ def target_group(
     target_group_props,
     default_health_check_path,
     port=None,
+    rule_path=None,
 ):
     if not health_check:
         health_check = model.HealthCheckModel()
     if not health_check.path:
         health_check.path = default_health_check_path
+    if not rule_path:
+        rule_path = health_check.path
     attrs = target_group_props.attributes
 
     if "stickiness.enabled" not in attrs:
@@ -387,9 +390,7 @@ def target_group(
         attrs["stickiness.type"] = "lb_cookie"
 
     title = clean_title(
-        f"TargetGroupPORT{port}HC{health_check.path}"
-        if port
-        else f"TargetGroupFOR{health_check.path}"
+        f"TargetGroupPORT{port}HC{rule_path}" if port else f"TargetGroupFOR{rule_path}"
     )
 
     return add_resource(
@@ -408,7 +409,7 @@ def target_group(
             ],
             TargetType=target_type,
             VpcId=Ref("VpcId"),
-            Tags=Tags(Name=Sub("${AWS::StackName}: %s" % health_check.path)),
+            Tags=Tags(Name=Sub("${AWS::StackName}: %s" % rule_path)),
             **opts_with(HealthyThresholdCount=health_check.healthy_threshold_count),
         )
     )
@@ -646,6 +647,7 @@ def sceptre_handler(sceptre_user_data):
                                 rule.target_group or c.target_group,
                                 f"{rule.path}/",
                                 port=rule.container_port or default_port,
+                                rule_path=rule.path,
                             )
                         )
                     lb_mappings.append(
@@ -664,9 +666,10 @@ def sceptre_handler(sceptre_user_data):
                         default_tg = target_group(
                             target_group_type,
                             c.protocol,
-                            c.health_check,
+                            rule.health_check or c.health_check,
                             c.target_group,
                             "%s/" % c.rules[0].path,
+                            rule_path=rule.path,
                         )
                         target_group_arn = Ref(default_tg)
                     tg_arn = Ref(default_tg)

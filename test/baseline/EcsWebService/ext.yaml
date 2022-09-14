@@ -166,11 +166,11 @@
         Runtime: python3.9
         Timeout: 900
       Type: AWS::Lambda::Function
-    ListenerRule29547:
+    ListenerRule43122:
       Properties:
         Actions:
         - TargetGroupArn:
-            Ref: TargetGroupFORSLASHBannerExtensibilitySLASH
+            Ref: TargetGroupFORSLASHBannerExtensibility
           Type: forward
         Conditions:
         - Field: path-pattern
@@ -184,11 +184,11 @@
             - banner.*
         ListenerArn:
           Ref: ListenerArn
-        Priority: 29547
+        Priority: 43122
       Type: AWS::ElasticLoadBalancingV2::ListenerRule
     Service:
       DependsOn:
-      - ListenerRule29547
+      - ListenerRule43122
       Properties:
         Cluster:
           Ref: ClusterArn
@@ -203,7 +203,7 @@
         - ContainerName: tomcat
           ContainerPort: 8080
           TargetGroupArn:
-            Ref: TargetGroupFORSLASHBannerExtensibilitySLASH
+            Ref: TargetGroupFORSLASHBannerExtensibility
         PlacementStrategies:
         - Field: memory
           Type: binpack
@@ -217,10 +217,10 @@
         TaskDefinition:
           Ref: TaskDef
       Type: AWS::ECS::Service
-    TargetGroupFORSLASHBannerExtensibilitySLASH:
+    TargetGroupFORSLASHBannerExtensibility:
       Properties:
         HealthCheckIntervalSeconds: 60
-        HealthCheckPath: /BannerExtensibility/
+        HealthCheckPath: /BannerExtensibility/actuator/health
         HealthCheckProtocol: HTTP
         HealthCheckTimeoutSeconds: 30
         Matcher:
@@ -230,7 +230,7 @@
         Tags:
         - Key: Name
           Value:
-            Fn::Sub: '${AWS::StackName}: /BannerExtensibility/'
+            Fn::Sub: '${AWS::StackName}: /BannerExtensibility'
         TargetGroupAttributes:
         - Key: stickiness.enabled
           Value: 'true'

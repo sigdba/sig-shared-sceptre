@@ -32,7 +32,7 @@
       Properties:
         Actions:
         - TargetGroupArn:
-            Ref: TargetGroupFORSLASHSLASH
+            Ref: TargetGroupFORSLASH
           Type: forward
         Conditions:
         - Field: host-header
@@ -60,7 +60,7 @@
         - ContainerName: foswiki
           ContainerPort: 80
           TargetGroupArn:
-            Ref: TargetGroupFORSLASHSLASH
+            Ref: TargetGroupFORSLASH
         PlacementStrategies:
         - Field: memory
           Type: binpack
@@ -74,7 +74,7 @@
         TaskDefinition:
           Ref: TaskDef
       Type: AWS::ECS::Service
-    TargetGroupFORSLASHSLASH:
+    TargetGroupFORSLASH:
       Properties:
         HealthCheckIntervalSeconds: 60
         HealthCheckPath: //
@@ -87,7 +87,7 @@
         Tags:
         - Key: Name
           Value:
-            Fn::Sub: '${AWS::StackName}: //'
+            Fn::Sub: '${AWS::StackName}: /'
         TargetGroupAttributes:
         - Key: stickiness.enabled
           Value: 'true'

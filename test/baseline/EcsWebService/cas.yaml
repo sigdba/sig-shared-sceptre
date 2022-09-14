@@ -32,7 +32,7 @@
       Properties:
         Actions:
         - TargetGroupArn:
-            Ref: TargetGroupFORSLASHcasSLASH
+            Ref: TargetGroupFORSLASH
           Type: forward
         Conditions:
         - Field: host-header
@@ -60,7 +60,7 @@
         - ContainerName: main
           ContainerPort: 8443
           TargetGroupArn:
-            Ref: TargetGroupFORSLASHcasSLASH
+            Ref: TargetGroupFORSLASH
         PlacementStrategies:
         - Field: memory
           Type: binpack
@@ -74,7 +74,7 @@
         TaskDefinition:
           Ref: TaskDef
       Type: AWS::ECS::Service
-    TargetGroupFORSLASHcasSLASH:
+    TargetGroupFORSLASH:
       Properties:
         HealthCheckIntervalSeconds: 60
         HealthCheckPath: /cas/
@@ -87,7 +87,7 @@
         Tags:
         - Key: Name
           Value:
-            Fn::Sub: '${AWS::StackName}: /cas/'
+            Fn::Sub: '${AWS::StackName}: /'
         TargetGroupAttributes:
         - Key: stickiness.enabled
           Value: 'false'

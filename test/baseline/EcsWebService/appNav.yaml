@@ -170,7 +170,7 @@
       Properties:
         Actions:
         - TargetGroupArn:
-            Ref: TargetGroupFORSLASHapplicationNavigatorSLASH
+            Ref: TargetGroupFORSLASHapplicationNavigator
           Type: forward
         Conditions:
         - Field: path-pattern
@@ -203,7 +203,7 @@
         - ContainerName: tomcat
           ContainerPort: 8080
           TargetGroupArn:
-            Ref: TargetGroupFORSLASHapplicationNavigatorSLASH
+            Ref: TargetGroupFORSLASHapplicationNavigator
         PlacementStrategies:
         - Field: memory
           Type: binpack
@@ -217,7 +217,7 @@
         TaskDefinition:
           Ref: TaskDef
       Type: AWS::ECS::Service
-    TargetGroupFORSLASHapplicationNavigatorSLASH:
+    TargetGroupFORSLASHapplicationNavigator:
       Properties:
         HealthCheckIntervalSeconds: 60
         HealthCheckPath: /applicationNavigator/
@@ -230,7 +230,7 @@
         Tags:
         - Key: Name
           Value:
-            Fn::Sub: '${AWS::StackName}: /applicationNavigator/'
+            Fn::Sub: '${AWS::StackName}: /applicationNavigator'
         TargetGroupAttributes:
         - Key: stickiness.enabled
           Value: 'true'

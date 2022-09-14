@@ -173,7 +173,7 @@
       Properties:
         Actions:
         - TargetGroupArn:
-            Ref: TargetGroupFORSLASHBannerGeneralSsbSLASH
+            Ref: TargetGroupFORSLASHBannerGeneralSsb
           Type: forward
         Conditions:
         - Field: path-pattern
@@ -206,7 +206,7 @@
         - ContainerName: tomcat
           ContainerPort: 8080
           TargetGroupArn:
-            Ref: TargetGroupFORSLASHBannerGeneralSsbSLASH
+            Ref: TargetGroupFORSLASHBannerGeneralSsb
         PlacementStrategies:
         - Field: memory
           Type: binpack
@@ -220,7 +220,7 @@
         TaskDefinition:
           Ref: TaskDef
       Type: AWS::ECS::Service
-    TargetGroupFORSLASHBannerGeneralSsbSLASH:
+    TargetGroupFORSLASHBannerGeneralSsb:
       Properties:
         HealthCheckIntervalSeconds: 60
         HealthCheckPath: /BannerGeneralSsb/
@@ -233,7 +233,7 @@
         Tags:
         - Key: Name
           Value:
-            Fn::Sub: '${AWS::StackName}: /BannerGeneralSsb/'
+            Fn::Sub: '${AWS::StackName}: /BannerGeneralSsb'
         TargetGroupAttributes:
         - Key: stickiness.enabled
           Value: 'true'

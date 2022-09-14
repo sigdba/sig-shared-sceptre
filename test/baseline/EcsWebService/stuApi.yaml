@@ -173,7 +173,7 @@
       Properties:
         Actions:
         - TargetGroupArn:
-            Ref: TargetGroupFORSLASHStudentApiSLASH
+            Ref: TargetGroupFORSLASHStudentApi
           Type: forward
         Conditions:
         - Field: path-pattern
@@ -206,14 +206,14 @@
         - ContainerName: tomcat
           ContainerPort: 8080
           TargetGroupArn:
-            Ref: TargetGroupFORSLASHStudentApiSLASH
+            Ref: TargetGroupFORSLASHStudentApi
         PlacementStrategies:
         - Field: memory
           Type: binpack
         TaskDefinition:
           Ref: TaskDef
       Type: AWS::ECS::Service
-    TargetGroupFORSLASHStudentApiSLASH:
+    TargetGroupFORSLASHStudentApi:
       Properties:
         HealthCheckIntervalSeconds: 60
         HealthCheckPath: /StudentApi/
@@ -226,7 +226,7 @@
         Tags:
         - Key: Name
           Value:
-            Fn::Sub: '${AWS::StackName}: /StudentApi/'
+            Fn::Sub: '${AWS::StackName}: /StudentApi'
         TargetGroupAttributes:
         - Key: stickiness.enabled
           Value: 'true'

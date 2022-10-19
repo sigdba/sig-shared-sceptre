@@ -10,6 +10,7 @@ from troposphere.ecs import (
     DeploymentConfiguration,
     EFSVolumeConfiguration,
     Environment,
+    PlacementConstraint,
 )
 from troposphere.ecs import HealthCheck as ContainerHealthCheck
 from troposphere.ecs import Host as HostVolumeConfiguration
@@ -345,6 +346,13 @@ def host_volume(v):
     return Volume(Name=v.name, Host=HostVolumeConfiguration(SourcePath=v.source_path))
 
 
+def placement_constraints(constraint_models):
+    return [
+        PlacementConstraint(Type=c.type, Expression=c.expression)
+        for c in constraint_models
+    ]
+
+
 def task_def(user_data, container_defs, exec_role):
     volumes = [efs_volume(v) for v in user_data.efs_volumes] + [
         host_volume(v) for v in user_data.host_volumes
@@ -362,6 +370,10 @@ def task_def(user_data, container_defs, exec_role):
                 Memory=user_data.memory,
                 RequiresCompatibilities=user_data.requires_compatibilities,
                 NetworkMode=user_data.network_mode,
+                PlacementConstraints=(
+                    user_data.placement_constraints,
+                    placement_constraints,
+                ),
             ),
         )
     )

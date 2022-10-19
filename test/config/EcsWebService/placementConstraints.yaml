@@ -1,0 +1,25 @@
+---
+template_path: EcsWebService/EcsWebService.py
+
+parameters:
+  VpcId: vpc-12345
+  ClusterArn: clusterArn
+  ListenerArn: listener_arn
+
+  MinimumHealthyPercent: "0"
+  MaximumPercent: "100"
+
+sceptre_user_data:
+  placement_constraints:
+    - expression: "attribute:ecs.availability-zone in [us-east-1a, us-east-1b]"
+
+  containers:
+    - image: openidentityplatform/opendj:4.4.11
+      container_memory: 3000
+      env_vars:
+        BASE_DN: dc=banner
+        OPENDJ_JAVA_ARGS: "-Xms2048m -Xmx2048m"
+      secrets:
+        ROOT_PASSWORD: some_arn
+      target_group_arn: some_arn
+      container_port: 1389

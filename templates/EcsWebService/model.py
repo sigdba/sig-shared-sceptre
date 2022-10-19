@@ -425,6 +425,19 @@ class AutoStopModel(BaseModel):
     )
 
 
+class PlacementConstraintModel(BaseModel):
+    type = Field(
+        "memberOf",
+        description="The type of constraint. The MemberOf constraint restricts selection to be from a group of valid candidates.",
+    )
+    expression: str = Field(
+        description="A cluster query language expression to apply to the constraint.",
+        notes=[
+            "**See Also:** [Cluster query language](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/cluster-query-language.html)"
+        ],
+    )
+
+
 class UserDataModel(BaseModel):
     launch_type: Optional[Literal["EC2", "EXTERNAL", "FARGATE"]]
     cpu: Optional[str] = Field(
@@ -494,6 +507,12 @@ class UserDataModel(BaseModel):
     )
     placement_strategies: Optional[List[PlacementStrategyModel]] = Field(
         description="Defines the set of placement strategies for service tasks.",
+    )
+    placement_constraints: Optional[List[PlacementConstraintModel]] = Field(
+        description="Specifies an object representing a constraint on task placement in the task definition.",
+        notes=[
+            "If you are using the Fargate launch type, task placement constraints are not supported."
+        ],
     )
     schedule: List[ScheduleModel] = Field(
         [],

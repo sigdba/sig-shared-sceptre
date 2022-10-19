@@ -63,6 +63,9 @@ listener rules and a target group.
 - `network_mode` (string) - The Docker networking mode to use for the containers in the task.
   - See [AWS::ECS::TaskDefinition](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html#cfn-ecs-taskdefinition-networkmode) for details.
 
+- `placement_constraints` (List of [PlacementConstraintModel](#PlacementConstraintModel)) - Specifies an object representing a constraint on task placement in the task definition.
+  - If you are using the Fargate launch type, task placement constraints are not supported.
+
 - `placement_strategies` (List of [PlacementStrategyModel](#PlacementStrategyModel)) - Defines the set of placement strategies for service tasks.
 
 - `requires_compatibilities` (List of string) - The task launch types the task definition was validated against.
@@ -148,6 +151,16 @@ listener rules and a target group.
 - `description` (string) - Description of the schedule
 
 - `desired_count` (integer) - **required** - Desired number of tasks to set for the service at the specified time.
+
+
+
+### PlacementConstraintModel
+
+- `expression` (string) - **required** - A cluster query language expression to apply to the constraint.
+  - **See Also:** [Cluster query language](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/cluster-query-language.html)
+
+- `type` (string) - The type of constraint. The MemberOf constraint restricts selection to be from a group of valid candidates.
+  - **Default:** `memberOf`
 
 
 

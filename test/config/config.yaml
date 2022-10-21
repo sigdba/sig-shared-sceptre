@@ -1,3 +1,11 @@
 ---
 project_code: x
 region: us-east-1
+
+env_var_set_1:
+  evs_1: value_1
+  evs_2: value_2
+
+env_var_set_2:
+  evs_3: value_3
+  evs_4: value_4

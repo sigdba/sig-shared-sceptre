@@ -232,7 +232,7 @@ for more information.
 
 - `depends_on` (List of Dict) - List of container dependencies as defined in [AWS::ECS::TaskDefinition ContainerDependency](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-containerdependency.html)
 
-- `env_vars` (Dict[string:string]) - Environment variables passed to the container.
+- `env_vars` (List of Dict[string:string] or Dict[string:string]) - Environment variables passed to the container.
 
 - `health_check` ([HealthCheckModel](#HealthCheckModel)) - Defines the health check for the target group. If `rules` is not specified
                        for the container, this setting has no effect.
@@ -266,7 +266,7 @@ for more information.
 - `rules` (List of [RuleModel](#RuleModel)) - If specified, the stack will create an ELB target group and add the specified
                        rules to the listener to route traffic.
 
-- `secrets` (Dict[string:string]) - Secrets passed as environment variables to the container. The key will
+- `secrets` (List of Dict[string:string] or Dict[string:string]) - Secrets passed as environment variables to the container. The key will
                        specify the variable being set. The value specifies where
                        ECS should read the value from.
   - The supported values are either the full ARN of the AWS Secrets Manager

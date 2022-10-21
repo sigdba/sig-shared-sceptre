@@ -1,4 +1,5 @@
-from typing import Dict, List, Optional, Literal
+from typing import Dict, List, Union, Optional, Literal
+from functools import reduce
 
 from pydantic import Field, validator, root_validator
 
@@ -258,7 +259,7 @@ class ContainerModel(BaseModel):
                `container_memory` is used."""
         ],
     )
-    env_vars: Dict[str, str] = Field(
+    env_vars: Union[List[Dict[str, str]], Dict[str, str]] = Field(
         {}, description="Environment variables passed to the container."
     )
     health_check: Optional[HealthCheckModel] = Field(
@@ -293,7 +294,7 @@ class ContainerModel(BaseModel):
         description="""If specified, the stack will create an ELB target group and add the specified
                        rules to the listener to route traffic."""
     )
-    secrets: Dict[str, str] = Field(
+    secrets: Union[List[Dict[str, str]], Dict[str, str]] = Field(
         {},
         description="""Secrets passed as environment variables to the container. The key will
                        specify the variable being set. The value specifies where
@@ -335,7 +336,12 @@ class ContainerModel(BaseModel):
         ],
     )
 
-    @classmethod
+    @validator("env_vars", "secrets")
+    def list_of_dicts_to_dict(cls, v, values):
+        if type(v) is dict:
+            return v
+        return reduce(lambda r, d: {**r, **d}, v, {})
+
     @validator("image_build", always=True)
     def image_or_build(cls, v, values):
         if v is None:
@@ -350,7 +356,6 @@ class ContainerModel(BaseModel):
                 )
         return v
 
-    @classmethod
     @validator("target_group_arn", always=True)
     def port_or_mapping(cls, v, values):
         if v is not None or values["rules"] is not None:

@@ -34,6 +34,7 @@ from util import (
     add_resource,
     add_resource_once,
     read_resource,
+    opts_with,
 )
 
 
@@ -156,7 +157,12 @@ def node_security_group(ingress_cidrs):
                 SecurityGroupRule(CidrIp="0.0.0.0/0", IpProtocol="-1")
             ],
             SecurityGroupIngress=[
-                SecurityGroupRule(CidrIp=c, IpProtocol="-1") for c in ingress_cidrs
+                SecurityGroupRule(
+                    CidrIp=c.cidr,
+                    IpProtocol="-1",
+                    **opts_with(Description=c.description)
+                )
+                for c in ingress_cidrs
             ],
         )
     )

@@ -1,6 +1,6 @@
-from typing import Dict, List
+from typing import Dict, List, Optional, Union
 
-from pydantic import Field
+from pydantic import Field, validator
 
 from util import BaseModel
 
@@ -60,12 +60,19 @@ class ScalingGroupModel(BaseModel):
     )
 
 
+class IngressCidrModel(BaseModel):
+    cidr: str = Field(description="CIDR to allow")
+    description: Optional[str] = Field(
+        description="Description of CIDR to note on the SG rule"
+    )
+
+
 class UserDataModel(BaseModel):
     node_security_groups: List[str] = Field(
         [],
         description="List of security group IDs which will be assigned to all container instances.",
     )
-    ingress_cidrs: List[str] = Field(
+    ingress_cidrs: List[Union[str, IngressCidrModel]] = Field(
         [],
         description="""List of CIDRs which will be allowed to communicate with
                        the container instances. This must include at least the
@@ -124,3 +131,9 @@ class UserDataModel(BaseModel):
     asg_tags: Dict[str, str] = Field(
         {}, description="Tags to apply to all ASG EC2 instances."
     )
+
+    @validator("ingress_cidrs", each_item=True)
+    def cidrs_str_to_model(cls, v):
+        if type(v) is str:
+            return IngressCidrModel(cidr=v)
+        return v

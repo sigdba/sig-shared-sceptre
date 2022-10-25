@@ -55,7 +55,7 @@ from troposphere.wafv2 import (
     WebACLRule,
 )
 
-from model import UserDataModel
+from model import UserDataModel, AllowCidrModel
 from util import (
     TEMPLATE,
     clean_title,
@@ -172,7 +172,7 @@ def load_balancer_security_groups(user_data):
     sg_arns = [*user_data.elb_security_groups]
     allow_cidrs = user_data.allow_cidrs
     if allow_cidrs is None:
-        allow_cidrs = [] if len(sg_arns) > 0 else ["0.0.0.0/0"]
+        allow_cidrs = [] if len(sg_arns) > 0 else [AllowCidrModel(cidr="0.0.0.0/0")]
     if len(allow_cidrs) > 0:
         sg = add_resource(
             SecurityGroup(
@@ -191,7 +191,11 @@ def load_balancer_security_groups(user_data):
                 ],
                 SecurityGroupIngress=[
                     SecurityGroupRule(
-                        CidrIp=cidr, FromPort=port, ToPort=port, IpProtocol="TCP"
+                        CidrIp=cidr.cidr,
+                        FromPort=port,
+                        ToPort=port,
+                        IpProtocol="TCP",
+                        **opts_with(Description=cidr.description),
                     )
                     for cidr in allow_cidrs
                     for port in [lsn.port for lsn in user_data.listeners]

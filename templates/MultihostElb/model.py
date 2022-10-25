@@ -487,6 +487,13 @@ class Route53Model(BaseModel):
     )
 
 
+class AllowCidrModel(BaseModel):
+    cidr: str = Field(description="CIDR to allow")
+    description: Optional[str] = Field(
+        description="Description of CIDR to note on the SG rule"
+    )
+
+
 class UserDataModel(BaseModel):
     name = "${AWS::StackName}"
     listeners: List[ListenerModel] = Field(
@@ -521,7 +528,7 @@ class UserDataModel(BaseModel):
         ],
     )
     access_logs: Optional[AccessLogsModel]
-    allow_cidrs: Optional[List[str]] = Field(
+    allow_cidrs: Optional[List[Union[str, AllowCidrModel]]] = Field(
         description="A list of CIDRs allowed to access the ELB.",
         default_description="""With `allow_cidrs` empty, if `elb_security_groups` has been provided, then no
                                security group will be created. Otherwise, a new
@@ -591,6 +598,12 @@ class UserDataModel(BaseModel):
     def require_listeners(cls, v):
         if not v or len(v) < 1:
             raise ValueError("at least one listener is required")
+        return v
+
+    @validator("allow_cidrs", each_item=True)
+    def cidrs_str_to_model(cls, v):
+        if type(v) is str:
+            return AllowCidrModel(cidr=v)
         return v
 
     @root_validator

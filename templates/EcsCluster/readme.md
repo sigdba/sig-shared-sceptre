@@ -41,7 +41,7 @@ Creates an EC2-backed cluster in ECS with optional auto-scaling.
                then you probably want to set it to true unless you're manually
                managing the capacity provider strategies for each service.
 
-- `ingress_cidrs` (List of string) - List of CIDRs which will be allowed to communicate with
+- `ingress_cidrs` (List of string or [IngressCidrModel](#IngressCidrModel)) - List of CIDRs which will be allowed to communicate with
                        the container instances. This must include at least the
                        load-balancer subnets which will be associated with
                        services on this cluster.
@@ -91,4 +91,12 @@ Creates an EC2-backed cluster in ECS with optional auto-scaling.
                        `auto_scaling_enabled` is false.
   - **Default:** `1`
   - **See also:** [AWS::ECS::Service CapacityProviderStrategyItem](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-capacityproviderstrategyitem.html#cfn-ecs-service-capacityproviderstrategyitem-weight)
+
+
+
+### IngressCidrModel
+
+- `cidr` (string) - **required** - CIDR to allow
+
+- `description` (string) - Description of CIDR to note on the SG rule
 

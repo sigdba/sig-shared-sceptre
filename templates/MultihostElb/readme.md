@@ -12,7 +12,7 @@ Creates an Elastic Load Balancer and associated resources.
 
 - `access_logs` ([AccessLogsModel](#AccessLogsModel))
 
-- `allow_cidrs` (List of string) - A list of CIDRs allowed to access the ELB.
+- `allow_cidrs` (List of string or [AllowCidrModel](#AllowCidrModel)) - A list of CIDRs allowed to access the ELB.
   - **Default:** With `allow_cidrs` empty, if `elb_security_groups` has been provided, then no
                                security group will be created. Otherwise, a new
                                SG will be created allowing all traffic.
@@ -222,6 +222,14 @@ Creates an Elastic Load Balancer and associated resources.
 
 - `zone_splits_at` (integer)
   - **Default:** `1`
+
+
+
+### AllowCidrModel
+
+- `cidr` (string) - **required** - CIDR to allow
+
+- `description` (string) - Description of CIDR to note on the SG rule
 
 
 

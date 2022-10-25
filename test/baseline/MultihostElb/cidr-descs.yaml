@@ -1,0 +1,295 @@
+---
+- Mappings:
+    ElbAccountMap:
+      af-south-1:
+        AccountId: 098369216593
+      ap-east-1:
+        AccountId: '754344448648'
+      ap-northeast-1:
+        AccountId: '582318560864'
+      ap-northeast-2:
+        AccountId: '600734575887'
+      ap-northeast-3:
+        AccountId: '383597477331'
+      ap-south-1:
+        AccountId: '718504428378'
+      ap-southeast-1:
+        AccountId: '114774131450'
+      ap-southeast-2:
+        AccountId: '783225319266'
+      ca-central-1:
+        AccountId: '985666609251'
+      cn-north-1:
+        AccountId: '638102146993'
+      cn-northwest-1:
+        AccountId: '037604701340'
+      eu-central-1:
+        AccountId: 054676820928
+      eu-north-1:
+        AccountId: '897822967062'
+      eu-south-1:
+        AccountId: '635631232127'
+      eu-west-1:
+        AccountId: '156460612806'
+      eu-west-2:
+        AccountId: '652711504416'
+      eu-west-3:
+        AccountId: 009996457667
+      me-south-1:
+        AccountId: '076674570225'
+      sa-east-1:
+        AccountId: '507241528517'
+      us-east-1:
+        AccountId: '127311923021'
+      us-east-2:
+        AccountId: 033677994240
+      us-gov-east-1:
+        AccountId: '190560391635'
+      us-gov-west-1:
+        AccountId: 048591011584
+      us-west-1:
+        AccountId: 027434742980
+      us-west-2:
+        AccountId: '797873946194'
+  Outputs:
+    ElbSecurityGroup:
+      Export:
+        Name:
+          Fn::Sub: ${AWS::StackName}-sgid
+      Value:
+        Ref: DefaultSecurityGroup
+  Parameters:
+    VpcId:
+      Description: The ID of the VPC where the ECS cluster will be created.
+      Type: String
+  Resources:
+    CertificateFortoolsDOTbanDOTsigDOTsh:
+      Properties:
+        DomainName: tools.ban.sig.sh
+        DomainValidationOptions:
+        - DomainName: tools.ban.sig.sh
+          HostedZoneId: ABC1234
+        ValidationMethod: DNS
+      Type: AWS::CertificateManager::Certificate
+    CertificateForwikiDOTbanDOTsigDOTsh:
+      Properties:
+        DomainName: wiki.ban.sig.sh
+        DomainValidationOptions:
+        - DomainName: wiki.ban.sig.sh
+          HostedZoneId: ABC1234
+        ValidationMethod: DNS
+      Type: AWS::CertificateManager::Certificate
+    DefaultSecurityGroup:
+      Properties:
+        GroupDescription:
+          Fn::Sub: Default security group for ${AWS::StackName}
+        GroupName:
+          Fn::Sub: ${AWS::StackName}-Default
+        SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0
+          Description: Allow all outbound traffic from ELB
+          FromPort: 0
+          IpProtocol: '-1'
+          ToPort: 65535
+        SecurityGroupIngress:
+        - CidrIp: 1.2.3.4/32
+          Description: It's just a test
+          FromPort: 80
+          IpProtocol: TCP
+          ToPort: 80
+        - CidrIp: 1.2.3.4/32
+          Description: It's just a test
+          FromPort: 443
+          IpProtocol: TCP
+          ToPort: 443
+        - CidrIp: 10.0.0.0/8
+          FromPort: 80
+          IpProtocol: TCP
+          ToPort: 80
+        - CidrIp: 10.0.0.0/8
+          FromPort: 443
+          IpProtocol: TCP
+          ToPort: 443
+        VpcId:
+          Ref: VpcId
+      Type: AWS::EC2::SecurityGroup
+    IngressTO8081FORsigDASHbanDASHserverDASHesm1DASHInstanceSg:
+      Properties:
+        Description:
+          Ref: AWS::StackName
+        FromPort: 8081
+        GroupId:
+          Fn::ImportValue: sig-ban-server-esm1-InstanceSg
+        IpProtocol: tcp
+        SourceSecurityGroupId:
+          Ref: DefaultSecurityGroup
+        ToPort: 8081
+      Type: AWS::EC2::SecurityGroupIngress
+    ListenerCert0OnPort443:
+      Properties:
+        Certificates:
+        - CertificateArn:
+            Ref: CertificateFortoolsDOTbanDOTsigDOTsh
+        ListenerArn:
+          Ref: ListenerOnPort443
+      Type: AWS::ElasticLoadBalancingV2::ListenerCertificate
+    ListenerOnPort443:
+      Properties:
+        Certificates:
+        - CertificateArn:
+            Ref: CertificateForwikiDOTbanDOTsigDOTsh
+        DefaultActions:
+        - FixedResponseConfig:
+            ContentType: text/plain
+            MessageBody: 'SIG-ban
+
+              '
+            StatusCode: '200'
+          Type: fixed-response
+        LoadBalancerArn:
+          Ref: LoadBalancer
+        Port: 443
+        Protocol: HTTPS
+      Type: AWS::ElasticLoadBalancingV2::Listener
+    ListenerOnPort80:
+      Properties:
+        Certificates: []
+        DefaultActions:
+        - RedirectConfig:
+            Host: '#{host}'
+            Path: /#{path}
+            Port: '443'
+            Protocol: HTTPS
+            Query: '#{query}'
+            StatusCode: HTTP_301
+          Type: redirect
+        LoadBalancerArn:
+          Ref: LoadBalancer
+        Port: 80
+        Protocol: HTTP
+      Type: AWS::ElasticLoadBalancingV2::Listener
+    LoadBalancer:
+      DependsOn: []
+      Properties:
+        LoadBalancerAttributes:
+        - Key: access_logs.s3.enabled
+          Value: 'false'
+        Name:
+          Fn::Sub: ${AWS::StackName}
+        Scheme: internet-facing
+        SecurityGroups:
+        - sg-1234
+        - Ref: DefaultSecurityGroup
+        Subnets:
+        - subnet-123a
+        - subnet-123b
+        Tags: []
+        Type: application
+      Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    RecordSetFortoolsDOTbanDOTsigDOTsh:
+      Properties:
+        HostedZoneId: ABC1234
+        Name: tools.ban.sig.sh
+        ResourceRecords:
+        - Fn::Sub: ${LoadBalancer.DNSName}.
+        TTL: '300'
+        Type: CNAME
+      Type: AWS::Route53::RecordSet
+    RecordSetFortoolsDOTbanDOTsigDOTshforZoneABC4321:
+      Properties:
+        HostedZoneId: ABC4321
+        Name: tools.ban.sig.sh
+        ResourceRecords:
+        - Fn::Sub: ${LoadBalancer.DNSName}.
+        TTL: '300'
+        Type: CNAME
+      Type: AWS::Route53::RecordSet
+    RecordSetForwikiDOTbanDOTsigDOTsh:
+      Properties:
+        HostedZoneId: ABC1234
+        Name: wiki.ban.sig.sh
+        ResourceRecords:
+        - Fn::Sub: ${LoadBalancer.DNSName}.
+        TTL: '300'
+        Type: CNAME
+      Type: AWS::Route53::RecordSet
+    RecordSetForwikiDOTbanDOTsigDOTshforZoneABC4321:
+      Properties:
+        HostedZoneId: ABC4321
+        Name: wiki.ban.sig.sh
+        ResourceRecords:
+        - Fn::Sub: ${LoadBalancer.DNSName}.
+        TTL: '300'
+        Type: CNAME
+      Type: AWS::Route53::RecordSet
+    Rule258cd85:
+      Properties:
+        Actions:
+        - TargetGroupArn:
+            Ref: Rule258cd85TargetGroup
+          Type: forward
+        Conditions:
+        - Field: host-header
+          HostHeaderConfig:
+            Values:
+            - tools.*
+        - Field: path-pattern
+          PathPatternConfig:
+            Values:
+            - /admin
+            - /admin/*
+        ListenerArn:
+          Ref: ListenerOnPort443
+        Priority: 38750
+      Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Rule258cd85TargetGroup:
+      Properties:
+        HealthCheckPath: /admin/
+        Matcher:
+          HttpCode: 200-399
+        Port: 8081
+        Protocol: HTTP
+        TargetGroupAttributes:
+        - Key: stickiness.enabled
+          Value: 'true'
+        - Key: stickiness.type
+          Value: lb_cookie
+        Targets:
+        - Id:
+            Fn::ImportValue: sig-ban-server-esm1-InstanceId
+        VpcId:
+          Ref: VpcId
+      Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Rule8219c23:
+      Properties:
+        Actions:
+        - TargetGroupArn:
+            Ref: Rule8219c23TargetGroup
+          Type: forward
+        Conditions:
+        - Field: host-header
+          HostHeaderConfig:
+            Values:
+            - tools.*
+        ListenerArn:
+          Ref: ListenerOnPort443
+        Priority: 48107
+      Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Rule8219c23TargetGroup:
+      Properties:
+        HealthCheckPath: /login
+        Matcher:
+          HttpCode: 200-399
+        Port: 8080
+        Protocol: HTTP
+        TargetGroupAttributes:
+        - Key: stickiness.enabled
+          Value: 'true'
+        - Key: stickiness.type
+          Value: lb_cookie
+        Targets:
+        - Id: i-12345
+        VpcId:
+          Ref: VpcId
+      Type: AWS::ElasticLoadBalancingV2::TargetGroup
+

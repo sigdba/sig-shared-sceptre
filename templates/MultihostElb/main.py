@@ -651,6 +651,7 @@ def ns_entry_fn(user_data):
     def ret(record_type, name, value, hosted_zone_id=None):
         if hosted_zone_id:
             return ns_entry_route53(
+                user_data.route53,
                 hosted_zone_id,
                 record_type,
                 name,

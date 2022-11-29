@@ -1,4 +1,5 @@
 import yaml
+import troposphere
 from troposphere import GetAtt, Join, Ref, Sub, Tags
 from troposphere.awslambda import (
     Code,
@@ -8,7 +9,6 @@ from troposphere.awslambda import (
     Permission,
 )
 from troposphere.elasticloadbalancingv2 import (
-    Action,
     Condition,
     ListenerRule,
     QueryStringConfig,
@@ -16,6 +16,12 @@ from troposphere.elasticloadbalancingv2 import (
     TargetDescription,
     TargetGroup,
 )
+
+if int(troposphere.__version__.split(".")[0]) > 3:
+    from troposphere.elasticloadbalancingv2 import ListenerRuleAction as Action
+else:
+    from troposphere.elasticloadbalancingv2 import Action
+
 from troposphere.events import Rule as EventRule
 from troposphere.events import Target as EventTarget
 from troposphere.iam import PolicyType, Role

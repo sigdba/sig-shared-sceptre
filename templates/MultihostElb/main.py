@@ -5,7 +5,6 @@ from troposphere import GetAtt, ImportValue, Ref, Sub, Tag
 from troposphere.certificatemanager import Certificate, DomainValidationOption
 from troposphere.cloudformation import AWSCustomObject
 from troposphere.ec2 import SecurityGroup, SecurityGroupIngress, SecurityGroupRule
-from troposphere.elasticloadbalancingv2 import Action
 from troposphere.elasticloadbalancingv2 import Certificate as ListenerCertificateEntry
 from troposphere.elasticloadbalancingv2 import (
     Condition,
@@ -26,6 +25,18 @@ from troposphere.elasticloadbalancingv2 import (
     TargetGroup,
     TargetGroupAttribute,
 )
+
+if int(troposphere.__version__.split(".")[0]) > 3:
+    from troposphere.elasticloadbalancingv2 import (
+        ListenerRuleAction as ListenerRuleAction,
+        Action as ListenerDefaultAction,
+    )
+else:
+    from troposphere.elasticloadbalancingv2 import (
+        ListenerRuleAction,
+        ListenerRuleAction as ListenerDefaultAction,
+    )
+
 from troposphere.route53 import RecordSetType, AliasTarget
 from troposphere.s3 import (
     Bucket,
@@ -46,7 +57,12 @@ from troposphere.wafv2 import (
     RegexPatternSetReferenceStatement,
     RuleAction,
 )
-from troposphere.wafv2 import StatementOne as WafStatement
+
+if int(troposphere.__version__.split(".")[0]) > 3:
+    from troposphere.wafv2 import Statement as WafStatement
+else:
+    from troposphere.wafv2 import StatementOne as WafStatement
+
 from troposphere.wafv2 import (
     TextTransformation,
     VisibilityConfig,
@@ -358,8 +374,8 @@ def target_group_with(user_data, title, default_hc_path, tg_data):
     return add_resource(TargetGroup(clean_title(title), **args))
 
 
-def fixed_response_action(fr_data):
-    return Action(
+def fixed_response_action(fr_data, action_type=ListenerRuleAction):
+    return action_type(
         FixedResponseConfig=FixedResponseConfig(
             ContentType=fr_data.content_type,
             MessageBody=fr_data.message_body,
@@ -369,9 +385,9 @@ def fixed_response_action(fr_data):
     )
 
 
-def redirect_action(**redirect_data):
+def redirect_action(action_type=ListenerRuleAction, **redirect_data):
     args = ["host", "path", "port", "protocol", "query"]
-    return Action(
+    return action_type(
         RedirectConfig=RedirectConfig(
             **{
                 **{"StatusCode": "HTTP_" + str(redirect_data["status_code"])},
@@ -386,16 +402,18 @@ def redirect_action(**redirect_data):
     )
 
 
-def action_with(user_data, title_context, action_data):
+def action_with(user_data, title_context, action_data, action_type=ListenerRuleAction):
     if action_data.fixed_response:
-        return fixed_response_action(action_data.fixed_response)
+        return fixed_response_action(
+            action_data.fixed_response, action_type=action_type
+        )
     if action_data.redirect:
-        return redirect_action(**action_data.redirect.dict())
+        return redirect_action(**action_data.redirect.dict(), action_type=action_type)
 
     tg = target_group_with(
         user_data, "{}TargetGroup".format(title_context), "/", action_data
     )
-    return Action(TargetGroupArn=Ref(tg), Type="forward")
+    return action_type(TargetGroupArn=Ref(tg), Type="forward")
 
 
 def paths_with(path_data):
@@ -496,6 +514,7 @@ def listener(user_data, listener_data):
 
     if listener_data.https_redirect_to:
         default_action = redirect_action(
+            action_type=ListenerDefaultAction,
             protocol="HTTPS",
             port=listener_data.https_redirect_to,
             host="#{host}",
@@ -505,7 +524,10 @@ def listener(user_data, listener_data):
         )
     else:
         default_action = action_with(
-            user_data, "DefaultPort{}".format(port), listener_data.default_action
+            user_data,
+            "DefaultPort{}".format(port),
+            listener_data.default_action,
+            action_type=ListenerDefaultAction,
         )
 
     ret = add_resource(

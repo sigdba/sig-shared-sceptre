@@ -33,8 +33,8 @@ if int(troposphere.__version__.split(".")[0]) > 3:
     )
 else:
     from troposphere.elasticloadbalancingv2 import (
-        ListenerRuleAction,
-        ListenerRuleAction as ListenerDefaultAction,
+        Action as ListenerRuleAction,
+        Action as ListenerDefaultAction,
     )
 
 from troposphere.route53 import RecordSetType, AliasTarget

@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from pydantic import Field
+from pydantic import Field, root_validator
 
 from util import BaseModel
 
@@ -53,3 +53,21 @@ class UserDataModel(BaseModel):
     mount_targets: List[MountTargetModel] = Field(
         [], description="Mount targets to create."
     )
+    separate_security_groups = Field(
+        True,
+        description="""When `True` a separate 'source' SG will be created and
+                       members of this SG will be granted access to the NFS
+                       ports. When `False`, a single SG will be created and used
+                       both to grant access and as the SG on the mount targets.""",
+        notes=[
+            "**Note:** To avoid potential security issues, `separate_security_groups` must be `True` if `allow` is not empty."
+        ],
+    )
+
+    @root_validator
+    def separate_sgs_empty_allow(cls, values):
+        if not values.get("separate_security_groups") and len(values["allow"]) > 0:
+            raise ValueError(
+                "`allow` must be empty when `separate_security_groups` is False"
+            )
+        return values

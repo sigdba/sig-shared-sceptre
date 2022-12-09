@@ -16,7 +16,7 @@ jobs:
       # consecutive, we compute an offset value.
       - name: Set release number
         id: release
-        run: 'echo "name=release::$(expr ${{ github.run_number }} + 20)" >> $GITHUB_OUTPUT'
+        run: 'echo "release=$(expr ${{ github.run_number }} + 20)" >> $GITHUB_OUTPUT'
 
       - name: Install pip dependencies
         run: pip install -Ur requirements.txt

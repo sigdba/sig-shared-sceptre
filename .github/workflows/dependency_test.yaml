@@ -41,7 +41,7 @@ jobs:
             markupsafe: 1.1.1
 
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
 

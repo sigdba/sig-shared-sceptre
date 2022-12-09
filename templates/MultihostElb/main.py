@@ -698,7 +698,7 @@ def elb_cnames(user_data):
     # tuples then push them into a set to remove duplicates.
     def it():
         for h in get_all_hostnames(user_data):
-            if h.hosted_zone_id:
+            if h.hosted_zone_id or h.hosted_zone_id == []:
                 for z in h.hosted_zone_id:
                     yield (h.hostname, z)
             else:

@@ -1,6 +1,7 @@
 from functools import lru_cache, partial
 
 import troposphere.wafv2
+
 from troposphere import GetAtt, ImportValue, Ref, Sub, Tag
 from troposphere.certificatemanager import Certificate, DomainValidationOption
 from troposphere.cloudformation import AWSCustomObject
@@ -37,6 +38,8 @@ else:
         Action as ListenerDefaultAction,
     )
 
+from troposphere.iam import Role as IamRole, Policy as IamPolicy
+from troposphere.logs import LogGroup, LogStream
 from troposphere.route53 import RecordSetType, AliasTarget
 from troposphere.s3 import (
     Bucket,
@@ -56,6 +59,13 @@ from troposphere.wafv2 import (
     RegexPatternSet,
     RegexPatternSetReferenceStatement,
     RuleAction,
+    LoggingConfiguration as WafLoggingConf,
+)
+from troposphere.firehose import (
+    DeliveryStream as FirehoseDeliveryStream,
+    S3DestinationConfiguration as FirehoseS3DestinationConf,
+    BufferingHints as FirehoseBufferingHints,
+    CloudWatchLoggingOptions as FirehoseCloudWatchLoggingOptions,
 )
 
 if int(troposphere.__version__.split(".")[0]) > 3:
@@ -76,6 +86,7 @@ from util import (
     TEMPLATE,
     clean_title,
     add_resource,
+    add_resource_once,
     add_param,
     tags_with,
     opts_with,
@@ -838,10 +849,122 @@ def waf_rule(rule):
     )
 
 
-def waf_acl(acl):
+def waf_log_firehose_s3_dest_conf(s3_model, title_prefix):
+    role = add_resource(
+        IamRole(
+            f"{title_prefix}Role",
+            AssumeRolePolicyDocument={
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Principal": {"Service": "firehose.amazonaws.com"},
+                        "Action": "sts:AssumeRole",
+                    }
+                ],
+            },
+            Policies=[
+                IamPolicy(
+                    PolicyName="AllowToBucket",
+                    PolicyDocument={
+                        "Version": "2012-10-17",
+                        "Statement": [
+                            {
+                                "Effect": "Allow",
+                                "Action": [
+                                    "s3:AbortMultipartUpload",
+                                    "s3:GetBucketLocation",
+                                    "s3:GetObject",
+                                    "s3:ListBucket",
+                                    "s3:ListBucketMultipartUploads",
+                                    "s3:PutObject",
+                                ],
+                                "Resource": [s3_model.bucket_arn],
+                            }
+                        ],
+                    },
+                )
+            ],
+        )
+    )
+
+    log_group_name = Sub("/aws/kinesisfirehose/${AWS::StackName}")
+    log_stream_name = title_prefix
+    if s3_model.cloudwatch_enabled:
+        add_resource_once(
+            f"{title_prefix}LogGroup",
+            lambda n: LogGroup(n, LogGroupName=log_group_name, RetentionInDays=30),
+        )
+        add_resource(
+            LogStream(
+                f"{title_prefix}LogStream",
+                LogGroupName=log_group_name,
+                LogStreamName=log_stream_name,
+            ),
+        )
+
+    return FirehoseS3DestinationConf(
+        BucketARN=s3_model.bucket_arn,
+        CompressionFormat=s3_model.compression_format,
+        Prefix=Sub(s3_model.prefix_expr),
+        ErrorOutputPrefix=Sub(s3_model.error_prefix_expr),
+        RoleARN=GetAtt(role, "Arn"),
+        BufferingHints=FirehoseBufferingHints(
+            **opts_with(
+                IntervalInSeconds=s3_model.buffer_seconds, SizeInMBs=s3_model.buffer_mb
+            )
+        ),
+        CloudWatchLoggingOptions=FirehoseCloudWatchLoggingOptions(
+            Enabled=s3_model.cloudwatch_enabled,
+            LogGroupName=log_group_name,
+            LogStreamName=log_stream_name,
+        ),
+    )
+
+
+def waf_log_firehose_dest_arn(firehose_model, title_prefix):
+    title = f"{title_prefix}FirehoseDeliveryStream"
+    return GetAtt(
+        add_resource(
+            FirehoseDeliveryStream(
+                title,
+                # For some dratted reason, WAF log streams must be prefixed with
+                # 'aws-waf-logs-' so we have to give a static name here.
+                DeliveryStreamName=Sub(
+                    "aws-waf-logs-${AWS::StackName}-" + title_prefix
+                ),
+                DeliveryStreamType="DirectPut",
+                S3DestinationConfiguration=waf_log_firehose_s3_dest_conf(
+                    firehose_model.s3, title
+                ),
+            )
+        ),
+        "Arn",
+    )
+
+
+def waf_log_dest_arn(log_model, title_prefix):
+    if log_model.firehose:
+        return waf_log_firehose_dest_arn(log_model.firehose, title_prefix)
+    raise ValueError("No WAF logging destinations defined")
+
+
+def waf_logging_conf(log_model, title_prefix, acl_resource):
+    title = f"{title_prefix}Logging"
     return add_resource(
+        WafLoggingConf(
+            title,
+            ResourceArn=GetAtt(acl_resource, "Arn"),
+            LogDestinationConfigs=[waf_log_dest_arn(log_model, title)],
+        )
+    )
+
+
+def waf_acl(acl):
+    title = clean_title(f"Acl{acl.name}")
+    ret = add_resource(
         WebACL(
-            clean_title(f"Acl{acl.name}"),
+            title,
             DefaultAction=waf_acl_action(DefaultAction, acl.default_action),
             Scope="REGIONAL",
             Rules=[waf_rule(r) for r in acl.rules],
@@ -850,6 +973,11 @@ def waf_acl(acl):
             **opts_with(Description=acl.description, Name=acl.name),
         )
     )
+
+    if acl.logging:
+        waf_logging_conf(acl.logging, title, ret)
+
+    return ret
 
 
 def waf_acl_assoc(acl_model):

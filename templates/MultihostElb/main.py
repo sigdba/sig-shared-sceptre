@@ -92,6 +92,7 @@ from util import (
     opts_with,
     md5,
     add_export,
+    sceptre_handle,
 )
 
 PRIORITY_CACHE = []
@@ -1015,19 +1016,15 @@ def instance_sg():
     )
 
 
-def sceptre_handler(user_data):
+def add_params():
     add_param(
         "VpcId",
         Type="String",
         Description="The ID of the VPC where the ECS cluster will be created.",
     )
 
-    if user_data is None:
-        # We're generating documetation. Return the template with just parameters.
-        return TEMPLATE
 
-    data = UserDataModel.parse_obj(user_data)
-
+def main(data):
     load_balancer(data)
 
     for lsn in data.listeners:
@@ -1078,4 +1075,6 @@ def sceptre_handler(user_data):
         },
     )
 
-    return TEMPLATE.to_json()
+
+def sceptre_handler(user_data):
+    return sceptre_handle(add_params, main, UserDataModel, user_data)

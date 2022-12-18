@@ -99,6 +99,8 @@ Creates an Elastic Load Balancer and associated resources.
 
 - `description` (string)
 
+- `logging` ([WafLoggingModel](#WafLoggingModel)) - Options for WAF traffic logging
+
 - `metric_name` (string) - If defined, CloudWatch metrics for this ACL or rule will be enabled.
 
 - `name` (string) - **required**
@@ -109,6 +111,48 @@ Creates an Elastic Load Balancer and associated resources.
                        requests that match the rules. You can view the sampled
                        requests through the AWS WAF console.
   - **Default:** `False`
+
+
+
+#### WafLoggingModel
+
+- `firehose` ([WafFirehoseLoggingModel](#WafFirehoseLoggingModel)) - **required**
+
+
+
+##### WafFirehoseLoggingModel
+
+- `s3` ([WafFirehoseS3LoggingModel](#WafFirehoseS3LoggingModel)) - **required**
+
+
+
+###### WafFirehoseS3LoggingModel
+
+- `bucket_arn` (string) - **required** - ARN of the bucket to send WAF logs to
+
+- `buffer_mb` (integer) - The size of the buffer, in MBs, that Kinesis Data
+                       Firehose uses for incoming data before delivering it to
+                       the destination.
+  - **Default:** `5`
+
+- `buffer_seconds` (integer) - The length of time, in seconds, that Kinesis Data
+                       Firehose buffers incoming data before delivering it to
+                       the destination.
+  - **Default:** `300`
+
+- `cloudwatch_enabled` (boolean) - If enabled, delivery errors will be logged to CloudWatch
+  - **Default:** `True`
+
+- `compression_format` (string) - The type of compression that Kinesis Data Firehose uses
+                       to compress the data that it delivers to the Amazon S3
+                       bucket.
+  - **Default:** `GZIP`
+
+- `error_prefix_expr` (string) - A prefix that Kinesis Data Firehose evaluates and adds to failed records before writing them to S3.
+  - **Default:** `${AWS::StackName}/waf/error/`
+
+- `prefix_expr` (string) - A prefix that Kinesis Data Firehose adds to the files that it delivers to the Amazon S3 bucket.
+  - **Default:** `${AWS::StackName}/waf/traffic/`
 
 
 

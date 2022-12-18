@@ -472,16 +472,17 @@ class WafFirehoseS3LoggingModel(BaseModel):
                        to compress the data that it delivers to the Amazon S3
                        bucket.""",
     )
-    buffer_seconds: Optional[int] = Field(
+    buffer_seconds = Field(
         300,
         description="""The length of time, in seconds, that Kinesis Data
                        Firehose buffers incoming data before delivering it to
                        the destination.""",
     )
-    buffer_mb: Optional[int] = Field(
+    buffer_mb = Field(
+        5,
         description="""The size of the buffer, in MBs, that Kinesis Data
                        Firehose uses for incoming data before delivering it to
-                       the destination."""
+                       the destination.""",
     )
     cloudwatch_enabled = Field(
         True, description="If enabled, delivery errors will be logged to CloudWatch"

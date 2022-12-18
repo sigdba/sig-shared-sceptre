@@ -1,6 +1,6 @@
 from functools import lru_cache, partial
 
-import troposphere.wafv2
+import troposphere
 from troposphere import GetAtt, ImportValue, Ref, Sub, Tag
 from troposphere.certificatemanager import Certificate, DomainValidationOption
 from troposphere.cloudformation import AWSCustomObject
@@ -26,10 +26,12 @@ from troposphere.elasticloadbalancingv2 import (
     TargetGroupAttribute,
 )
 
+import waf
+
 if int(troposphere.__version__.split(".")[0]) > 3:
+    from troposphere.elasticloadbalancingv2 import Action as ListenerDefaultAction
     from troposphere.elasticloadbalancingv2 import (
         ListenerRuleAction as ListenerRuleAction,
-        Action as ListenerDefaultAction,
     )
 else:
     from troposphere.elasticloadbalancingv2 import (
@@ -37,7 +39,7 @@ else:
         Action as ListenerDefaultAction,
     )
 
-from troposphere.route53 import RecordSetType, AliasTarget
+from troposphere.route53 import AliasTarget, RecordSetType
 from troposphere.s3 import (
     Bucket,
     BucketPolicy,
@@ -45,42 +47,17 @@ from troposphere.s3 import (
     LifecycleRule,
     PublicAccessBlockConfiguration,
 )
-from troposphere.wafv2 import (
-    DefaultAction,
-    ExcludedRule,
-    FieldToMatch,
-    IPSet,
-    IPSetReferenceStatement,
-    ManagedRuleGroupStatement,
-    OverrideAction,
-    RegexPatternSet,
-    RegexPatternSetReferenceStatement,
-    RuleAction,
-)
 
-if int(troposphere.__version__.split(".")[0]) > 3:
-    from troposphere.wafv2 import Statement as WafStatement
-else:
-    from troposphere.wafv2 import StatementOne as WafStatement
-
-from troposphere.wafv2 import (
-    TextTransformation,
-    VisibilityConfig,
-    WebACL,
-    WebACLAssociation,
-    WebACLRule,
-)
-
-from model import UserDataModel, AllowCidrModel
+from model import AllowCidrModel, UserDataModel
 from util import (
     TEMPLATE,
-    clean_title,
-    add_resource,
-    add_param,
-    tags_with,
-    opts_with,
-    md5,
     add_export,
+    add_param,
+    add_resource,
+    clean_title,
+    md5,
+    opts_with,
+    sceptre_handle,
 )
 
 PRIORITY_CACHE = []
@@ -735,138 +712,6 @@ def target_ingress_rules(user_data):
         )
 
 
-def waf_acl_action(constructor, action):
-    action = action.capitalize()
-    # Some actions have an actual type defined in Troposphere. Others like Count
-    # and None in OverrideAction are just dicts.
-    fn = getattr(troposphere.wafv2, f"{action}Action", None)
-    return constructor(**{action: fn() if fn else {}})
-
-
-def waf_visibility_conf(obj):
-    return VisibilityConfig(
-        CloudWatchMetricsEnabled=obj.metric_name is not None,
-        MetricName=obj.metric_name or "Unused",
-        SampledRequestsEnabled=obj.sample_requests_enabled,
-    )
-
-
-def waf_ip_set(rule):
-    return add_resource(
-        IPSet(
-            clean_title(f"IPSet{rule.name}"),
-            Name=rule.name,
-            Addresses=rule.addresses,
-            IPAddressVersion=rule.ip_address_version,
-            Scope="REGIONAL",
-            **opts_with(Description=rule.description),
-        )
-    )
-
-
-def waf_rule_ip_set_statement(rule):
-    arn = rule if type(rule) is str else GetAtt(waf_ip_set(rule), "Arn")
-    return WafStatement(IPSetReferenceStatement=IPSetReferenceStatement(Arn=arn))
-
-
-def waf_regex_set(rule):
-    return add_resource(
-        RegexPatternSet(
-            clean_title(f"WafRegexSet{rule.name}"),
-            Name=rule.name,
-            RegularExpressionList=rule.regexes,
-            Scope="REGIONAL",
-            **opts_with(Description=rule.description),
-        )
-    )
-
-
-def waf_rule_regex_set_statement(rule):
-    arn = rule.arn if rule.arn else GetAtt(waf_regex_set(rule), "Arn")
-    match = (
-        {rule.field_to_match: {}}
-        if type(rule.field_to_match) is str
-        else rule.field_to_match
-    )
-    transforms = [
-        TextTransformation(Priority=t.priority, Type=t.transform_type)
-        for t in rule.text_transformations
-    ]
-    if len(transforms) < 1:
-        transforms = [TextTransformation(Priority=0, Type="NONE")]
-
-    return WafStatement(
-        RegexPatternSetReferenceStatement=RegexPatternSetReferenceStatement(
-            Arn=arn,
-            FieldToMatch=FieldToMatch.from_dict(None, match),
-            TextTransformations=transforms,
-        )
-    )
-
-
-def waf_rule_managed_rule_set_statement(rule):
-    return WafStatement(
-        ManagedRuleGroupStatement=ManagedRuleGroupStatement(
-            Name=rule.name,
-            VendorName=rule.vendor_name,
-            ExcludedRules=[ExcludedRule(Name=n) for n in rule.excluded_rules],
-            **opts_with(Version=rule.version),
-        )
-    )
-
-
-def waf_rule_statement(rule):
-    rule_dict = rule.__dict__
-    for k, v in rule_dict.items():
-        if v:
-            fn_name = f"waf_rule_{k}_statement"
-            fn = globals().get(fn_name)
-            if fn:
-                return fn(v)
-
-
-def waf_rule(rule):
-    return WebACLRule(
-        Name=rule.name,
-        Priority=rule.priority,
-        VisibilityConfig=waf_visibility_conf(rule),
-        Statement=waf_rule_statement(rule),
-        **opts_with(
-            Action=(rule.action, waf_acl_action, RuleAction),
-            OverrideAction=(rule.override_action, waf_acl_action, OverrideAction),
-        ),
-    )
-
-
-def waf_acl(acl):
-    return add_resource(
-        WebACL(
-            clean_title(f"Acl{acl.name}"),
-            DefaultAction=waf_acl_action(DefaultAction, acl.default_action),
-            Scope="REGIONAL",
-            Rules=[waf_rule(r) for r in acl.rules],
-            VisibilityConfig=waf_visibility_conf(acl),
-            **tags_with(acl.acl_tags),
-            **opts_with(Description=acl.description, Name=acl.name),
-        )
-    )
-
-
-def waf_acl_assoc(acl_model):
-    if type(acl_model) is str:
-        acl_arn = acl_model
-        assoc_title = f"AclAssoc{md5(acl_arn)}"
-    else:
-        acl_arn = GetAtt(waf_acl(acl_model), "Arn")
-        assoc_title = clean_title(f"AclAssocFor{acl_model.name}")
-
-    return add_resource(
-        WebACLAssociation(
-            assoc_title, ResourceArn=Ref("LoadBalancer"), WebACLArn=acl_arn
-        )
-    )
-
-
 def instance_sg():
     return add_resource(
         SecurityGroup(
@@ -887,19 +732,15 @@ def instance_sg():
     )
 
 
-def sceptre_handler(user_data):
+def add_params():
     add_param(
         "VpcId",
         Type="String",
         Description="The ID of the VPC where the ECS cluster will be created.",
     )
 
-    if user_data is None:
-        # We're generating documetation. Return the template with just parameters.
-        return TEMPLATE
 
-    data = UserDataModel.parse_obj(user_data)
-
+def main(data):
     load_balancer(data)
 
     for lsn in data.listeners:
@@ -909,7 +750,7 @@ def sceptre_handler(user_data):
     target_ingress_rules(data)
 
     for acl in data.waf_acls:
-        waf_acl_assoc(acl)
+        waf.acl_assoc(acl)
 
     if data.create_instance_sg:
         inst_sg = instance_sg()
@@ -950,4 +791,6 @@ def sceptre_handler(user_data):
         },
     )
 
-    return TEMPLATE.to_json()
+
+def sceptre_handler(user_data):
+    return sceptre_handle(add_params, main, UserDataModel, user_data)

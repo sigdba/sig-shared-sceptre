@@ -1,6 +1,9 @@
 import sys
 import hashlib
 import os.path
+
+from typing import Callable, Type, TypeVar, Dict, Any, Union
+
 from troposphere import Template, Parameter, AWSObject, Ref, Output, Export
 from pydantic import BaseModel as PydanticBaseModel
 
@@ -23,6 +26,24 @@ TITLE_CHAR_MAP = {
 class BaseModel(PydanticBaseModel):
     class Config:
         extra = "forbid"
+
+
+_M = TypeVar("_M", bound=BaseModel)
+
+
+def sceptre_handle(
+    param_fn: Callable[[], Any],
+    main_fn: Callable[_M, Any],
+    model: Type[_M],
+    user_data: Dict,
+) -> Union[str, Template]:
+    param_fn()
+    if user_data is None:
+        # We're generating documetation. Return the template with just parameters.
+        return TEMPLATE
+    data = model.parse_obj(user_data)
+    main_fn(data)
+    return TEMPLATE.to_json()
 
 
 def add_resource(r):

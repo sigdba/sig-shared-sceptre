@@ -456,6 +456,47 @@ class WafAclRuleModel(HasWafVisibility):
         return values
 
 
+class WafFirehoseS3LoggingModel(BaseModel):
+    bucket_arn: str = Field(description="ARN of the bucket to send WAF logs to")
+    prefix_expr = Field(
+        "${AWS::StackName}/waf/traffic/",
+        description="A prefix that Kinesis Data Firehose adds to the files that it delivers to the Amazon S3 bucket.",
+    )
+    error_prefix_expr = Field(
+        "${AWS::StackName}/waf/error/",
+        description="A prefix that Kinesis Data Firehose evaluates and adds to failed records before writing them to S3.",
+    )
+    compression_format = Field(
+        "GZIP",
+        description="""The type of compression that Kinesis Data Firehose uses
+                       to compress the data that it delivers to the Amazon S3
+                       bucket.""",
+    )
+    buffer_seconds = Field(
+        300,
+        description="""The length of time, in seconds, that Kinesis Data
+                       Firehose buffers incoming data before delivering it to
+                       the destination.""",
+    )
+    buffer_mb = Field(
+        5,
+        description="""The size of the buffer, in MBs, that Kinesis Data
+                       Firehose uses for incoming data before delivering it to
+                       the destination.""",
+    )
+    cloudwatch_enabled = Field(
+        True, description="If enabled, delivery errors will be logged to CloudWatch"
+    )
+
+
+class WafFirehoseLoggingModel(BaseModel):
+    s3: WafFirehoseS3LoggingModel
+
+
+class WafLoggingModel(BaseModel):
+    firehose: WafFirehoseLoggingModel
+
+
 class WafAclModel(HasWafVisibility):
     name: str
     description: Optional[str]
@@ -464,6 +505,9 @@ class WafAclModel(HasWafVisibility):
     )
     rules: List[WafAclRuleModel]
     acl_tags: Dict[str, str] = {}
+    logging: Optional[WafLoggingModel] = Field(
+        description="Options for WAF traffic logging"
+    )
 
     @root_validator
     def generate_rule_priorities(cls, values):

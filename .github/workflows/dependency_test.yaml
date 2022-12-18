@@ -2,7 +2,8 @@ name: dependency_test
 
 on:
   push:
-    branches: ['*']
+    # The dependency test can blow the GH rate limit so we only check it on release.
+    branches: ['main']
   workflow_dispatch:
     branches: ['*']
 

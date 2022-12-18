@@ -33,7 +33,7 @@ _M = TypeVar("_M", bound=BaseModel)
 
 def sceptre_handle(
     param_fn: Callable[[], Any],
-    main_fn: Callable[_M, Any],
+    main_fn: Callable[[_M], Any],
     model: Type[_M],
     user_data: Dict,
 ) -> Union[str, Template]:

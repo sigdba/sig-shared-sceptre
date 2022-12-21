@@ -35,6 +35,10 @@ public_subnets_models_by_az = {}
 subnets_by_name = {}
 
 
+def transit_gateway_attachment_name(tg_id: str) -> str:
+    return clean_title(f"TransitGatewayAttachmentTo{tg_id}")
+
+
 def r_vpc(user_data):
     name = user_data.vpc_name if user_data.vpc_name else Ref("AWS::StackName")
     ret = add_resource(
@@ -141,11 +145,16 @@ def add_route_table(subnet, name, **kwargs):
 
 
 def add_route(route_table: RouteTable, route: model.RouteModel) -> Route:
+    if route.transit_gateway_id:
+        depends_on = [transit_gateway_attachment_name(route.transit_gateway_id)]
+    else:
+        depends_on = []
     return add_resource(
         Route(
             clean_title(f"{route_table.title}RouteTo{route.dest_cidr}"),
             RouteTableId=Ref(route_table),
             DestinationCidrBlock=route.dest_cidr,
+            DependsOn=depends_on,
             **{
                 snake_to_camel_case(k): v
                 for k, v in route.dict(exclude={"dest_cidr"}, exclude_none=True).items()
@@ -280,7 +289,7 @@ def transit_gateway_attachments(user_data):
     for tg_id, subnets in tg_subnets.items():
         add_resource(
             TransitGatewayAttachment(
-                clean_title(f"TransitGatewayAttachmentTo{tg_id}"),
+                transit_gateway_attachment_name(tg_id),
                 VpcId=Ref("Vpc"),
                 TransitGatewayId=tg_id,
                 SubnetIds=subnets,

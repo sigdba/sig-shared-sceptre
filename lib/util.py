@@ -69,6 +69,10 @@ def dashed_to_camel_case(t):
     return "".join([s[0].upper() + s[1:] for s in t.split("-")])
 
 
+def snake_to_camel_case(t):
+    return "".join(x.capitalize() or "_" for x in t.split("_"))
+
+
 def add_param(name, **kwargs):
     return TEMPLATE.add_parameter(Parameter(name, **kwargs))
 

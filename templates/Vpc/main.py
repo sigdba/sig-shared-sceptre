@@ -278,13 +278,11 @@ def customer_gateway_routes(gw_model, subnets_and_route_tables):
 
 
 def transit_gateway_attachments(user_data):
-    tg_subnets = defaultdict(lambda: [])
+    tg_subnets = defaultdict(lambda: set())
     for subnet_model in user_data.subnets:
         for route_model in subnet_model.routes:
             if route_model.transit_gateway_id:
-                tg_subnets[route_model.transit_gateway_id].append(
-                    Ref(subnets_by_name[subnet_model.name])
-                )
+                tg_subnets[route_model.transit_gateway_id].add(subnet_model.name)
 
     for tg_id, subnets in tg_subnets.items():
         add_resource(
@@ -292,7 +290,7 @@ def transit_gateway_attachments(user_data):
                 transit_gateway_attachment_name(tg_id),
                 VpcId=Ref("Vpc"),
                 TransitGatewayId=tg_id,
-                SubnetIds=subnets,
+                SubnetIds=[Ref(subnets_by_name[n]) for n in subnets],
             )
         )
 

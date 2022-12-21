@@ -280,6 +280,8 @@
           Ref: Vpc
       Type: AWS::EC2::RouteTable
     RouteTableprimaryRouteTo10DOT10DOT1DOT0SLASH24:
+      DependsOn:
+      - TransitGatewayAttachmentTotgwDASH12345
       Properties:
         DestinationCidrBlock: 10.10.1.0/24
         RouteTableId:
@@ -287,6 +289,7 @@
         TransitGatewayId: tgw-12345
       Type: AWS::EC2::Route
     RouteTableprimaryRouteTo10DOT10DOT2DOT0SLASH24:
+      DependsOn: []
       Properties:
         DestinationCidrBlock: 10.10.2.0/24
         NatGatewayId: nat-1234123

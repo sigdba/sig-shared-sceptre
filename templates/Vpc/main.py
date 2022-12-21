@@ -24,6 +24,7 @@ from util import (
     add_resource_once,
     clean_title,
     dashed_to_camel_case,
+    snake_to_camel_case,
     opts_with,
 )
 
@@ -134,6 +135,20 @@ def add_route_table(subnet, name, **kwargs):
     return rt
 
 
+def add_route(route_table: RouteTable, route: model.RouteModel) -> Route:
+    return add_resource(
+        Route(
+            clean_title(f"{route_table.title}RouteTo{route.dest_cidr}"),
+            RouteTableId=Ref(route_table),
+            DestinationCidrBlock=route.dest_cidr,
+            **{
+                snake_to_camel_case(k): v
+                for k, v in route.dict(exclude={"dest_cidr"}, exclude_none=True).items()
+            },
+        )
+    )
+
+
 def connected_subnet(subnet_model):
     sn = subnet(subnet_model)
 
@@ -152,6 +167,9 @@ def connected_subnet(subnet_model):
         )
     else:
         raise ValueError(f"Unknown subnet kind: {subnet_model.kind}")
+
+    for r in subnet_model.routes:
+        add_route(rt, r)
 
     add_export(
         dashed_to_camel_case(subnet_model.name) + "SubnetId",

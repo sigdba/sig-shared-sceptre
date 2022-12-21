@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 from troposphere import GetAtt, Ref, Sub, Tag, Tags
 from troposphere.ec2 import (
     EIP,
@@ -14,6 +16,7 @@ from troposphere.ec2 import (
     VPNConnectionRoute,
     VPNGateway,
     VpnTunnelOptionsSpecification,
+    TransitGatewayAttachment,
 )
 
 import model
@@ -29,6 +32,7 @@ from util import (
 )
 
 public_subnets_models_by_az = {}
+subnets_by_name = {}
 
 
 def r_vpc(user_data):
@@ -100,6 +104,7 @@ def subnet(subnet_model):
             Tags=[Tag("Name", Sub("${AWS::StackName}-" + subnet_model.name))],
         )
     )
+    subnets_by_name[subnet_model.name] = ret
     return ret
 
 
@@ -263,6 +268,26 @@ def customer_gateway_routes(gw_model, subnets_and_route_tables):
             )
 
 
+def transit_gateway_attachments(user_data):
+    tg_subnets = defaultdict(lambda: [])
+    for subnet_model in user_data.subnets:
+        for route_model in subnet_model.routes:
+            if route_model.transit_gateway_id:
+                tg_subnets[route_model.transit_gateway_id].append(
+                    Ref(subnets_by_name[subnet_model.name])
+                )
+
+    for tg_id, subnets in tg_subnets.items():
+        add_resource(
+            TransitGatewayAttachment(
+                clean_title(f"TransitGatewayAttachmentTo{tg_id}"),
+                VpcId=Ref("Vpc"),
+                TransitGatewayId=tg_id,
+                SubnetIds=subnets,
+            )
+        )
+
+
 def sceptre_handler(sceptre_user_data):
     if sceptre_user_data is None:
         # We're generating documetation. Return the template with just parameters.
@@ -276,5 +301,7 @@ def sceptre_handler(sceptre_user_data):
     if user_data.customer_gateway:
         attach_customer_gateway(user_data.customer_gateway)
         customer_gateway_routes(user_data.customer_gateway, subnets_and_route_tables)
+
+    transit_gateway_attachments(user_data)
 
     return TEMPLATE.to_json()

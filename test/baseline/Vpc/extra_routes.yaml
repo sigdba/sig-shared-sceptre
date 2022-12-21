@@ -368,6 +368,14 @@
         VpcId:
           Ref: Vpc
       Type: AWS::EC2::Subnet
+    TransitGatewayAttachmentTotgwDASH12345:
+      Properties:
+        SubnetIds:
+        - Ref: SUBNETprimary
+        TransitGatewayId: tgw-12345
+        VpcId:
+          Ref: Vpc
+      Type: AWS::EC2::TransitGatewayAttachment
     Vpc:
       Properties:
         CidrBlock: 172.30.0.0/16

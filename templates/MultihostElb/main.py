@@ -461,7 +461,15 @@ def conditions_with(user_data, cond_data):
 
 
 def listener_rule(user_data, listener_ref, rule_data):
-    rule_title = "Rule{}".format(md5(listener_ref.data, rule_data.input_values)[:7])
+    rule_title = "Rule{}".format(
+        md5(
+            listener_ref.data,
+            rule_data.paths,
+            rule_data.hosts,
+            rule_data.match_query_string,
+            rule_data.priority,
+        )[:7]
+    )
     cond_data = normalize_condition_data(user_data, rule_data)
     action = action_with(user_data, rule_title, rule_data)
 

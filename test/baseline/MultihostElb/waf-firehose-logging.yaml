@@ -327,11 +327,43 @@
         TTL: '300'
         Type: CNAME
       Type: AWS::Route53::RecordSet
-    Rule258cd85:
+    Rule4445f2b:
       Properties:
         Actions:
         - TargetGroupArn:
-            Ref: Rule258cd85TargetGroup
+            Ref: Rule4445f2bTargetGroup
+          Type: forward
+        Conditions:
+        - Field: host-header
+          HostHeaderConfig:
+            Values:
+            - tools.*
+        ListenerArn:
+          Ref: ListenerOnPort443
+        Priority: 48107
+      Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Rule4445f2bTargetGroup:
+      Properties:
+        HealthCheckPath: /login
+        Matcher:
+          HttpCode: 200-399
+        Port: 8080
+        Protocol: HTTP
+        TargetGroupAttributes:
+        - Key: stickiness.enabled
+          Value: 'true'
+        - Key: stickiness.type
+          Value: lb_cookie
+        Targets:
+        - Id: i-12345
+        VpcId:
+          Ref: VpcId
+      Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Rulefb96c37:
+      Properties:
+        Actions:
+        - TargetGroupArn:
+            Ref: Rulefb96c37TargetGroup
           Type: forward
         Conditions:
         - Field: host-header
@@ -347,7 +379,7 @@
           Ref: ListenerOnPort443
         Priority: 38750
       Type: AWS::ElasticLoadBalancingV2::ListenerRule
-    Rule258cd85TargetGroup:
+    Rulefb96c37TargetGroup:
       Properties:
         HealthCheckPath: /admin/
         Matcher:
@@ -362,38 +394,6 @@
         Targets:
         - Id:
             Fn::ImportValue: sig-ban-server-esm1-InstanceId
-        VpcId:
-          Ref: VpcId
-      Type: AWS::ElasticLoadBalancingV2::TargetGroup
-    Rule8219c23:
-      Properties:
-        Actions:
-        - TargetGroupArn:
-            Ref: Rule8219c23TargetGroup
-          Type: forward
-        Conditions:
-        - Field: host-header
-          HostHeaderConfig:
-            Values:
-            - tools.*
-        ListenerArn:
-          Ref: ListenerOnPort443
-        Priority: 48107
-      Type: AWS::ElasticLoadBalancingV2::ListenerRule
-    Rule8219c23TargetGroup:
-      Properties:
-        HealthCheckPath: /login
-        Matcher:
-          HttpCode: 200-399
-        Port: 8080
-        Protocol: HTTP
-        TargetGroupAttributes:
-        - Key: stickiness.enabled
-          Value: 'true'
-        - Key: stickiness.type
-          Value: lb_cookie
-        Targets:
-        - Id: i-12345
         VpcId:
           Ref: VpcId
       Type: AWS::ElasticLoadBalancingV2::TargetGroup

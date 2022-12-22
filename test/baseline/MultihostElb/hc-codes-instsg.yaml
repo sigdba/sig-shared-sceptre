@@ -243,11 +243,11 @@
         TTL: '300'
         Type: CNAME
       Type: AWS::Route53::RecordSet
-    Rule8219c23:
+    Rule4445f2b:
       Properties:
         Actions:
         - TargetGroupArn:
-            Ref: Rule8219c23TargetGroup
+            Ref: Rule4445f2bTargetGroup
           Type: forward
         Conditions:
         - Field: host-header
@@ -258,7 +258,7 @@
           Ref: ListenerOnPort443
         Priority: 48107
       Type: AWS::ElasticLoadBalancingV2::ListenerRule
-    Rule8219c23TargetGroup:
+    Rule4445f2bTargetGroup:
       Properties:
         HealthCheckPath: /login
         Matcher:
@@ -275,11 +275,11 @@
         VpcId:
           Ref: VpcId
       Type: AWS::ElasticLoadBalancingV2::TargetGroup
-    Ruled7378e2:
+    Rulefb96c37:
       Properties:
         Actions:
         - TargetGroupArn:
-            Ref: Ruled7378e2TargetGroup
+            Ref: Rulefb96c37TargetGroup
           Type: forward
         Conditions:
         - Field: host-header
@@ -295,7 +295,7 @@
           Ref: ListenerOnPort443
         Priority: 14006
       Type: AWS::ElasticLoadBalancingV2::ListenerRule
-    Ruled7378e2TargetGroup:
+    Rulefb96c37TargetGroup:
       Properties:
         HealthCheckPath: /admin/
         Matcher:

@@ -24,8 +24,30 @@ class EbsVolumeModel(BaseModel):
     encrypted: Optional[bool]
 
 
+class SecurityGroupAllowCidrModel(BaseModel):
+    cidr: Optional[str] = Field(
+        description="The IPv4 address range(s), in CIDR format.",
+    )
+    import_cidr: Optional[str] = Field(
+        description="The name of the CloudFormation export of the CIDR."
+    )
+    import_ip: Optional[str] = Field(
+        description="The name of the CloudFormatioion export of the IP. This will be converted into a CIDR by appending '/32'."
+    )
+
+    @root_validator(pre=True)
+    def require_exactly_one(cls, values):
+        if len(values) != 1:
+            raise ValueError(
+                "Must contain exactly one of: cidr, import_cidr, import_ip"
+            )
+        return values
+
+
 class SecurityGroupAllowModel(BaseModel):
-    cidr: Union[str, List[str]] = Field(
+    cidr: Union[
+        str, SecurityGroupAllowCidrModel, List[Union[str, SecurityGroupAllowCidrModel]]
+    ] = Field(
         [],
         description="The IPv4 address range(s), in CIDR format. May be specified as a single string or a list of strings.",
         notes=["You must specify one of `cidr` or `sg_id` but not both."],
@@ -52,10 +74,10 @@ class SecurityGroupAllowModel(BaseModel):
         return values
 
     @validator("cidr")
-    def make_cidr_a_list(cls, v):
-        if type(v) is list:
-            return v
-        return [v]
+    def make_cidr_a_list_of_models(cls, v):
+        if type(v) is not list:
+            v = [v]
+        return [SecurityGroupAllowCidrModel(cidr=i) if type(i) is str else i for i in v]
 
     def parse_port(port):
         if isinstance(port, int):

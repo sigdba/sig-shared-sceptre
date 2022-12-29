@@ -196,6 +196,41 @@
           IpProtocol: tcp
           SourceSecurityGroupId: sg-123123
           ToPort: 22
+        - CidrIp: 1.2.3.4/20
+          Description: Allow something from somewhere
+          FromPort: 1234
+          IpProtocol: tcp
+          ToPort: 1234
+        - CidrIp: 4.3.2.1/11
+          Description: Allow something else from somewhere else
+          FromPort: 4321
+          IpProtocol: tcp
+          ToPort: 4321
+        - CidrIp: 5.5.5.0/24
+          Description: Allow some stuff from over there
+          FromPort: 8989
+          IpProtocol: tcp
+          ToPort: 8989
+        - CidrIp: 5.5.6.0/24
+          Description: Allow some stuff from over there
+          FromPort: 8989
+          IpProtocol: tcp
+          ToPort: 8989
+        - CidrIp:
+            Fn::ImportValue: some-exported-cidr
+          Description: Allow some stuff from over there
+          FromPort: 8989
+          IpProtocol: tcp
+          ToPort: 8989
+        - CidrIp:
+            Fn::Sub:
+            - ${CIDR}/32
+            - CIDR:
+                Fn::ImportValue: some-exported-ip
+          Description: Allow some stuff from over there
+          FromPort: 8989
+          IpProtocol: tcp
+          ToPort: 8989
         Tags:
         - Key: Name
           Value: jobsub1-sg

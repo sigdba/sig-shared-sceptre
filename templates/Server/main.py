@@ -1,4 +1,5 @@
 from functools import partial
+from typing import Union
 
 from troposphere import FindInMap, GetAtt, ImportValue, Ref, Sub, Tags
 from troposphere.backup import (
@@ -11,19 +12,14 @@ from troposphere.backup import (
     LifecycleResourceType,
 )
 from troposphere.cloudformation import AWSCustomObject
-from troposphere.ec2 import (
-    EIP,
-    Instance,
-    MountPoint,
-    SecurityGroup,
-    Volume,
-)
+from troposphere.ec2 import EIP, Instance, MountPoint, SecurityGroup, Volume
 from troposphere.iam import InstanceProfile, Policy, Role
 from troposphere.route53 import RecordSetType
 
-from model import UserDataModel
+from model import SecurityGroupAllowCidrModel, UserDataModel
 from root_vol import root_vol_props
 from util import (
+    TEMPLATE,
     add_export,
     add_mapping,
     add_output,
@@ -32,8 +28,16 @@ from util import (
     clean_title,
     opts_with,
     troposphere_opts,
-    TEMPLATE,
 )
+
+
+def sg_allow_cidr_value(cidr: SecurityGroupAllowCidrModel) -> Union[str, dict]:
+    if cidr.cidr:
+        return cidr.cidr
+    if cidr.import_cidr:
+        return ImportValue(cidr.import_cidr)
+    if cidr.import_ip:
+        return Sub("${CIDR}/32", {"CIDR": ImportValue(cidr.import_ip)})
 
 
 def ingress_for_allow(allow):
@@ -46,7 +50,7 @@ def ingress_for_allow(allow):
 
     def gen():
         for cidr in allow.cidr:
-            yield {**base_opts, "CidrIp": cidr}
+            yield {**base_opts, "CidrIp": sg_allow_cidr_value(cidr)}
         if allow.sg_id:
             yield {
                 **base_opts,
@@ -406,6 +410,21 @@ def sceptre_handler(sceptre_user_data):
 
     add_export("InstanceId", Sub("${AWS::StackName}-InstanceId"), Ref(ec2_inst))
     add_export("InstanceSg", Sub("${AWS::StackName}-InstanceSg"), Ref("InstanceSg"))
+    add_export(
+        "InstanceAz",
+        Sub("${AWS::StackName}-InstanceAz"),
+        GetAtt(ec2_inst, "AvailabilityZone"),
+    )
+    add_export(
+        "InstancePrivateIp",
+        Sub("${AWS::StackName}-InstancePrivateIp"),
+        GetAtt(ec2_inst, "PrivateIp"),
+    )
+    add_export(
+        "InstancePrivateIpCidr",
+        Sub("${AWS::StackName}-InstancePrivateIpCidr"),
+        Sub("${Instance.PrivateIp}/32"),
+    )
 
     for output in user_data.stack_outputs:
         add_output(

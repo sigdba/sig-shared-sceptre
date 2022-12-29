@@ -4,12 +4,34 @@
       us-east-1:
         Ami: ami-047627086234fbbe7
   Outputs:
+    InstanceAz:
+      Export:
+        Name:
+          Fn::Sub: ${AWS::StackName}-InstanceAz
+      Value:
+        Fn::GetAtt:
+        - Instance
+        - AvailabilityZone
     InstanceId:
       Export:
         Name:
           Fn::Sub: ${AWS::StackName}-InstanceId
       Value:
         Ref: Instance
+    InstancePrivateIp:
+      Export:
+        Name:
+          Fn::Sub: ${AWS::StackName}-InstancePrivateIp
+      Value:
+        Fn::GetAtt:
+        - Instance
+        - PrivateIp
+    InstancePrivateIpCidr:
+      Export:
+        Name:
+          Fn::Sub: ${AWS::StackName}-InstancePrivateIpCidr
+      Value:
+        Fn::Sub: ${Instance.PrivateIp}/32
     InstanceSg:
       Export:
         Name:

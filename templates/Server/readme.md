@@ -73,7 +73,7 @@ Creates an EC2 instance and associated resources.
 
 #### SecurityGroupAllowModel
 
-- `cidr` (string or List of string) - The IPv4 address range(s), in CIDR format. May be specified as a single string or a list of strings.
+- `cidr` (string or [SecurityGroupAllowCidrModel](#SecurityGroupAllowCidrModel) or List of string or [SecurityGroupAllowCidrModel](#SecurityGroupAllowCidrModel)) - The IPv4 address range(s), in CIDR format. May be specified as a single string or a list of strings.
   - You must specify one of `cidr` or `sg_id` but not both.
 
 - `description` (string) - **required**
@@ -89,6 +89,16 @@ Creates an EC2 instance and associated resources.
 - `sg_owner` (string) - The AWS account ID that owns the security group specified in `sg_id`. This value is required if the SG is in another account.
 
 - `to_port` (integer) - **required**
+
+
+
+##### SecurityGroupAllowCidrModel
+
+- `cidr` (string) - The IPv4 address range(s), in CIDR format.
+
+- `import_cidr` (string) - The name of the CloudFormation export of the CIDR.
+
+- `import_ip` (string) - The name of the CloudFormatioion export of the IP. This will be converted into a CIDR by appending '/32'.
 
 
 

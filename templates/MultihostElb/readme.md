@@ -10,7 +10,8 @@ Creates an Elastic Load Balancer and associated resources.
 
 ## sceptre_user_data
 
-- `access_logs` ([AccessLogsModel](#AccessLogsModel))
+- `access_logs` ([AccessLogsModel](#AccessLogsModel)) - Configure access logs for the load-balancer.
+  - **Note:** By default, access logging is enabled and will be stored an S3 bucket created by the stack.
 
 - `allow_cidrs` (List of string or [AllowCidrModel](#AllowCidrModel)) - A list of CIDRs allowed to access the ELB.
   - **Default:** With `allow_cidrs` empty, if `elb_security_groups` has been provided, then no
@@ -281,11 +282,22 @@ Creates an Elastic Load Balancer and associated resources.
 
 - `bucket` (string) - Name of the bucket to store access logs.
   - **Default:** A dedicated bucket will be created.
+  - **Warning:** When you enable logging to an existing bucket on an ELB you might get this error:
 
-- `enabled` (boolean)
+        ```
+        LoadBalancer AWS::ElasticLoadBalancingV2::LoadBalancer UPDATE_FAILED Access Denied for bucket: ... Please check S3bucket permission
+        ```
+
+        This is caused by not having the appropriate policy on the bucket. See
+        the
+        [ELB access log documentation](https://docs.aws.amazon.com/elasticloadbalancing/latest/classic/enable-access-logs.html#attach-bucket-policy)
+        for details.
+
+- `enabled` (boolean) - When `True` requests to the ELB will be logged.
   - **Default:** `True`
 
-- `prefix_expr` (string)
+- `prefix_expr` (string) - S3 prefix for log files. The expression will be passed through
+        [Fn::Sub](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-sub.html).
   - **Default:** `${AWS::StackName}-access.`
 
 - `retain_days` (integer) - ELB access logs will be purged from S3 after this many days.

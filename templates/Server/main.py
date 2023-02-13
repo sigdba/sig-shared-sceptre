@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Union
+from typing import Union, Optional
 
 from troposphere import FindInMap, GetAtt, ImportValue, Ref, Sub, Tags
 from troposphere.backup import (
@@ -7,6 +7,7 @@ from troposphere.backup import (
     BackupPlanResourceType,
     BackupRuleResourceType,
     BackupSelection,
+    CopyActionResourceType,
     BackupSelectionResourceType,
     BackupVault,
     LifecycleResourceType,
@@ -29,6 +30,8 @@ from util import (
     opts_with,
     troposphere_opts,
 )
+
+import model
 
 
 def sg_allow_cidr_value(cidr: SecurityGroupAllowCidrModel) -> Union[str, dict]:
@@ -189,10 +192,36 @@ def instance(user_data, ebs_mods_vols):
     )
 
 
-def backup_plan_rule(vault_name, rule):
+def backup_plan_rule_copy_lifecycle(
+    model: model.BackupRuleCopyModel,
+) -> Optional[LifecycleResourceType]:
+    if model.delete_after_days or model.cold_storage_after_days:
+        return LifecycleResourceType(
+            **opts_with(
+                DeleteAfterDays=model.delete_after_days,
+                MoveToColdStorageAfterDays=model.cold_storage_after_days,
+            )
+        )
+    return None
+
+
+def backup_plan_rule_copy(model: model.BackupRuleCopyModel) -> CopyActionResourceType:
+    return CopyActionResourceType(
+        DestinationBackupVaultArn=model.vault_arn,
+        **opts_with(Lifecycle=backup_plan_rule_copy_lifecycle(model)),
+    )
+
+
+def backup_plan_rule(
+    vault_name: str, rule: model.BackupRuleModel
+) -> BackupRuleResourceType:
     lifecycle_opts = {}
     if rule.cold_storage_after_days:
         lifecycle_opts["MoveToColdStorageAfterDays"] = rule.cold_storage_after_days
+    if len(rule.copy_to) > 0:
+        copy_to = [backup_plan_rule_copy(m) for m in rule.copy_to]
+    else:
+        copy_to = None
 
     return BackupRuleResourceType(
         RuleName=rule.name,
@@ -201,6 +230,7 @@ def backup_plan_rule(vault_name, rule):
         Lifecycle=LifecycleResourceType(
             DeleteAfterDays=rule.retain_days, **lifecycle_opts
         ),
+        **opts_with(CopyActions=copy_to),
         **rule.rule_extra_props,
     )
 

@@ -111,7 +111,7 @@ Creates an EC2 instance and associated resources.
 - `plan_tags` (Dict[string:string])
 
 - `rules` (List of [BackupRuleModel](#BackupRuleModel))
-  - **Default:** `[{'name': 'Daily', 'retain_days': 30, 'cold_storage_after_days': None, 'schedule': 'cron(0 0 * * ? *)', 'rule_extra_props': {}}]`
+  - **Default:** `[{'name': 'Daily', 'retain_days': 30, 'cold_storage_after_days': None, 'schedule': 'cron(0 0 * * ? *)', 'copy_to': [], 'rule_extra_props': {}}]`
 
 - `vault` ([BackupVaultModel](#BackupVaultModel))
 
@@ -121,6 +121,9 @@ Creates an EC2 instance and associated resources.
 
 - `cold_storage_after_days` (integer)
 
+- `copy_to` (List of [BackupRuleCopyModel](#BackupRuleCopyModel)) - Configure replication of backups to other regions or accounts.
+  - **Default:** By default no copies are made.
+
 - `name` (string) - **required**
 
 - `retain_days` (integer) - **required**
@@ -128,6 +131,16 @@ Creates an EC2 instance and associated resources.
 - `rule_extra_props` (Dict)
 
 - `schedule` (string) - **required**
+
+
+
+##### BackupRuleCopyModel
+
+- `cold_storage_after_days` (number) - Number of days before recovery point is transitioned to cold storage
+
+- `delete_after_days` (number) - Number of days before recovery point is deleted
+
+- `vault_arn` (string) - **required** - ARN of the destination backup vault
 
 
 

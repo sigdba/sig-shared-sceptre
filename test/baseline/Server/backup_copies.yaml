@@ -1,0 +1,351 @@
+---
+- Mappings:
+    AmiMap:
+      us-east-1:
+        Ami: ami-047627086234fbbe7
+  Outputs:
+    InstanceAz:
+      Export:
+        Name:
+          Fn::Sub: ${AWS::StackName}-InstanceAz
+      Value:
+        Fn::GetAtt:
+        - Instance
+        - AvailabilityZone
+    InstanceId:
+      Export:
+        Name:
+          Fn::Sub: ${AWS::StackName}-InstanceId
+      Value:
+        Ref: Instance
+    InstancePrivateIp:
+      Export:
+        Name:
+          Fn::Sub: ${AWS::StackName}-InstancePrivateIp
+      Value:
+        Fn::GetAtt:
+        - Instance
+        - PrivateIp
+    InstancePrivateIpCidr:
+      Export:
+        Name:
+          Fn::Sub: ${AWS::StackName}-InstancePrivateIpCidr
+      Value:
+        Fn::Sub: ${Instance.PrivateIp}/32
+    InstanceSg:
+      Export:
+        Name:
+          Fn::Sub: ${AWS::StackName}-InstanceSg
+      Value:
+        Ref: InstanceSg
+  Parameters:
+    AvailabilityZone:
+      Type: AWS::EC2::AvailabilityZone::Name
+    InstanceType:
+      Type: String
+    KeyPairName:
+      Description: SSH keypair used to access the server
+      Type: AWS::EC2::KeyPair::KeyName
+    SubnetId:
+      Type: AWS::EC2::Subnet::Id
+    VpcId:
+      Type: AWS::EC2::VPC::Id
+  Resources:
+    BackupPlan:
+      Properties:
+        BackupPlan:
+          AdvancedBackupSettings: []
+          BackupPlanName:
+            Ref: AWS::StackName
+          BackupPlanRule:
+          - CopyActions:
+            - DestinationBackupVaultArn: some:other:vault
+              Lifecycle:
+                DeleteAfterDays: 100.0
+                MoveToColdStorageAfterDays: 2.0
+            Lifecycle:
+              DeleteAfterDays: 30
+            RuleName: rule
+            ScheduleExpression: cron(0 0 * * ? *)
+            TargetBackupVault: Default
+        BackupPlanTags: {}
+      Type: AWS::Backup::BackupPlan
+    BackupRole:
+      Properties:
+        AssumeRolePolicyDocument:
+          Statement:
+          - Action:
+            - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+              - backup.amazonaws.com
+          Version: '2012-10-17'
+        ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSBackupServiceRolePolicyForBackup
+      Type: AWS::IAM::Role
+    BackupSelection:
+      Properties:
+        BackupPlanId:
+          Ref: BackupPlan
+        BackupSelection:
+          IamRoleArn:
+            Fn::GetAtt:
+            - BackupRole
+            - Arn
+          Resources:
+          - Fn::Sub: arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:instance/${Instance}
+          - Fn::Sub: arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:volume/${EbsVolumeLETTERb}
+          SelectionName:
+            Ref: AWS::StackName
+      Type: AWS::Backup::BackupSelection
+    EbsVolumeLETTERb:
+      Properties:
+        AvailabilityZone:
+          Ref: AvailabilityZone
+        Size: 200
+        Tags:
+        - Key: Name
+          Value: 'jobsub1: /u01'
+        - Key: erp:mount_point
+          Value: /u01
+        VolumeType: gp3
+      Type: AWS::EC2::Volume
+    Instance:
+      Properties:
+        DisableApiTermination: false
+        IamInstanceProfile:
+          Ref: InstanceProfile
+        ImageId:
+          Fn::FindInMap:
+          - AmiMap
+          - Ref: AWS::Region
+          - Ami
+        InstanceType:
+          Ref: InstanceType
+        KeyName:
+          Ref: KeyPairName
+        SecurityGroupIds:
+        - Fn::GetAtt:
+          - InstanceSg
+          - GroupId
+        - sg-123451
+        SubnetId:
+          Ref: SubnetId
+        Tags:
+        - Key: Name
+          Value: jobsub1
+        - Key: erp:init_user
+          Value: ec2-user
+        - Key: erp:role
+          Value: jobsub
+        - Key: os:type
+          Value: linux
+        UserData: IyEvYmluL2Jhc2gKeXVtIGluc3RhbGwgLXkgaHR0cHM6Ly9zMy5hbWF6b25hd3MuY29tL2VjMi1kb3dubG9hZHMtd2luZG93cy9TU01BZ2VudC9sYXRlc3QvbGludXhfYW1kNjQvYW1hem9uLXNzbS1hZ2VudC5ycG0Kc3lzdGVtY3RsIGVuYWJsZSBhbWF6b24tc3NtLWFnZW50CnN5c3RlbWN0bCBzdGFydCBhbWF6b24tc3NtLWFnZW50
+        Volumes:
+        - Device: /dev/xvdb
+          VolumeId:
+            Ref: EbsVolumeLETTERb
+      Type: AWS::EC2::Instance
+    InstanceProfile:
+      Properties:
+        Roles:
+        - Ref: InstanceRole
+      Type: AWS::IAM::InstanceProfile
+    InstanceRole:
+      Properties:
+        AssumeRolePolicyDocument:
+          Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+          Version: '2012-10-17'
+        Description:
+          Fn::Sub: Instance profile role for ${AWS::StackName}
+        ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+        Policies:
+        - PolicyDocument:
+            Statement:
+            - Action: s3:ListBucket
+              Effect: Allow
+              Resource: arn:aws:s3:::codebuild
+            - Action: s3:*Object*
+              Effect: Allow
+              Resource: arn:aws:s3:::codebuild/*
+            - Action: codebuild:StartBuild
+              Effect: Allow
+              Resource: arn:aws:codebuild:us-east-1:12342123:project/banner-app
+            - Action:
+              - ec2:DescribeVolumes
+              Effect: Allow
+              Resource: '*'
+            Version: '2012-10-17'
+          PolicyName: inline_allow
+        Tags: []
+      Type: AWS::IAM::Role
+    InstanceSg:
+      Properties:
+        GroupDescription: Primary security group for jobsub1
+        GroupName: jobsub1-sg
+        SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0
+          Description: Allow all outbound
+          FromPort: '-1'
+          IpProtocol: '-1'
+          ToPort: '-1'
+        SecurityGroupIngress:
+        - Description: Allow ESM to SSH
+          FromPort: 22
+          IpProtocol: tcp
+          SourceSecurityGroupId: sg-123123
+          ToPort: 22
+        Tags:
+        - Key: Name
+          Value: jobsub1-sg
+        VpcId:
+          Ref: VpcId
+      Type: AWS::EC2::SecurityGroup
+    LambdaExecutionRoleForRootVolProps:
+      Properties:
+        AssumeRolePolicyDocument:
+          Statement:
+          - Action:
+            - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+              - lambda.amazonaws.com
+          Version: '2012-10-17'
+        Path: /
+        Policies:
+        - PolicyDocument:
+            Statement:
+            - Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+              - ec2:DescribeInstances
+              - ec2:ModifyVolume
+              - ec2:CreateTags
+              - ec2:DescribeVolumes
+              Effect: Allow
+              Resource: '*'
+            Version: '2012-10-17'
+          PolicyName: lambda-inline
+      Type: AWS::IAM::Role
+    LambdaFunctionForRootVolProps:
+      Properties:
+        Code:
+          ZipFile:
+            Fn::Sub: "import os\nimport boto3\nimport time\nimport math\nimport traceback\n\
+              import cfnresponse\n\nfrom botocore.exceptions import ClientError\n\
+              from functools import partial, reduce\nfrom datetime import datetime\n\
+              \nREGION = \"${AWS::Region}\"\n\n# Check if we're in a test environment,\
+              \ and if so set the region from the\n# environment or use a default.\n\
+              if \"AWS::Region\" in REGION:\n    REGION = os.environ.get(\"AWS_DEFAULT_REGION\"\
+              , \"us-east-1\")\n    print(\"Test environment detected, setting REGION\
+              \ to\", REGION)\nelse:\n    print(\"REGION:\", REGION)\n\n\nec2 = boto3.client(\"\
+              ec2\", region_name=REGION)\nec2_res = boto3.resource(\"ec2\", region_name=REGION)\n\
+              \n\n# This function returns a generator of \"nap times\" for retrying\
+              \ an operation. It will first perform an exponential\n# backoff but\
+              \ as the Lambda timeout approaches will ramp up again in an attempt\
+              \ to finish before the timeout.\ndef retry_backoff(min_sec=1, max_sec=60,\
+              \ lifetime=900):\n    deadline = time.time() + lifetime\n    retries\
+              \ = 0\n    while True:\n        yield max(\n            min_sec,\n \
+              \           min(max_sec, math.pow(2, retries) / 10, (deadline - time.time())\
+              \ / 2.0),\n        )\n        retries = retries + 1\n\n\ndef get_root_ebs_vol_id(instance_id):\n\
+              \    print(\"Fetching root volume ID for instance:\", instance_id)\n\
+              \    inst = ec2.describe_instances(InstanceIds=[instance_id])[\"Reservations\"\
+              ][0][\n        \"Instances\"\n    ][0]\n    if inst[\"RootDeviceType\"\
+              ] != \"ebs\":\n        raise ValueError(\n            \"Root device\
+              \ of instance %s is type '%s' but only EBS volumes can be modified by\
+              \ this module\"\n        )\n    root_vol_name = inst[\"RootDeviceName\"\
+              ]\n    return [\n        m[\"Ebs\"][\"VolumeId\"]\n        for m in\
+              \ inst[\"BlockDeviceMappings\"]\n        if m[\"DeviceName\"] == root_vol_name\n\
+              \    ][0]\n\n\ndef set_ebs_vol_tags(volume_id, tags):\n    print(\"\
+              setting tags on volume\", volume_id, \":\", tags)\n    res = ec2_res.Volume(volume_id).create_tags(Tags=tags)\n\
+              \    print(\"create_tags response:\", res)\n\n\ndef set_ebs_vol_size(volume_id,\
+              \ size_gb):\n    print(\"fetching current size of volume:\", volume_id)\n\
+              \    vol = ec2_res.Volume(volume_id)\n    cur_size = vol.size\n    print(volume_id,\
+              \ \"current size:\", cur_size)\n    if size_gb > cur_size:\n       \
+              \ print(\"Current volume state:\", vol.state)\n        print(\"setting\
+              \ size on volume\", volume_id, \":\", size_gb)\n        for nap_time\
+              \ in retry_backoff():\n            try:\n                res = ec2.modify_volume(VolumeId=volume_id,\
+              \ Size=size_gb)\n                print(\"modify_volume response:\",\
+              \ res)\n                break\n            except ClientError as err:\n\
+              \                if \"Unavailable\" in str(err):\n                 \
+              \   print(\"ClientError: {0}\".format(err))\n                    print(\"\
+              Will retry in %0.2f seconds\" % nap_time)\n                    time.sleep(nap_time)\n\
+              \                else:\n                    raise err\n    else:\n \
+              \       print(\n            volume_id,\n            \"current size greater\
+              \ than or equal to\",\n            size_gb,\n            \". Skipping\
+              \ resize.\",\n        )\n\n\ndef do_create_update(event, res_fn):\n\
+              \    props = event[\"ResourceProperties\"]\n    inst_id = props[\"InstanceId\"\
+              ]\n    vol_id = get_root_ebs_vol_id(inst_id)\n\n    tags = props.get(\"\
+              Tags\", None)\n    size = props.get(\"Size\", None)\n\n    if tags is\
+              \ not None:\n        set_ebs_vol_tags(vol_id, tags)\n    if size is\
+              \ not None:\n        set_ebs_vol_size(vol_id, int(size))\n\n    ret\
+              \ = {\"PhysicalResourceId\": inst_id, \"Data\": {\"RootEbsVolumeId\"\
+              : vol_id}}\n    res_fn(cfnresponse.SUCCESS, ret)\n\n\ndef print_response(\n\
+              \    responseStatus, responseData, physicalResourceId=None, noEcho=False,\
+              \ reason=None\n):\n    print(\"-----------------------------------------------------------\"\
+              )\n    print(\n        f\"responseStatus: {responseStatus}\",\n    \
+              \    f\"\\nresponseData: {responseData}\",\n        f\"\\nphysicalResourceId:\
+              \ {physicalResourceId}\",\n        f\"\\nreason: {reason}\",\n    )\n\
+              \    print(\"-----------------------------------------------------------\"\
+              )\n\n\ndef lambda_handler(event, context):\n    print(\"event:\", event)\n\
+              \    req_type = event[\"RequestType\"]\n\n    if context is None:\n\
+              \        # We're in a test environment\n        res_fn = print_response\n\
+              \    else:\n        res_fn = partial(cfnresponse.send, event, context)\n\
+              \n    try:\n        if req_type in [\"Create\", \"Update\"]:\n     \
+              \       return do_create_update(event, res_fn)\n        elif req_type\
+              \ == \"Delete\":\n            res_fn(cfnresponse.SUCCESS, {})\n    \
+              \    else:\n            print(\"No handler for event type:\", req_type,\
+              \ \"\\nReturning failure.\")\n            res_fn(\n                cfnresponse.FAILED,\
+              \ {}, reason=f'No handler for event type \"{req_type}\"'\n         \
+              \   )\n    except Exception as err:\n        traceback.print_exc()\n\
+              \        res_fn(cfnresponse.FAILED, {}, reason=str(err))\n\n\nif __name__\
+              \ == \"__main__\":\n    event = {\n        \"RequestType\": \"Create\"\
+              ,\n        \"RequestId\": \"somerequest\",\n        \"ResponseURL\"\
+              : \"pre-signed-url-for-create-response\",\n        \"ResourceType\"\
+              : \"Custom::MyCustomResourceType\",\n        \"LogicalResourceId\":\
+              \ \"SomeLocalResourceId\",\n        \"StackId\": \"arn:aws:cloudformation:us-east-2:namespace:stack/stack-name/guid\"\
+              ,\n        \"ResourceProperties\": {\"InstanceId\": \"i-0f70737a54b26453f\"\
+              },\n    }\n    lambda_handler(event, None)\n"
+        Description: Retrieves information on an EC2 instance's root volume and optionally
+          sets tags and size
+        Handler: index.lambda_handler
+        MemorySize: 128
+        Role:
+          Fn::GetAtt:
+          - LambdaExecutionRoleForRootVolProps
+          - Arn
+        Runtime: python3.9
+        Timeout: 900
+      Type: AWS::Lambda::Function
+    RecordSetForjobsub1:
+      Properties:
+        HostedZoneId: Z12342123
+        Name: jobsub1.school.edu.
+        ResourceRecords:
+        - Fn::GetAtt:
+          - Instance
+          - PrivateIp
+        TTL: '300'
+        Type: A
+      Type: AWS::Route53::RecordSet
+    RootVolProps:
+      Properties:
+        InstanceId:
+          Ref: Instance
+        ServiceToken:
+          Fn::GetAtt:
+          - LambdaFunctionForRootVolProps
+          - Arn
+        Tags:
+        - Key: Name
+          Value: 'jobsub1: /'
+      Type: Custom::RootVolProps
+

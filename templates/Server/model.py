@@ -196,11 +196,27 @@ class BackupVaultModel(BaseModel):
         return values
 
 
+class BackupRuleCopyModel(BaseModel):
+    vault_arn: str = Field(description="ARN of the destination backup vault")
+    delete_after_days: Optional[float] = Field(
+        description="Number of days before recovery point is deleted"
+    )
+    cold_storage_after_days: Optional[float] = Field(
+        description="Number of days before recovery point is transitioned to cold storage"
+    )
+    # TODO: Validate retain > cold_storage
+
+
 class BackupRuleModel(BaseModel):
     name: str
     retain_days: int
     cold_storage_after_days: Optional[int]
     schedule: str
+    copy_to: List[BackupRuleCopyModel] = Field(
+        [],
+        description="Configure replication of backups to other regions or accounts.",
+        default_description="By default no copies are made.",
+    )
     rule_extra_props = {}
 
     # TODO: Validate retain > cold_storage

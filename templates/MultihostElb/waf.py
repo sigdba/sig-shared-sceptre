@@ -186,7 +186,7 @@ def waf_log_firehose_s3_dest_conf(s3_model, title_prefix):
     log_group_name = Sub("/aws/kinesisfirehose/${AWS::StackName}")
     log_stream_name = title_prefix
     if s3_model.cloudwatch_enabled:
-        add_resource_once(
+        group = add_resource_once(
             f"{title_prefix}LogGroup",
             lambda n: LogGroup(n, LogGroupName=log_group_name, RetentionInDays=30),
         )
@@ -195,6 +195,7 @@ def waf_log_firehose_s3_dest_conf(s3_model, title_prefix):
                 f"{title_prefix}LogStream",
                 LogGroupName=log_group_name,
                 LogStreamName=log_stream_name,
+                DependsOn=group,
             ),
         )
 

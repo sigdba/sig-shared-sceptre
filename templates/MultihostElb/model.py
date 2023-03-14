@@ -325,14 +325,30 @@ class NsUpdateModel(BaseModel):
 
 
 class AccessLogsModel(BaseModel):
-    enabled = True
+    enabled = Field(True, description="When `True` requests to the ELB will be logged.")
     retain_days = Field(
         90, description="ELB access logs will be purged from S3 after this many days."
     )
-    prefix_expr = "${AWS::StackName}-access."
+    prefix_expr = Field(
+        "${AWS::StackName}-access.",
+        description="""S3 prefix for log files. The expression will be passed through
+        [Fn::Sub](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-sub.html).""",
+    )
     bucket: Optional[str] = Field(
         description="Name of the bucket to store access logs.",
         default_description="A dedicated bucket will be created.",
+        notes=[
+            """**Warning:** When you enable logging to an existing bucket on an ELB you might get this error:
+
+        ```
+        LoadBalancer AWS::ElasticLoadBalancingV2::LoadBalancer UPDATE_FAILED Access Denied for bucket: ... Please check S3bucket permission
+        ```
+
+        This is caused by not having the appropriate policy on the bucket. See
+        the
+        [ELB access log documentation](https://docs.aws.amazon.com/elasticloadbalancing/latest/classic/enable-access-logs.html#attach-bucket-policy)
+        for details."""
+        ],
     )
 
 
@@ -571,7 +587,12 @@ class UserDataModel(BaseModel):
             "**See Also:** [AWS::ElasticLoadBalancingV2::LoadBalancer](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-loadbalancer.html#cfn-elasticloadbalancingv2-loadbalancer-scheme)"
         ],
     )
-    access_logs: Optional[AccessLogsModel]
+    access_logs: Optional[AccessLogsModel] = Field(
+        description="Configure access logs for the load-balancer.",
+        notes=[
+            "**Note:** By default, access logging is enabled and will be stored an S3 bucket created by the stack."
+        ],
+    )
     allow_cidrs: Optional[List[Union[str, AllowCidrModel]]] = Field(
         description="A list of CIDRs allowed to access the ELB.",
         default_description="""With `allow_cidrs` empty, if `elb_security_groups` has been provided, then no

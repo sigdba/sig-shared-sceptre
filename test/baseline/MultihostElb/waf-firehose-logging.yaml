@@ -140,6 +140,7 @@
         RetentionInDays: 30
       Type: AWS::Logs::LogGroup
     AclProdExternalAlbLoggingFirehoseDeliveryStreamLogStream:
+      DependsOn: AclProdExternalAlbLoggingFirehoseDeliveryStreamLogGroup
       Properties:
         LogGroupName:
           Fn::Sub: /aws/kinesisfirehose/${AWS::StackName}

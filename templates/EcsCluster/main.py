@@ -104,7 +104,13 @@ def node_instance_role():
                         "Statement": [
                             {
                                 "Effect": "Allow",
-                                "Action": ["ssm:GetParameters"],
+                                "Action": [
+                                    "ssm:GetParameters",
+                                    "elasticfilesystem:DescribeMountTargets",
+                                    "elasticfilesystem:DescribeAccessPoints",
+                                    "elasticfilesystem:DescribeFileSystems",
+                                    "ec2:DescribeAvailabilityZones",
+                                ],
                                 # TODO: We're having trouble with the consistency of these wildcards. For now we'll just let
                                 #       it read any parameter. Perhaps we can control it by controlling access to the
                                 #       decryption key instead.

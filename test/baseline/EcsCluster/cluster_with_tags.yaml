@@ -402,6 +402,10 @@
             Statement:
             - Action:
               - ssm:GetParameters
+              - elasticfilesystem:DescribeMountTargets
+              - elasticfilesystem:DescribeAccessPoints
+              - elasticfilesystem:DescribeFileSystems
+              - ec2:DescribeAvailabilityZones
               Effect: Allow
               Resource:
               - '*'

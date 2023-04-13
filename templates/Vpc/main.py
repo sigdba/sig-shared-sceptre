@@ -285,12 +285,14 @@ def transit_gateway_attachments(user_data):
                 tg_subnets[route_model.transit_gateway_id].add(subnet_model.name)
 
     for tg_id, subnets in tg_subnets.items():
+        name = f"{'/'.join(subnets)} : {tg_id}"
         add_resource(
             TransitGatewayAttachment(
                 transit_gateway_attachment_name(tg_id),
                 VpcId=Ref("Vpc"),
                 TransitGatewayId=tg_id,
                 SubnetIds=[Ref(subnets_by_name[n]) for n in subnets],
+                Tags=Tags(Name=name),
             )
         )
 

@@ -375,6 +375,9 @@
       Properties:
         SubnetIds:
         - Ref: SUBNETprimary
+        Tags:
+        - Key: Name
+          Value: 'primary : tgw-12345'
         TransitGatewayId: tgw-12345
         VpcId:
           Ref: Vpc

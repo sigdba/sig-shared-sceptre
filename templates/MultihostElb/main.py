@@ -59,16 +59,7 @@ from util import (
     opts_with,
     sceptre_handle,
 )
-
-PRIORITY_CACHE = []
-
-
-def priority_hash(s, range_start=1000, range_end=47999):
-    ret = int(md5(s), 16) % (range_end - range_start) + range_start
-    while ret in PRIORITY_CACHE:
-        ret += 1
-    PRIORITY_CACHE.append(ret)
-    return ret
+import elb
 
 
 def hostname_to_fqdn(user_data, hostname):
@@ -411,9 +402,9 @@ def normalize_condition_data(user_data, rule_data):
     elif len(hosts) > 0 and len(paths) < 1:
         # Host conditions are provided but no paths. That means this is equivalent to a default action in a
         # single-host ELB. So we put its priority up in a higher range so they'll be evaluated last.
-        priority = priority_hash(rule_data.input_values, 48000, 48999)
+        priority = elb.host_only_priority_hash(rule_data.input_values)
     else:
-        priority = priority_hash(rule_data.input_values, 1000, 47999)
+        priority = elb.host_path_priority_hash(rule_data.input_values)
 
     ret = {"priority": priority}
     if len(hosts) > 0:

@@ -28,42 +28,55 @@
       Description: The ID of the VPC of the ECS cluster
       Type: String
   Resources:
-    ListenerRule3434:
+    ListenerRule39410:
       Properties:
         Actions:
-        - TargetGroupArn: arn:aws:some_target_group
+        - TargetGroupArn:
+            Ref: TargetGroupFORNoneSLASH
           Type: forward
         Conditions:
         - Field: path-pattern
           PathPatternConfig:
             Values:
-            - /weird
-            - /weird/*
+            - /something
+            - /something/*
         - Field: host-header
           HostHeaderConfig:
             Values:
-            - rabbit-mgt.*
-        ListenerArn: arn:for:the:http-listener
-        Priority: 3434
+            - sensitive.*
+        - Field: source-ip
+          SourceIpConfig:
+            Values:
+            - 123.0.0.1/24
+            - 11.2.2.3/32
+        ListenerArn:
+          Ref: ListenerArn
+        Priority: 39410
       Type: AWS::ElasticLoadBalancingV2::ListenerRule
-    ListenerRule48776:
+    ListenerRule48664:
       Properties:
         Actions:
         - TargetGroupArn:
-            Ref: TargetGroupPORT15672HCSLASH
+            Ref: TargetGroupFORNoneSLASH
           Type: forward
         Conditions:
         - Field: host-header
           HostHeaderConfig:
             Values:
-            - rabbit-mgt.*
-        ListenerArn: arn:for:the:http-listener
-        Priority: 48776
+            - sensitive.*
+        - Field: source-ip
+          SourceIpConfig:
+            Values:
+            - 123.0.0.1/24
+            - 11.2.2.3/32
+        ListenerArn:
+          Ref: ListenerArn
+        Priority: 48664
       Type: AWS::ElasticLoadBalancingV2::ListenerRule
     Service:
       DependsOn:
-      - ListenerRule48776
-      - ListenerRule3434
+      - ListenerRule48664
+      - ListenerRule39410
       Properties:
         Cluster:
           Ref: ClusterArn
@@ -76,40 +89,32 @@
           Ref: DesiredCount
         LoadBalancers:
         - ContainerName: main
-          ContainerPort: 15672
+          ContainerPort: 1389
           TargetGroupArn:
-            Ref: TargetGroupPORT15672HCSLASH
-        - ContainerName: main
-          ContainerPort: 15672
-          TargetGroupArn: arn:aws:some_target_group
-        - ContainerName: main
-          ContainerPort: 5672
-          TargetGroupArn: arn:for:the:tcp-target-group
+            Ref: TargetGroupFORNoneSLASH
         PlacementStrategies:
         - Field: memory
           Type: binpack
         TaskDefinition:
           Ref: TaskDef
       Type: AWS::ECS::Service
-    TargetGroupPORT15672HCSLASH:
+    TargetGroupFORNoneSLASH:
       Properties:
         HealthCheckIntervalSeconds: 60
-        HealthCheckPath: /
+        HealthCheckPath: None/
         HealthCheckProtocol: HTTP
         HealthCheckTimeoutSeconds: 30
         Matcher:
           HttpCode: 200-399
-        Port: 15672
+        Port: 8080
         Protocol: HTTP
         Tags:
         - Key: Name
           Value:
-            Fn::Sub: '${AWS::StackName}: /'
+            Fn::Sub: '${AWS::StackName}: None/'
         TargetGroupAttributes:
         - Key: stickiness.enabled
-          Value: 'false'
-        - Key: deregistration_delay.timeout_seconds
-          Value: '0'
+          Value: 'true'
         - Key: stickiness.type
           Value: lb_cookie
         TargetType: instance
@@ -124,12 +129,14 @@
           - Name: AWS_DEFAULT_REGION
             Value:
               Ref: AWS::Region
-          - Name: RABBITMQ_DEFAULT_USER
-            Value: rabbitmqAdm
+          - Name: BASE_DN
+            Value: dc=banner
+          - Name: OPENDJ_JAVA_ARGS
+            Value: -Xms2048m -Xmx2048m
           Essential: true
           Hostname:
             Ref: AWS::StackName
-          Image: rabbitmq:3.9.1-management
+          Image: openidentityplatform/opendj:4.4.11
           Links: []
           LogConfiguration:
             LogDriver: awslogs
@@ -140,35 +147,27 @@
               awslogs-region:
                 Ref: AWS::Region
               awslogs-stream-prefix: ecs
-          Memory: 512
-          MemoryReservation: 512
+          Memory: 3000
+          MemoryReservation: 3000
           MountPoints:
-          - ContainerPath: /var/lib/rabbitmq
+          - ContainerPath: /opt/opendj/data
             ReadOnly: false
-            SourceVolume: db
-          - ContainerPath: /etc/rabbitmq
-            ReadOnly: false
-            SourceVolume: config
+            SourceVolume: data
           Name: main
           PortMappings:
-          - ContainerPort: 5672
-          - ContainerPort: 15672
+          - ContainerPort: 1389
           Secrets:
-          - Name: RABBITMQ_DEFAULT_PASS
-            ValueFrom: arn:aws:secretsmanager:us-east-1:123123123:secret:ban/ecs/rabbitmqAdm-12342
+          - Name: ROOT_PASSWORD
+            ValueFrom: some_arn
         ExecutionRoleArn:
           Ref: TaskExecutionRole
         Family:
           Ref: AWS::StackName
         Volumes:
         - EFSVolumeConfiguration:
-            FilesystemId: fs-123123
-            RootDirectory: /rabbitmq/database
-          Name: db
-        - EFSVolumeConfiguration:
-            FilesystemId: fs-123123
-            RootDirectory: /rabbitmq/config
-          Name: config
+            FilesystemId: efs-12345
+            RootDirectory: /opendj
+          Name: data
       Type: AWS::ECS::TaskDefinition
     TaskExecutionRole:
       Properties:
@@ -198,9 +197,10 @@
           PolicyName: root
         - PolicyDocument:
             Statement:
-            - Action: secretsmanager:GetSecretValue
+            - Action: ssm:GetParameters
               Effect: Allow
-              Resource: arn:aws:secretsmanager:us-east-1:123123123:secret:ban/ecs/rabbitmqAdm-12342
+              Resource:
+                Fn::Sub: arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/some_arn
             Version: '2012-10-17'
           PolicyName: secrets
       Type: AWS::IAM::Role

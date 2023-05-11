@@ -5,22 +5,22 @@ from troposphere import GetAtt, Parameter, Ref, Sub, Tags
 from troposphere.awslambda import Code, Function, Permission
 from troposphere.cloudformation import AWSCustomObject
 from troposphere.ecs import (
+    AwsvpcConfiguration,
     ContainerDefinition,
     ContainerDependency,
     DeploymentConfiguration,
     EFSVolumeConfiguration,
     Environment,
-    PlacementConstraint,
 )
 from troposphere.ecs import HealthCheck as ContainerHealthCheck
 from troposphere.ecs import Host as HostVolumeConfiguration
 from troposphere.ecs import (
-    AwsvpcConfiguration,
     LinuxParameters,
     LoadBalancer,
     LogConfiguration,
     MountPoint,
     NetworkConfiguration,
+    PlacementConstraint,
     PlacementStrategy,
     PortMapping,
     Secret,
@@ -34,6 +34,7 @@ from troposphere.elasticloadbalancingv2 import (
     ListenerRule,
     Matcher,
     PathPatternConfig,
+    SourceIpConfig,
     TargetGroup,
     TargetGroupAttribute,
 )
@@ -41,38 +42,53 @@ from troposphere.events import Rule as EventRule
 from troposphere.events import Target as EventTarget
 from troposphere.iam import Policy, Role
 
+import elb
 
 if int(troposphere.__version__.split(".")[0]) > 3:
     from troposphere.elasticloadbalancingv2 import ListenerRuleAction
 else:
     from troposphere.elasticloadbalancingv2 import Action as ListenerRuleAction
 
-import model
 import autostop
+import model
+from security_group import security_group
 from util import (
     TEMPLATE,
+    add_output,
     add_resource,
     add_resource_once,
-    add_output,
     clean_title,
     md5,
     opts_with,
     read_resource,
 )
-from security_group import security_group
-
-PRIORITY_CACHE = []
 
 
-def priority_hash(rule):
+def rule_hash_string(rule: model.RuleModel) -> str:
+    str(rule.dict(exclude_defaults=True, exclude_unset=True))
+
+
+def legacy_priority_hash(rule: model.RuleModel) -> int:
     ret = (
         int(md5(str(rule.dict(exclude_defaults=True, exclude_unset=True))), 16) % 48000
         + 1000
     )
-    while ret in PRIORITY_CACHE:
+    while ret in elb.PRIORITY_CACHE:
         ret += 1
-    PRIORITY_CACHE.append(ret)
+    elb.PRIORITY_CACHE.append(ret)
     return ret
+
+
+def rule_has_path(rule: model.RuleModel) -> bool:
+    return rule.path and rule.path not in {"/", "/*"}
+
+
+def priority_hash(rule: model.RuleModel) -> int:
+    s = rule_has_path(rule)
+    if rule_has_path(rule):
+        # return elb.host_path_priority_hash(s)
+        return legacy_priority_hash(rule)
+    return elb.host_only_priority_hash(s)
 
 
 def add_params(t):
@@ -428,18 +444,11 @@ def target_group(
 
 
 def listener_rule(tg_arn, rule, listener_arn):
-    path = rule.path
+    conditions = []
     priority = rule.priority if rule.priority else priority_hash(rule)
 
-    # TODO: We may want to support more flexible rules in the way
-    #       MultiHostElb.py does. But one thing to note if we do that, rules
-    #       having a single path and no host would need to have their priority
-    #       hash generated as above (priority_hash(path)). Otherwise it'll cause
-    #       issues when updating older stacks.
-    if path == "/":
-        conditions = []
-    else:
-        path_patterns = [path, "%s/*" % path]
+    if rule.path and rule.path not in {"/", "/*"}:
+        path_patterns = [rule.path, f"{rule.path}/*"]
         conditions = [
             Condition(
                 Field="path-pattern",
@@ -452,6 +461,14 @@ def listener_rule(tg_arn, rule, listener_arn):
             Condition(
                 Field="host-header",
                 HostHeaderConfig=HostHeaderConfig(Values=[rule.host]),
+            )
+        )
+
+    if rule.source_cidrs:
+        conditions.append(
+            Condition(
+                Field="source-ip",
+                SourceIpConfig=SourceIpConfig(Values=rule.source_cidrs),
             )
         )
 
@@ -672,9 +689,9 @@ def sceptre_handler(sceptre_user_data):
                 else:
                     if not default_tg:
                         if target_group_arn:
-                            # TODO: Add validation to the model to prevent this.
-                            # TODO: Should port_mappings let you put a container_port on a TG?
-                            raise ValueError("The default TG has already been created.")
+                            raise ValueError(
+                                "The default target group has already been created. When `target_group_arn` is set for a container, all `rules` must include `container_port`."
+                            )
                         default_tg = target_group(
                             target_group_type,
                             c.protocol,

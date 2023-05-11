@@ -105,10 +105,10 @@ class HealthCheckModel(BaseModel):
 
 
 class RuleModel(BaseModel):
-    path: str = Field(
-        description="""The context path for the listener rule. The path should start with a `/`. Two
-                       listener rules will be created, one matching `path` and
-                       one matching `path + '/*'`."""
+    path: Optional[str] = Field(
+        description="""The context path for the listener rule. The path should
+                       start with a `/`. Two patterns will be matched, one
+                       matching `path` and one matching `path + '/*'`."""
     )
     host: Optional[str] = Field(
         description="""Pattern to match against the request's host header. Wildcards `?` and `*` are supported.""",
@@ -116,6 +116,9 @@ class RuleModel(BaseModel):
             "For this setting to work properly, the ELB will need to be set up to for multiple hostnames.",
             "**See Also:** [AWS::ElasticLoadBalancingV2::ListenerRule HostHeaderConfig](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-hostheaderconfig.html)",
         ],
+    )
+    source_cidrs: Optional[List[str]] = Field(
+        description="The source IP of the request must match one of these CIDRs for the rule to match."
     )
     priority: Optional[int] = Field(
         description="The priority value for the listener rule. If undefined, a hash-based value will be generated."

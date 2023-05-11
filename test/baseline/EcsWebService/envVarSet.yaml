@@ -28,7 +28,7 @@
       Description: The ID of the VPC of the ECS cluster
       Type: String
   Resources:
-    ListenerRule7155:
+    ListenerRule48776:
       Properties:
         Actions:
         - TargetGroupArn:
@@ -41,11 +41,11 @@
             - login.*
         ListenerArn:
           Ref: ListenerArn
-        Priority: 7155
+        Priority: 48776
       Type: AWS::ElasticLoadBalancingV2::ListenerRule
     Service:
       DependsOn:
-      - ListenerRule7155
+      - ListenerRule48776
       Properties:
         Cluster:
           Ref: ClusterArn

@@ -57,7 +57,7 @@
               rule_arns:
                 Fn::Join:
                 - '","'
-                - - Ref: ListenerRule18018WAIT
+                - - Ref: ListenerRule48776WAIT
               rule_skipper_key: _ECS_AUTO_STOP
               tg_names:
                 Fn::Join:
@@ -97,7 +97,7 @@
             - WaiterLambdaFn
             - Arn
       Type: AWS::ElasticLoadBalancingV2::TargetGroup
-    ListenerRule18018:
+    ListenerRule48776:
       Properties:
         Actions:
         - TargetGroupArn:
@@ -110,9 +110,9 @@
             - wiki.*
         ListenerArn:
           Ref: ListenerArn
-        Priority: 18018
+        Priority: 48776
       Type: AWS::ElasticLoadBalancingV2::ListenerRule
-    ListenerRule18018WAIT:
+    ListenerRule48776WAIT:
       Properties:
         Actions:
         - TargetGroupArn:
@@ -130,11 +130,11 @@
               Value: y
         ListenerArn:
           Ref: ListenerArn
-        Priority: 18017
+        Priority: 48775
       Type: AWS::ElasticLoadBalancingV2::ListenerRule
     Service:
       DependsOn:
-      - ListenerRule18018
+      - ListenerRule48776
       Properties:
         Cluster:
           Ref: ClusterArn
@@ -205,10 +205,10 @@
             Effect: Allow
             Resource:
             - Fn::GetAtt:
-              - ListenerRule18018
+              - ListenerRule48776
               - RuleArn
             - Fn::GetAtt:
-              - ListenerRule18018WAIT
+              - ListenerRule48776WAIT
               - RuleArn
           - Action:
             - ecs:UpdateService
@@ -321,7 +321,7 @@
               Result:
                 rules:
                 - arn:
-                    Ref: ListenerRule18018WAIT
+                    Ref: ListenerRule48776WAIT
                   conditions:
                   - Field: host-header
                     HostHeaderConfig:

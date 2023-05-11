@@ -314,15 +314,17 @@ for more information.
 
 - `listener_arn` (string) - ARN of the listener for this rule. Overrides the ListenerArn parameter.
 
-- `path` (string) - **required** - The context path for the listener rule. The path should start with a `/`. Two
-                       listener rules will be created, one matching `path` and
-                       one matching `path + '/*'`.
+- `path` (string) - The context path for the listener rule. The path should
+                       start with a `/`. Two patterns will be matched, one
+                       matching `path` and one matching `path + '/*'`.
 
 - `priority` (integer) - The priority value for the listener rule. If undefined, a hash-based value will be generated.
 
 - `protocol` (string) - The back-end protocol used by the load-balancer to
                        communicate with the container. This overrides the
                        `protocol` specified on the container.
+
+- `source_cidrs` (List of string) - The source IP of the request must match one of these CIDRs for the rule to match.
 
 - `target_group` ([TargetGroupModel](#TargetGroupModel)) - Extended options for the target group for this rule. This
                        overrides the `target_group` specified on the container.

@@ -264,6 +264,13 @@ class ListenerModel(BaseModel):
     rules: List[RuleModel] = Field(
         [], description="Listener rules to direct requests beyond the default action."
     )
+    ssl_policy: Optional[str] = Field(
+        description="""The name of the SSL Policy for the listener. The default
+                       is the current predefined security policy.""",
+        notes=[
+            "See [here](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/create-https-listener.html#describe-ssl-policies) for a list of valid values."
+        ],
+    )
 
     @root_validator(pre=True)
     def detect_protocol(cls, values):
@@ -635,7 +642,7 @@ class UserDataModel(BaseModel):
         [],
         description="""Additional Route53 hosted Zone IDs in which to create DNS entries. Will not
                        be used for certificate validation. This can be used, for
-                       instance, to specify the internal size of a split-horizon
+                       instance, to specify the internal side of a split-horizon
                        DNS setup.""",
     )
     ns_update: Optional[Union[NsUpdateModel, List[NsUpdateModel]]] = Field(

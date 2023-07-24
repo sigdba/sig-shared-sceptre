@@ -514,6 +514,7 @@ def listener(user_data, listener_data):
             LoadBalancerArn=Ref("LoadBalancer"),
             Port=port,
             DefaultActions=[default_action],
+            **opts_with(SslPolicy=listener_data.ssl_policy),
         )
     )
 

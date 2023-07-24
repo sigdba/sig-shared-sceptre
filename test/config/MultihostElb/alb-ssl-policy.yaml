@@ -1,0 +1,55 @@
+---
+template_path: MultihostElb/main.py
+
+parameters:
+  VpcId: vpc-123
+
+sceptre_user_data:
+  internet_facing: yes
+  attributes:
+    access_logs.s3.enabled: 'false'
+  domain: sig.sh
+  hosted_zone_id: ABC1234
+  alt_hosted_zone_ids:
+    - ABC4321
+  subnet_ids:
+    - subnet-123a
+    - subnet-123b
+  elb_security_groups:
+    - sg-1234
+  allow_cidrs:
+    - 1.2.3.4/32
+    - 10.0.0.0/8
+
+  listeners:
+    - port: 80
+      https_redirect_to: 443
+
+    - port: 443
+      ssl_policy: ELBSecurityPolicy-TLS13-1-3-2021-06
+      hostnames:
+        - wiki.ban.sig.sh
+        - tools.ban.sig.sh
+
+      default_action:
+        fixed_response:
+          message_body: "SIG-ban\n"
+
+      rules:
+        # ESM
+        - host: "tools.*"
+          path: "/admin"
+          target_port: 8081
+          health_check:
+            path: /admin/
+          targets:
+            - import_id: sig-ban-server-esm1-InstanceId
+              import_sg: sig-ban-server-esm1-InstanceSg
+
+        # ESM Jenkins
+        - host: "tools.*"
+          target_port: 8080
+          health_check:
+            path: /login
+          targets:
+            - i-12345

@@ -20,7 +20,7 @@ Creates an Elastic Load Balancer and associated resources.
 
 - `alt_hosted_zone_ids` (List of string) - Additional Route53 hosted Zone IDs in which to create DNS entries. Will not
                        be used for certificate validation. This can be used, for
-                       instance, to specify the internal size of a split-horizon
+                       instance, to specify the internal side of a split-horizon
                        DNS setup.
 
 - `attributes` (Dict[string:string]) - ELB attributes
@@ -322,6 +322,10 @@ Creates an Elastic Load Balancer and associated resources.
 - `protocol` (string) - **required**
 
 - `rules` (List of [RuleModel](#RuleModel)) - Listener rules to direct requests beyond the default action.
+
+- `ssl_policy` (string) - The name of the SSL Policy for the listener. The default
+                       is the current predefined security policy.
+  - See [here](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/create-https-listener.html#describe-ssl-policies) for a list of valid values.
 
 
 

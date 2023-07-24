@@ -635,7 +635,7 @@ class UserDataModel(BaseModel):
         [],
         description="""Additional Route53 hosted Zone IDs in which to create DNS entries. Will not
                        be used for certificate validation. This can be used, for
-                       instance, to specify the internal size of a split-horizon
+                       instance, to specify the internal side of a split-horizon
                        DNS setup.""",
     )
     ns_update: Optional[Union[NsUpdateModel, List[NsUpdateModel]]] = Field(

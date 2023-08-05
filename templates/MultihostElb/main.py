@@ -336,6 +336,9 @@ def target_group_with(user_data, title, default_hc_path, tg_data):
             "Matcher": Matcher(HttpCode=http_codes),
         }
 
+    if tg_data.target_type:
+        args = {**args, "TargetType": tg_data.target_type}
+
     if tg_data.health_check:
         args = {**args, **health_check_options(tg_data.health_check)}
 

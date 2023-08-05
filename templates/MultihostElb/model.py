@@ -200,6 +200,9 @@ class ActionModel(BaseModel):
             "**See Also:** [AWS::ElasticLoadBalancingV2::TargetGroup TargetGroupAttribute](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-targetgroup-targetgroupattribute.html)",
         ],
     )
+    target_type: Optional[str] = Field(
+        description="The type of target that you must specify when registering targets with this target group. You can't specify targets for a target group using more than one target type."
+    )
     targets: List[TargetModel] = Field([], description="Members of the target group")
 
     @validator("targets", pre=True, each_item=True)

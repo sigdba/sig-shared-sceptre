@@ -356,6 +356,8 @@ cases where requests are handled by an ECS service.
 - `target_protocol` (string) - Protocol for backend communication with the targets.
   - **Default:** `HTTP` for Application Load Balancers, `TCP` for Network Load Balancers
 
+- `target_type` (string) - The type of target that you must specify when registering targets with this target group. You can't specify targets for a target group using more than one target type.
+
 - `targets` (List of [TargetModel](#TargetModel)) - Members of the target group
 
 
@@ -468,6 +470,8 @@ specify a condition. At least one of these options must be specified.
 
 - `target_protocol` (string) - Protocol for backend communication with the targets.
   - **Default:** `HTTP` for Application Load Balancers, `TCP` for Network Load Balancers
+
+- `target_type` (string) - The type of target that you must specify when registering targets with this target group. You can't specify targets for a target group using more than one target type.
 
 - `targets` (List of [TargetModel](#TargetModel)) - Members of the target group
 

@@ -256,17 +256,17 @@
         VpcId:
           Ref: VpcId
       Type: AWS::ElasticLoadBalancingV2::TargetGroup
-    Rule6542854:
+    RuleWithTitle:
       Properties:
         Actions:
         - TargetGroupArn:
-            Ref: Rule6542854TargetGroup
+            Ref: RuleWithTitleTargetGroup
           Type: forward
         Conditions:
         - Field: host-header
           HostHeaderConfig:
             Values:
-            - stools.*
+            - tools.*
         - Field: source-ip
           SourceIpConfig:
             Values:
@@ -274,9 +274,9 @@
             - 10.4.0.0/16
         ListenerArn:
           Ref: ListenerOnPort443
-        Priority: 48428
+        Priority: 48538
       Type: AWS::ElasticLoadBalancingV2::ListenerRule
-    Rule6542854TargetGroup:
+    RuleWithTitleTargetGroup:
       Properties:
         HealthCheckPath: /login
         Matcher:

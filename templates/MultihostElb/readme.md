@@ -458,6 +458,8 @@ specify a condition. At least one of these options must be specified.
 
 - `redirect` ([RedirectModel](#RedirectModel)) - Specifies an HTTP 301 or 302 redirect
 
+- `rule_title` (string) - Template resources related to this rule will be named with this prefix
+
 - `source_ips` (List of string) - The source IP addresses, in CIDR format. You can use both
                        IPv4 and IPv6 addresses. Wildcards are not supported.
 

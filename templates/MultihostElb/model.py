@@ -221,6 +221,9 @@ class RuleModel(RetainInputsModel, ActionModel):
     """A rule object is an [ActionModel](#ActionModel) with additional options to
     specify a condition. At least one of these options must be specified."""
 
+    rule_title: Optional[str] = Field(
+        description="Template resources related to this rule will be named with this prefix"
+    )
     paths: List[str] = Field([], description="Path or paths to match in the request")
     hosts: List[str] = Field(
         [], description="Hostnames to match in the requests host header"

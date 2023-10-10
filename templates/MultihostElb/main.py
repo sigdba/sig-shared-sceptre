@@ -465,7 +465,7 @@ def conditions_with(user_data, cond_data):
 
 
 def listener_rule(user_data, listener_ref, rule_data):
-    rule_title = "Rule{}".format(
+    rule_title = rule_data.rule_title or "Rule{}".format(
         md5(
             listener_ref.data,
             rule_data.paths,

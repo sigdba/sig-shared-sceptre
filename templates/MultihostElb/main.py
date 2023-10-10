@@ -19,6 +19,7 @@ from troposphere.elasticloadbalancingv2 import (
     PathPatternConfig,
     QueryStringConfig,
     QueryStringKeyValue,
+    SourceIpConfig,
     RedirectConfig,
     SubnetMapping,
     TargetDescription,
@@ -416,6 +417,8 @@ def normalize_condition_data(user_data, rule_data):
         ret["paths"] = paths
     if len(rule_data.match_query_string) > 0:
         ret["query_string_matches"] = rule_data.match_query_string
+    if len(rule_data.source_ips) > 0:
+        ret["source_ips"] = rule_data.source_ips
     return ret
 
 
@@ -449,6 +452,13 @@ def conditions_with(user_data, cond_data):
                         for q in cond_data["query_string_matches"]
                     ]
                 ),
+            )
+        )
+    if "source_ips" in cond_data:
+        conditions.append(
+            Condition(
+                Field="source-ip",
+                SourceIpConfig=SourceIpConfig(Values=cond_data["source_ips"]),
             )
         )
     return conditions

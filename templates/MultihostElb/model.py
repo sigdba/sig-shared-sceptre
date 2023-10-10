@@ -226,6 +226,11 @@ class RuleModel(RetainInputsModel, ActionModel):
         [], description="Hostnames to match in the requests host header"
     )
     match_query_string: List[QueryStringMatchModel] = []
+    source_ips: List[str] = Field(
+        [],
+        description="""The source IP addresses, in CIDR format. You can use both
+                       IPv4 and IPv6 addresses. Wildcards are not supported.""",
+    )
     priority: Optional[int]
     # TODO: Document priority
     # TODO: Use Pydantic aliases
@@ -237,6 +242,12 @@ class RuleModel(RetainInputsModel, ActionModel):
     @root_validator(pre=True)
     def host_alias(cls, values):
         return model_string_or_list("hosts", model_alias("hosts", "host", values))
+
+    @root_validator(pre=True)
+    def source_ip_alias(cls, values):
+        return model_string_or_list(
+            "source_ips", model_alias("source_ips", "source_ip", values)
+        )
 
     @root_validator()
     def require_hosts_or_paths(cls, values):

@@ -1,206 +1,319 @@
 ---
-- Mappings:
-    ElbAccountMap:
-      af-south-1:
-        AccountId: 098369216593
-      ap-east-1:
-        AccountId: '754344448648'
-      ap-northeast-1:
-        AccountId: '582318560864'
-      ap-northeast-2:
-        AccountId: '600734575887'
-      ap-northeast-3:
-        AccountId: '383597477331'
-      ap-south-1:
-        AccountId: '718504428378'
-      ap-southeast-1:
-        AccountId: '114774131450'
-      ap-southeast-2:
-        AccountId: '783225319266'
-      ca-central-1:
-        AccountId: '985666609251'
-      cn-north-1:
-        AccountId: '638102146993'
-      cn-northwest-1:
-        AccountId: '037604701340'
-      eu-central-1:
-        AccountId: 054676820928
-      eu-north-1:
-        AccountId: '897822967062'
-      eu-south-1:
-        AccountId: '635631232127'
-      eu-west-1:
-        AccountId: '156460612806'
-      eu-west-2:
-        AccountId: '652711504416'
-      eu-west-3:
-        AccountId: 009996457667
-      me-south-1:
-        AccountId: '076674570225'
-      sa-east-1:
-        AccountId: '507241528517'
-      us-east-1:
-        AccountId: '127311923021'
-      us-east-2:
-        AccountId: 033677994240
-      us-gov-east-1:
-        AccountId: '190560391635'
-      us-gov-west-1:
-        AccountId: 048591011584
-      us-west-1:
-        AccountId: 027434742980
-      us-west-2:
-        AccountId: '797873946194'
-  Parameters:
-    VpcId:
-      Description: The ID of the VPC where the ECS cluster will be created.
-      Type: String
-  Resources:
-    CertificateForldapDOTbanDOTsigDOTsh:
-      Properties:
-        DomainName: ldap.ban.sig.sh
-        DomainValidationOptions:
-        - DomainName: ldap.ban.sig.sh
-          HostedZoneId: ABC1234
-        ValidationMethod: DNS
-      Type: AWS::CertificateManager::Certificate
-    DefaultPort1521TargetGroup:
-      Properties:
-        Port: 1521
-        Protocol: TCP
-        TargetGroupAttributes: []
-        Targets: []
-        VpcId:
-          Ref: VpcId
-      Type: AWS::ElasticLoadBalancingV2::TargetGroup
-    DefaultPort5672TargetGroup:
-      Properties:
-        Port: 5672
-        Protocol: TCP
-        TargetGroupAttributes:
-        - Key: deregistration_delay.timeout_seconds
-          Value: '0'
-        Targets: []
-        VpcId:
-          Ref: VpcId
-      Type: AWS::ElasticLoadBalancingV2::TargetGroup
-    DefaultPort636TargetGroup:
-      Properties:
-        Port: 1389
-        Protocol: TCP
-        TargetGroupAttributes:
-        - Key: deregistration_delay.timeout_seconds
-          Value: '0'
-        Targets: []
-        VpcId:
-          Ref: VpcId
-      Type: AWS::ElasticLoadBalancingV2::TargetGroup
-    ListenerOnPort1521:
-      Properties:
-        Certificates: []
-        DefaultActions:
-        - TargetGroupArn:
-            Ref: DefaultPort1521TargetGroup
-          Type: forward
-        LoadBalancerArn:
-          Ref: LoadBalancer
-        Port: 1521
-        Protocol: TCP
-      Type: AWS::ElasticLoadBalancingV2::Listener
-    ListenerOnPort5672:
-      Properties:
-        Certificates: []
-        DefaultActions:
-        - TargetGroupArn:
-            Ref: DefaultPort5672TargetGroup
-          Type: forward
-        LoadBalancerArn:
-          Ref: LoadBalancer
-        Port: 5672
-        Protocol: TCP
-      Type: AWS::ElasticLoadBalancingV2::Listener
-    ListenerOnPort636:
-      Properties:
-        Certificates:
-        - CertificateArn:
-            Ref: CertificateForldapDOTbanDOTsigDOTsh
-        DefaultActions:
-        - TargetGroupArn:
-            Ref: DefaultPort636TargetGroup
-          Type: forward
-        LoadBalancerArn:
-          Ref: LoadBalancer
-        Port: 636
-        Protocol: TLS
-      Type: AWS::ElasticLoadBalancingV2::Listener
-    LoadBalancer:
-      DependsOn: []
-      Properties:
-        LoadBalancerAttributes:
-        - Key: access_logs.s3.enabled
-          Value: 'false'
-        Name:
-          Fn::Sub: ${AWS::StackName}
-        Scheme: internet-facing
-        SecurityGroups: []
-        Subnets:
-        - subnet-1234a
-        - subnet-1234b
-        Tags: []
-        Type: network
-      Type: AWS::ElasticLoadBalancingV2::LoadBalancer
-    RecordSetFordb:
-      Properties:
-        HostedZoneId: ABC1234
-        Name: db
-        ResourceRecords:
-        - Fn::Sub: ${LoadBalancer.DNSName}.
-        TTL: '300'
-        Type: CNAME
-      Type: AWS::Route53::RecordSet
-    RecordSetFordbforZoneABC423123:
-      Properties:
-        HostedZoneId: ABC423123
-        Name: db
-        ResourceRecords:
-        - Fn::Sub: ${LoadBalancer.DNSName}.
-        TTL: '300'
-        Type: CNAME
-      Type: AWS::Route53::RecordSet
-    RecordSetForldap:
-      Properties:
-        HostedZoneId: ABC1234
-        Name: ldap
-        ResourceRecords:
-        - Fn::Sub: ${LoadBalancer.DNSName}.
-        TTL: '300'
-        Type: CNAME
-      Type: AWS::Route53::RecordSet
-    RecordSetForldapforZoneABC423123:
-      Properties:
-        HostedZoneId: ABC423123
-        Name: ldap
-        ResourceRecords:
-        - Fn::Sub: ${LoadBalancer.DNSName}.
-        TTL: '300'
-        Type: CNAME
-      Type: AWS::Route53::RecordSet
-    RecordSetForrabbit:
-      Properties:
-        HostedZoneId: ABC1234
-        Name: rabbit
-        ResourceRecords:
-        - Fn::Sub: ${LoadBalancer.DNSName}.
-        TTL: '300'
-        Type: CNAME
-      Type: AWS::Route53::RecordSet
-    RecordSetForrabbitforZoneABC423123:
-      Properties:
-        HostedZoneId: ABC423123
-        Name: rabbit
-        ResourceRecords:
-        - Fn::Sub: ${LoadBalancer.DNSName}.
-        TTL: '300'
-        Type: CNAME
-      Type: AWS::Route53::RecordSet
-
+{
+ "Mappings": {
+  "ElbAccountMap": {
+   "af-south-1": {
+    "AccountId": "098369216593"
+   },
+   "ap-east-1": {
+    "AccountId": "754344448648"
+   },
+   "ap-northeast-1": {
+    "AccountId": "582318560864"
+   },
+   "ap-northeast-2": {
+    "AccountId": "600734575887"
+   },
+   "ap-northeast-3": {
+    "AccountId": "383597477331"
+   },
+   "ap-south-1": {
+    "AccountId": "718504428378"
+   },
+   "ap-southeast-1": {
+    "AccountId": "114774131450"
+   },
+   "ap-southeast-2": {
+    "AccountId": "783225319266"
+   },
+   "ca-central-1": {
+    "AccountId": "985666609251"
+   },
+   "cn-north-1": {
+    "AccountId": "638102146993"
+   },
+   "cn-northwest-1": {
+    "AccountId": "037604701340"
+   },
+   "eu-central-1": {
+    "AccountId": "054676820928"
+   },
+   "eu-north-1": {
+    "AccountId": "897822967062"
+   },
+   "eu-south-1": {
+    "AccountId": "635631232127"
+   },
+   "eu-west-1": {
+    "AccountId": "156460612806"
+   },
+   "eu-west-2": {
+    "AccountId": "652711504416"
+   },
+   "eu-west-3": {
+    "AccountId": "009996457667"
+   },
+   "me-south-1": {
+    "AccountId": "076674570225"
+   },
+   "sa-east-1": {
+    "AccountId": "507241528517"
+   },
+   "us-east-1": {
+    "AccountId": "127311923021"
+   },
+   "us-east-2": {
+    "AccountId": "033677994240"
+   },
+   "us-gov-east-1": {
+    "AccountId": "190560391635"
+   },
+   "us-gov-west-1": {
+    "AccountId": "048591011584"
+   },
+   "us-west-1": {
+    "AccountId": "027434742980"
+   },
+   "us-west-2": {
+    "AccountId": "797873946194"
+   }
+  }
+ },
+ "Parameters": {
+  "VpcId": {
+   "Description": "The ID of the VPC where the ECS cluster will be created.",
+   "Type": "String"
+  }
+ },
+ "Resources": {
+  "CertificateForldapDOTbanDOTsigDOTsh": {
+   "Properties": {
+    "DomainName": "ldap.ban.sig.sh",
+    "DomainValidationOptions": [
+     {
+      "DomainName": "ldap.ban.sig.sh",
+      "HostedZoneId": "ABC1234"
+     }
+    ],
+    "ValidationMethod": "DNS"
+   },
+   "Type": "AWS::CertificateManager::Certificate"
+  },
+  "DefaultPort1521TargetGroup": {
+   "Properties": {
+    "Port": 1521,
+    "Protocol": "TCP",
+    "TargetGroupAttributes": [],
+    "Targets": [],
+    "VpcId": {
+     "Ref": "VpcId"
+    }
+   },
+   "Type": "AWS::ElasticLoadBalancingV2::TargetGroup"
+  },
+  "DefaultPort5672TargetGroup": {
+   "Properties": {
+    "Port": 5672,
+    "Protocol": "TCP",
+    "TargetGroupAttributes": [
+     {
+      "Key": "deregistration_delay.timeout_seconds",
+      "Value": "0"
+     }
+    ],
+    "Targets": [],
+    "VpcId": {
+     "Ref": "VpcId"
+    }
+   },
+   "Type": "AWS::ElasticLoadBalancingV2::TargetGroup"
+  },
+  "DefaultPort636TargetGroup": {
+   "Properties": {
+    "Port": 1389,
+    "Protocol": "TCP",
+    "TargetGroupAttributes": [
+     {
+      "Key": "deregistration_delay.timeout_seconds",
+      "Value": "0"
+     }
+    ],
+    "Targets": [],
+    "VpcId": {
+     "Ref": "VpcId"
+    }
+   },
+   "Type": "AWS::ElasticLoadBalancingV2::TargetGroup"
+  },
+  "ListenerOnPort1521": {
+   "Properties": {
+    "Certificates": [],
+    "DefaultActions": [
+     {
+      "TargetGroupArn": {
+       "Ref": "DefaultPort1521TargetGroup"
+      },
+      "Type": "forward"
+     }
+    ],
+    "LoadBalancerArn": {
+     "Ref": "LoadBalancer"
+    },
+    "Port": 1521,
+    "Protocol": "TCP"
+   },
+   "Type": "AWS::ElasticLoadBalancingV2::Listener"
+  },
+  "ListenerOnPort5672": {
+   "Properties": {
+    "Certificates": [],
+    "DefaultActions": [
+     {
+      "TargetGroupArn": {
+       "Ref": "DefaultPort5672TargetGroup"
+      },
+      "Type": "forward"
+     }
+    ],
+    "LoadBalancerArn": {
+     "Ref": "LoadBalancer"
+    },
+    "Port": 5672,
+    "Protocol": "TCP"
+   },
+   "Type": "AWS::ElasticLoadBalancingV2::Listener"
+  },
+  "ListenerOnPort636": {
+   "Properties": {
+    "Certificates": [
+     {
+      "CertificateArn": {
+       "Ref": "CertificateForldapDOTbanDOTsigDOTsh"
+      }
+     }
+    ],
+    "DefaultActions": [
+     {
+      "TargetGroupArn": {
+       "Ref": "DefaultPort636TargetGroup"
+      },
+      "Type": "forward"
+     }
+    ],
+    "LoadBalancerArn": {
+     "Ref": "LoadBalancer"
+    },
+    "Port": 636,
+    "Protocol": "TLS"
+   },
+   "Type": "AWS::ElasticLoadBalancingV2::Listener"
+  },
+  "LoadBalancer": {
+   "DependsOn": [],
+   "Properties": {
+    "LoadBalancerAttributes": [
+     {
+      "Key": "access_logs.s3.enabled",
+      "Value": "false"
+     }
+    ],
+    "Name": {
+     "Fn::Sub": "${AWS::StackName}"
+    },
+    "Scheme": "internet-facing",
+    "SecurityGroups": [],
+    "Subnets": [
+     "subnet-1234a",
+     "subnet-1234b"
+    ],
+    "Tags": [],
+    "Type": "network"
+   },
+   "Type": "AWS::ElasticLoadBalancingV2::LoadBalancer"
+  },
+  "RecordSetFordb": {
+   "Properties": {
+    "HostedZoneId": "ABC1234",
+    "Name": "db",
+    "ResourceRecords": [
+     {
+      "Fn::Sub": "${LoadBalancer.DNSName}."
+     }
+    ],
+    "TTL": "300",
+    "Type": "CNAME"
+   },
+   "Type": "AWS::Route53::RecordSet"
+  },
+  "RecordSetFordbforZoneABC423123": {
+   "Properties": {
+    "HostedZoneId": "ABC423123",
+    "Name": "db",
+    "ResourceRecords": [
+     {
+      "Fn::Sub": "${LoadBalancer.DNSName}."
+     }
+    ],
+    "TTL": "300",
+    "Type": "CNAME"
+   },
+   "Type": "AWS::Route53::RecordSet"
+  },
+  "RecordSetForldap": {
+   "Properties": {
+    "HostedZoneId": "ABC1234",
+    "Name": "ldap",
+    "ResourceRecords": [
+     {
+      "Fn::Sub": "${LoadBalancer.DNSName}."
+     }
+    ],
+    "TTL": "300",
+    "Type": "CNAME"
+   },
+   "Type": "AWS::Route53::RecordSet"
+  },
+  "RecordSetForldapforZoneABC423123": {
+   "Properties": {
+    "HostedZoneId": "ABC423123",
+    "Name": "ldap",
+    "ResourceRecords": [
+     {
+      "Fn::Sub": "${LoadBalancer.DNSName}."
+     }
+    ],
+    "TTL": "300",
+    "Type": "CNAME"
+   },
+   "Type": "AWS::Route53::RecordSet"
+  },
+  "RecordSetForrabbit": {
+   "Properties": {
+    "HostedZoneId": "ABC1234",
+    "Name": "rabbit",
+    "ResourceRecords": [
+     {
+      "Fn::Sub": "${LoadBalancer.DNSName}."
+     }
+    ],
+    "TTL": "300",
+    "Type": "CNAME"
+   },
+   "Type": "AWS::Route53::RecordSet"
+  },
+  "RecordSetForrabbitforZoneABC423123": {
+   "Properties": {
+    "HostedZoneId": "ABC423123",
+    "Name": "rabbit",
+    "ResourceRecords": [
+     {
+      "Fn::Sub": "${LoadBalancer.DNSName}."
+     }
+    ],
+    "TTL": "300",
+    "Type": "CNAME"
+   },
+   "Type": "AWS::Route53::RecordSet"
+  }
+ }
+}

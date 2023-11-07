@@ -1,102 +1,105 @@
 ---
-- Resources:
-    LambdaExecutionRole:
-      Properties:
-        AssumeRolePolicyDocument:
-          Statement:
-          - Action:
-            - sts:AssumeRole
-            Effect: Allow
-            Principal:
-              Service:
-              - lambda.amazonaws.com
-          Version: '2012-10-17'
-        ManagedPolicyArns: []
-        Path: /
-        Policies:
-        - PolicyDocument:
-            Statement:
-            - Action:
-              - autoscaling:CompleteLifecycleAction
-              - logs:CreateLogGroup
-              - logs:CreateLogStream
-              - logs:PutLogEvents
-              - logs:PutRetentionPolicy
-              - logs:DescribeLogGroups
-              Effect: Allow
-              Resource: '*'
-            Version: '2012-10-17'
-          PolicyName: lambda-inline
-      Type: AWS::IAM::Role
-    LambdaFunction:
-      Properties:
-        Code:
-          ZipFile:
-            Fn::Sub: "import boto3\nimport re\n\nREGION = '${AWS::Region}'\n\nCWL\
-              \ = boto3.client('logs', region_name=REGION)\n\n\ndef get_log_groups():\n\
-              \    paginator = CWL.get_paginator('describe_log_groups')\n    for page\
-              \ in paginator.paginate():\n        for group in page['logGroups']:\n\
-              \            yield group\n\n\ndef get_rule_matcher(rule, check_override=True):\n\
-              \    if check_override and not rule.get('override_retention', False):\n\
-              \        matcher = get_rule_matcher(rule, check_override=False)\n  \
-              \      return lambda group: False if 'retentionInDays' in group else\
-              \ matcher(group)\n\n    if 'starts_with' in rule:\n        return lambda\
-              \ group: group['logGroupName'].startswith(rule['starts_with'])\n   \
-              \ if 'contains' in rule:\n        return lambda group: rule['contains']\
-              \ in group['logGroupName']\n    if 'regex' in rule:\n        matcher\
-              \ = re.compile(rule['regex'])\n        return lambda group: matcher.search(group['logGroupName'])\
-              \ is not None\n    return lambda group: True\n\n\ndef set_retain_days(log_group,\
-              \ retain_days):\n    group_name = log_group['logGroupName']\n    cur_val\
-              \ = log_group.get('retentionInDays', None)\n    if cur_val == retain_days:\n\
-              \        print(group_name, 'already has retainDays=', cur_val, 'no change\
-              \ needed.')\n    else:\n        print('Changing', group_name, 'retainDays\
-              \ from', cur_val, 'to', retain_days)\n        CWL.put_retention_policy(logGroupName=group_name,\
-              \ retentionInDays=retain_days)\n\n\ndef get_action(rule):\n    if 'retain_days'\
-              \ in rule:\n        return lambda group: set_retain_days(group, int(rule['retain_days']))\n\
-              \    return lambda group: print('Log group', group['logGroupName'],\
-              \ 'matched rule with no action')\n\n\ndef get_eval_rule_fn(rule):\n\
-              \    matcher = get_rule_matcher(rule)\n    action = get_action(rule)\n\
-              \n    def eval_rule(group):\n        if matcher(group):\n          \
-              \  action(group)\n            return True\n        return False\n\n\
-              \    return eval_rule\n\n\ndef lambda_handler(event, _):\n    print('event:',\
-              \ event)\n\n    rules = [get_eval_rule_fn(r) for r in event['rules']]\n\
-              \    for group in get_log_groups():\n        matched = False\n     \
-              \   for rule in rules:\n            if rule(group):\n              \
-              \  matched = True\n                break\n        if not matched:\n\
-              \            print('Log group', group['logGroupName'], 'did not match\
-              \ any rules or already has a retention set')\n"
-        Description: Sets CloudWatch log retentions based on rules
-        Handler: index.lambda_handler
-        MemorySize: 128
-        Role:
-          Fn::GetAtt:
-          - LambdaExecutionRole
-          - Arn
-        Runtime: python3.9
-        Timeout: 60
-      Type: AWS::Lambda::Function
-    LambdaInvokePermission:
-      Properties:
-        Action: lambda:InvokeFunction
-        FunctionName:
-          Ref: LambdaFunction
-        Principal: events.amazonaws.com
-        SourceArn:
-          Fn::GetAtt:
-          - ScheduleRule
-          - Arn
-      Type: AWS::Lambda::Permission
-    ScheduleRule:
-      Properties:
-        ScheduleExpression: rate(1 day)
-        Targets:
-        - Arn:
-            Fn::GetAtt:
-            - LambdaFunction
-            - Arn
-          Id: Lambda
-          Input: '{"rules": [{"starts_with": "/aws/codebuild/", "retain_days": 30},
-            {"starts_with": "/aws/lambda/", "retain_days": 7}, {"starts_with": "/ecs/",
-            "retain_days": 90}, {"starts_with": "", "retain_days": 90}]}'
-      Type: AWS::Events::Rule
-
+{
+ "Resources": {
+  "LambdaExecutionRole": {
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "sts:AssumeRole"
+       ],
+       "Effect": "Allow",
+       "Principal": {
+        "Service": [
+         "lambda.amazonaws.com"
+        ]
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [],
+    "Path": "/",
+    "Policies": [
+     {
+      "PolicyDocument": {
+       "Statement": [
+        {
+         "Action": [
+          "autoscaling:CompleteLifecycleAction",
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+          "logs:PutRetentionPolicy",
+          "logs:DescribeLogGroups"
+         ],
+         "Effect": "Allow",
+         "Resource": "*"
+        }
+       ],
+       "Version": "2012-10-17"
+      },
+      "PolicyName": "lambda-inline"
+     }
+    ]
+   },
+   "Type": "AWS::IAM::Role"
+  },
+  "LambdaFunction": {
+   "Properties": {
+    "Code": {
+     "ZipFile": {
+      "Fn::Sub": "import boto3\nimport re\n\nREGION = '${AWS::Region}'\n\nCWL = boto3.client('logs', region_name=REGION)\n\n\ndef get_log_groups():\n    paginator = CWL.get_paginator('describe_log_groups')\n    for page in paginator.paginate():\n        for group in page['logGroups']:\n            yield group\n\n\ndef get_rule_matcher(rule, check_override=True):\n    if check_override and not rule.get('override_retention', False):\n        matcher = get_rule_matcher(rule, check_override=False)\n        return lambda group: False if 'retentionInDays' in group else matcher(group)\n\n    if 'starts_with' in rule:\n        return lambda group: group['logGroupName'].startswith(rule['starts_with'])\n    if 'contains' in rule:\n        return lambda group: rule['contains'] in group['logGroupName']\n    if 'regex' in rule:\n        matcher = re.compile(rule['regex'])\n        return lambda group: matcher.search(group['logGroupName']) is not None\n    return lambda group: True\n\n\ndef set_retain_days(log_group, retain_days):\n    group_name = log_group['logGroupName']\n    cur_val = log_group.get('retentionInDays', None)\n    if cur_val == retain_days:\n        print(group_name, 'already has retainDays=', cur_val, 'no change needed.')\n    else:\n        print('Changing', group_name, 'retainDays from', cur_val, 'to', retain_days)\n        CWL.put_retention_policy(logGroupName=group_name, retentionInDays=retain_days)\n\n\ndef get_action(rule):\n    if 'retain_days' in rule:\n        return lambda group: set_retain_days(group, int(rule['retain_days']))\n    return lambda group: print('Log group', group['logGroupName'], 'matched rule with no action')\n\n\ndef get_eval_rule_fn(rule):\n    matcher = get_rule_matcher(rule)\n    action = get_action(rule)\n\n    def eval_rule(group):\n        if matcher(group):\n            action(group)\n            return True\n        return False\n\n    return eval_rule\n\n\ndef lambda_handler(event, _):\n    print('event:', event)\n\n    rules = [get_eval_rule_fn(r) for r in event['rules']]\n    for group in get_log_groups():\n        matched = False\n        for rule in rules:\n            if rule(group):\n                matched = True\n                break\n        if not matched:\n            print('Log group', group['logGroupName'], 'did not match any rules or already has a retention set')\n"
+     }
+    },
+    "Description": "Sets CloudWatch log retentions based on rules",
+    "Handler": "index.lambda_handler",
+    "MemorySize": 128,
+    "Role": {
+     "Fn::GetAtt": [
+      "LambdaExecutionRole",
+      "Arn"
+     ]
+    },
+    "Runtime": "python3.9",
+    "Timeout": 60
+   },
+   "Type": "AWS::Lambda::Function"
+  },
+  "LambdaInvokePermission": {
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Ref": "LambdaFunction"
+    },
+    "Principal": "events.amazonaws.com",
+    "SourceArn": {
+     "Fn::GetAtt": [
+      "ScheduleRule",
+      "Arn"
+     ]
+    }
+   },
+   "Type": "AWS::Lambda::Permission"
+  },
+  "ScheduleRule": {
+   "Properties": {
+    "ScheduleExpression": "rate(1 day)",
+    "Targets": [
+     {
+      "Arn": {
+       "Fn::GetAtt": [
+        "LambdaFunction",
+        "Arn"
+       ]
+      },
+      "Id": "Lambda",
+      "Input": "{\"rules\": [{\"starts_with\": \"/aws/codebuild/\", \"retain_days\": 30}, {\"starts_with\": \"/aws/lambda/\", \"retain_days\": 7}, {\"starts_with\": \"/ecs/\", \"retain_days\": 90}, {\"starts_with\": \"\", \"retain_days\": 90}]}"
+     }
+    ]
+   },
+   "Type": "AWS::Events::Rule"
+  }
+ }
+}

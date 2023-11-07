@@ -1,271 +1,443 @@
 ---
-- Outputs:
-    PrimaryCidr:
-      Export:
-        Name:
-          Fn::Sub: ${AWS::StackName}-primary-cidr
-      Value: 172.30.1.0/24
-    PrimarySubnetId:
-      Export:
-        Name:
-          Fn::Sub: ${AWS::StackName}-primary-subnetId
-      Value:
-        Ref: SUBNETprimary
-    PublicACidr:
-      Export:
-        Name:
-          Fn::Sub: ${AWS::StackName}-public-a-cidr
-      Value: 172.30.3.0/24
-    PublicASubnetId:
-      Export:
-        Name:
-          Fn::Sub: ${AWS::StackName}-public-a-subnetId
-      Value:
-        Ref: SUBNETpublicDASHa
-    PublicBCidr:
-      Export:
-        Name:
-          Fn::Sub: ${AWS::StackName}-public-b-cidr
-      Value: 172.30.4.0/24
-    PublicBSubnetId:
-      Export:
-        Name:
-          Fn::Sub: ${AWS::StackName}-public-b-subnetId
-      Value:
-        Ref: SUBNETpublicDASHb
-    SecondaryCidr:
-      Export:
-        Name:
-          Fn::Sub: ${AWS::StackName}-secondary-cidr
-      Value: 172.30.2.0/24
-    SecondarySubnetId:
-      Export:
-        Name:
-          Fn::Sub: ${AWS::StackName}-secondary-subnetId
-      Value:
-        Ref: SUBNETsecondary
-    VpcCidr:
-      Export:
-        Name:
-          Fn::Sub: ${AWS::StackName}-cidr
-      Value: 172.30.0.0/16
-    VpcId:
-      Export:
-        Name:
-          Fn::Sub: ${AWS::StackName}-vpcId
-      Value:
-        Ref: Vpc
-  Resources:
-    DefaultRouteprimary:
-      Properties:
-        DestinationCidrBlock: 0.0.0.0/0
-        NatGatewayId:
-          Ref: NatGatewayINusDASHeastDASH1a
-        RouteTableId:
-          Ref: RouteTableprimary
-      Type: AWS::EC2::Route
-    DefaultRoutepublicDASHa:
-      Properties:
-        DestinationCidrBlock: 0.0.0.0/0
-        GatewayId:
-          Ref: Igw
-        RouteTableId:
-          Ref: RouteTablepublicDASHa
-      Type: AWS::EC2::Route
-    DefaultRoutepublicDASHb:
-      Properties:
-        DestinationCidrBlock: 0.0.0.0/0
-        GatewayId:
-          Ref: Igw
-        RouteTableId:
-          Ref: RouteTablepublicDASHb
-      Type: AWS::EC2::Route
-    DefaultRoutesecondary:
-      Properties:
-        DestinationCidrBlock: 0.0.0.0/0
-        NatGatewayId:
-          Ref: NatGatewayINusDASHeastDASH1b
-        RouteTableId:
-          Ref: RouteTablesecondary
-      Type: AWS::EC2::Route
-    Igw:
-      Properties:
-        Tags:
-        - Key: Name
-          Value:
-            Ref: AWS::StackName
-      Type: AWS::EC2::InternetGateway
-    IgwAttach:
-      Properties:
-        InternetGatewayId:
-          Ref: Igw
-        VpcId:
-          Ref: Vpc
-      Type: AWS::EC2::VPCGatewayAttachment
-    NatEIPusDASHeastDASH1a:
-      Properties:
-        Domain: vpc
-        Tags:
-        - Key: Name
-          Value:
-            Fn::Sub: ${AWS::StackName}-NAT-us-east-1a
-      Type: AWS::EC2::EIP
-    NatEIPusDASHeastDASH1b:
-      Properties:
-        Domain: vpc
-        Tags:
-        - Key: Name
-          Value:
-            Fn::Sub: ${AWS::StackName}-NAT-us-east-1b
-      Type: AWS::EC2::EIP
-    NatGatewayINusDASHeastDASH1a:
-      Properties:
-        AllocationId:
-          Fn::GetAtt:
-          - NatEIPusDASHeastDASH1a
-          - AllocationId
-        ConnectivityType: public
-        SubnetId:
-          Ref: SUBNETpublicDASHa
-        Tags:
-        - Key: Name
-          Value:
-            Fn::Sub: ${AWS::StackName}-us-east-1a
-      Type: AWS::EC2::NatGateway
-    NatGatewayINusDASHeastDASH1b:
-      Properties:
-        AllocationId:
-          Fn::GetAtt:
-          - NatEIPusDASHeastDASH1b
-          - AllocationId
-        ConnectivityType: public
-        SubnetId:
-          Ref: SUBNETpublicDASHb
-        Tags:
-        - Key: Name
-          Value:
-            Fn::Sub: ${AWS::StackName}-us-east-1b
-      Type: AWS::EC2::NatGateway
-    RouteTableAssocprimary:
-      Properties:
-        RouteTableId:
-          Ref: RouteTableprimary
-        SubnetId:
-          Ref: SUBNETprimary
-      Type: AWS::EC2::SubnetRouteTableAssociation
-    RouteTableAssocpublicDASHa:
-      Properties:
-        RouteTableId:
-          Ref: RouteTablepublicDASHa
-        SubnetId:
-          Ref: SUBNETpublicDASHa
-      Type: AWS::EC2::SubnetRouteTableAssociation
-    RouteTableAssocpublicDASHb:
-      Properties:
-        RouteTableId:
-          Ref: RouteTablepublicDASHb
-        SubnetId:
-          Ref: SUBNETpublicDASHb
-      Type: AWS::EC2::SubnetRouteTableAssociation
-    RouteTableAssocsecondary:
-      Properties:
-        RouteTableId:
-          Ref: RouteTablesecondary
-        SubnetId:
-          Ref: SUBNETsecondary
-      Type: AWS::EC2::SubnetRouteTableAssociation
-    RouteTableprimary:
-      Properties:
-        Tags:
-        - Key: Name
-          Value:
-            Fn::Sub: ${AWS::StackName}-primary
-        VpcId:
-          Ref: Vpc
-      Type: AWS::EC2::RouteTable
-    RouteTablepublicDASHa:
-      Properties:
-        Tags:
-        - Key: Name
-          Value:
-            Fn::Sub: ${AWS::StackName}-public-a
-        VpcId:
-          Ref: Vpc
-      Type: AWS::EC2::RouteTable
-    RouteTablepublicDASHb:
-      Properties:
-        Tags:
-        - Key: Name
-          Value:
-            Fn::Sub: ${AWS::StackName}-public-b
-        VpcId:
-          Ref: Vpc
-      Type: AWS::EC2::RouteTable
-    RouteTablesecondary:
-      Properties:
-        Tags:
-        - Key: Name
-          Value:
-            Fn::Sub: ${AWS::StackName}-secondary
-        VpcId:
-          Ref: Vpc
-      Type: AWS::EC2::RouteTable
-    SUBNETprimary:
-      Properties:
-        AvailabilityZone: us-east-1a
-        CidrBlock: 172.30.1.0/24
-        MapPublicIpOnLaunch: false
-        Tags:
-        - Key: Name
-          Value:
-            Fn::Sub: ${AWS::StackName}-primary
-        VpcId:
-          Ref: Vpc
-      Type: AWS::EC2::Subnet
-    SUBNETpublicDASHa:
-      Properties:
-        AvailabilityZone: us-east-1a
-        CidrBlock: 172.30.3.0/24
-        MapPublicIpOnLaunch: false
-        Tags:
-        - Key: Name
-          Value:
-            Fn::Sub: ${AWS::StackName}-public-a
-        VpcId:
-          Ref: Vpc
-      Type: AWS::EC2::Subnet
-    SUBNETpublicDASHb:
-      Properties:
-        AvailabilityZone: us-east-1b
-        CidrBlock: 172.30.4.0/24
-        MapPublicIpOnLaunch: false
-        Tags:
-        - Key: Name
-          Value:
-            Fn::Sub: ${AWS::StackName}-public-b
-        VpcId:
-          Ref: Vpc
-      Type: AWS::EC2::Subnet
-    SUBNETsecondary:
-      Properties:
-        AvailabilityZone: us-east-1b
-        CidrBlock: 172.30.2.0/24
-        MapPublicIpOnLaunch: false
-        Tags:
-        - Key: Name
-          Value:
-            Fn::Sub: ${AWS::StackName}-secondary
-        VpcId:
-          Ref: Vpc
-      Type: AWS::EC2::Subnet
-    Vpc:
-      Properties:
-        CidrBlock: 172.30.0.0/16
-        EnableDnsHostnames: true
-        EnableDnsSupport: true
-        Tags:
-        - Key: Name
-          Value:
-            Ref: AWS::StackName
-      Type: AWS::EC2::VPC
-
+{
+ "Outputs": {
+  "PrimaryCidr": {
+   "Export": {
+    "Name": {
+     "Fn::Sub": "${AWS::StackName}-primary-cidr"
+    }
+   },
+   "Value": "172.30.1.0/24"
+  },
+  "PrimarySubnetId": {
+   "Export": {
+    "Name": {
+     "Fn::Sub": "${AWS::StackName}-primary-subnetId"
+    }
+   },
+   "Value": {
+    "Ref": "SUBNETprimary"
+   }
+  },
+  "PublicACidr": {
+   "Export": {
+    "Name": {
+     "Fn::Sub": "${AWS::StackName}-public-a-cidr"
+    }
+   },
+   "Value": "172.30.3.0/24"
+  },
+  "PublicASubnetId": {
+   "Export": {
+    "Name": {
+     "Fn::Sub": "${AWS::StackName}-public-a-subnetId"
+    }
+   },
+   "Value": {
+    "Ref": "SUBNETpublicDASHa"
+   }
+  },
+  "PublicBCidr": {
+   "Export": {
+    "Name": {
+     "Fn::Sub": "${AWS::StackName}-public-b-cidr"
+    }
+   },
+   "Value": "172.30.4.0/24"
+  },
+  "PublicBSubnetId": {
+   "Export": {
+    "Name": {
+     "Fn::Sub": "${AWS::StackName}-public-b-subnetId"
+    }
+   },
+   "Value": {
+    "Ref": "SUBNETpublicDASHb"
+   }
+  },
+  "SecondaryCidr": {
+   "Export": {
+    "Name": {
+     "Fn::Sub": "${AWS::StackName}-secondary-cidr"
+    }
+   },
+   "Value": "172.30.2.0/24"
+  },
+  "SecondarySubnetId": {
+   "Export": {
+    "Name": {
+     "Fn::Sub": "${AWS::StackName}-secondary-subnetId"
+    }
+   },
+   "Value": {
+    "Ref": "SUBNETsecondary"
+   }
+  },
+  "VpcCidr": {
+   "Export": {
+    "Name": {
+     "Fn::Sub": "${AWS::StackName}-cidr"
+    }
+   },
+   "Value": "172.30.0.0/16"
+  },
+  "VpcId": {
+   "Export": {
+    "Name": {
+     "Fn::Sub": "${AWS::StackName}-vpcId"
+    }
+   },
+   "Value": {
+    "Ref": "Vpc"
+   }
+  }
+ },
+ "Resources": {
+  "DefaultRouteprimary": {
+   "Properties": {
+    "DestinationCidrBlock": "0.0.0.0/0",
+    "NatGatewayId": {
+     "Ref": "NatGatewayINusDASHeastDASH1a"
+    },
+    "RouteTableId": {
+     "Ref": "RouteTableprimary"
+    }
+   },
+   "Type": "AWS::EC2::Route"
+  },
+  "DefaultRoutepublicDASHa": {
+   "Properties": {
+    "DestinationCidrBlock": "0.0.0.0/0",
+    "GatewayId": {
+     "Ref": "Igw"
+    },
+    "RouteTableId": {
+     "Ref": "RouteTablepublicDASHa"
+    }
+   },
+   "Type": "AWS::EC2::Route"
+  },
+  "DefaultRoutepublicDASHb": {
+   "Properties": {
+    "DestinationCidrBlock": "0.0.0.0/0",
+    "GatewayId": {
+     "Ref": "Igw"
+    },
+    "RouteTableId": {
+     "Ref": "RouteTablepublicDASHb"
+    }
+   },
+   "Type": "AWS::EC2::Route"
+  },
+  "DefaultRoutesecondary": {
+   "Properties": {
+    "DestinationCidrBlock": "0.0.0.0/0",
+    "NatGatewayId": {
+     "Ref": "NatGatewayINusDASHeastDASH1b"
+    },
+    "RouteTableId": {
+     "Ref": "RouteTablesecondary"
+    }
+   },
+   "Type": "AWS::EC2::Route"
+  },
+  "Igw": {
+   "Properties": {
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": {
+       "Ref": "AWS::StackName"
+      }
+     }
+    ]
+   },
+   "Type": "AWS::EC2::InternetGateway"
+  },
+  "IgwAttach": {
+   "Properties": {
+    "InternetGatewayId": {
+     "Ref": "Igw"
+    },
+    "VpcId": {
+     "Ref": "Vpc"
+    }
+   },
+   "Type": "AWS::EC2::VPCGatewayAttachment"
+  },
+  "NatEIPusDASHeastDASH1a": {
+   "Properties": {
+    "Domain": "vpc",
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": {
+       "Fn::Sub": "${AWS::StackName}-NAT-us-east-1a"
+      }
+     }
+    ]
+   },
+   "Type": "AWS::EC2::EIP"
+  },
+  "NatEIPusDASHeastDASH1b": {
+   "Properties": {
+    "Domain": "vpc",
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": {
+       "Fn::Sub": "${AWS::StackName}-NAT-us-east-1b"
+      }
+     }
+    ]
+   },
+   "Type": "AWS::EC2::EIP"
+  },
+  "NatGatewayINusDASHeastDASH1a": {
+   "Properties": {
+    "AllocationId": {
+     "Fn::GetAtt": [
+      "NatEIPusDASHeastDASH1a",
+      "AllocationId"
+     ]
+    },
+    "ConnectivityType": "public",
+    "SubnetId": {
+     "Ref": "SUBNETpublicDASHa"
+    },
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": {
+       "Fn::Sub": "${AWS::StackName}-us-east-1a"
+      }
+     }
+    ]
+   },
+   "Type": "AWS::EC2::NatGateway"
+  },
+  "NatGatewayINusDASHeastDASH1b": {
+   "Properties": {
+    "AllocationId": {
+     "Fn::GetAtt": [
+      "NatEIPusDASHeastDASH1b",
+      "AllocationId"
+     ]
+    },
+    "ConnectivityType": "public",
+    "SubnetId": {
+     "Ref": "SUBNETpublicDASHb"
+    },
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": {
+       "Fn::Sub": "${AWS::StackName}-us-east-1b"
+      }
+     }
+    ]
+   },
+   "Type": "AWS::EC2::NatGateway"
+  },
+  "RouteTableAssocprimary": {
+   "Properties": {
+    "RouteTableId": {
+     "Ref": "RouteTableprimary"
+    },
+    "SubnetId": {
+     "Ref": "SUBNETprimary"
+    }
+   },
+   "Type": "AWS::EC2::SubnetRouteTableAssociation"
+  },
+  "RouteTableAssocpublicDASHa": {
+   "Properties": {
+    "RouteTableId": {
+     "Ref": "RouteTablepublicDASHa"
+    },
+    "SubnetId": {
+     "Ref": "SUBNETpublicDASHa"
+    }
+   },
+   "Type": "AWS::EC2::SubnetRouteTableAssociation"
+  },
+  "RouteTableAssocpublicDASHb": {
+   "Properties": {
+    "RouteTableId": {
+     "Ref": "RouteTablepublicDASHb"
+    },
+    "SubnetId": {
+     "Ref": "SUBNETpublicDASHb"
+    }
+   },
+   "Type": "AWS::EC2::SubnetRouteTableAssociation"
+  },
+  "RouteTableAssocsecondary": {
+   "Properties": {
+    "RouteTableId": {
+     "Ref": "RouteTablesecondary"
+    },
+    "SubnetId": {
+     "Ref": "SUBNETsecondary"
+    }
+   },
+   "Type": "AWS::EC2::SubnetRouteTableAssociation"
+  },
+  "RouteTableprimary": {
+   "Properties": {
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": {
+       "Fn::Sub": "${AWS::StackName}-primary"
+      }
+     }
+    ],
+    "VpcId": {
+     "Ref": "Vpc"
+    }
+   },
+   "Type": "AWS::EC2::RouteTable"
+  },
+  "RouteTablepublicDASHa": {
+   "Properties": {
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": {
+       "Fn::Sub": "${AWS::StackName}-public-a"
+      }
+     }
+    ],
+    "VpcId": {
+     "Ref": "Vpc"
+    }
+   },
+   "Type": "AWS::EC2::RouteTable"
+  },
+  "RouteTablepublicDASHb": {
+   "Properties": {
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": {
+       "Fn::Sub": "${AWS::StackName}-public-b"
+      }
+     }
+    ],
+    "VpcId": {
+     "Ref": "Vpc"
+    }
+   },
+   "Type": "AWS::EC2::RouteTable"
+  },
+  "RouteTablesecondary": {
+   "Properties": {
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": {
+       "Fn::Sub": "${AWS::StackName}-secondary"
+      }
+     }
+    ],
+    "VpcId": {
+     "Ref": "Vpc"
+    }
+   },
+   "Type": "AWS::EC2::RouteTable"
+  },
+  "SUBNETprimary": {
+   "Properties": {
+    "AvailabilityZone": "us-east-1a",
+    "CidrBlock": "172.30.1.0/24",
+    "MapPublicIpOnLaunch": false,
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": {
+       "Fn::Sub": "${AWS::StackName}-primary"
+      }
+     }
+    ],
+    "VpcId": {
+     "Ref": "Vpc"
+    }
+   },
+   "Type": "AWS::EC2::Subnet"
+  },
+  "SUBNETpublicDASHa": {
+   "Properties": {
+    "AvailabilityZone": "us-east-1a",
+    "CidrBlock": "172.30.3.0/24",
+    "MapPublicIpOnLaunch": false,
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": {
+       "Fn::Sub": "${AWS::StackName}-public-a"
+      }
+     }
+    ],
+    "VpcId": {
+     "Ref": "Vpc"
+    }
+   },
+   "Type": "AWS::EC2::Subnet"
+  },
+  "SUBNETpublicDASHb": {
+   "Properties": {
+    "AvailabilityZone": "us-east-1b",
+    "CidrBlock": "172.30.4.0/24",
+    "MapPublicIpOnLaunch": false,
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": {
+       "Fn::Sub": "${AWS::StackName}-public-b"
+      }
+     }
+    ],
+    "VpcId": {
+     "Ref": "Vpc"
+    }
+   },
+   "Type": "AWS::EC2::Subnet"
+  },
+  "SUBNETsecondary": {
+   "Properties": {
+    "AvailabilityZone": "us-east-1b",
+    "CidrBlock": "172.30.2.0/24",
+    "MapPublicIpOnLaunch": false,
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": {
+       "Fn::Sub": "${AWS::StackName}-secondary"
+      }
+     }
+    ],
+    "VpcId": {
+     "Ref": "Vpc"
+    }
+   },
+   "Type": "AWS::EC2::Subnet"
+  },
+  "Vpc": {
+   "Properties": {
+    "CidrBlock": "172.30.0.0/16",
+    "EnableDnsHostnames": true,
+    "EnableDnsSupport": true,
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": {
+       "Ref": "AWS::StackName"
+      }
+     }
+    ]
+   },
+   "Type": "AWS::EC2::VPC"
+  }
+ }
+}

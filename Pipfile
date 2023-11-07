@@ -1,0 +1,17 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+pydantic = "==1.8.2"
+yq = "*"
+cfnresponse = "*"
+boto3 = "*"
+sceptre = "*"
+troposphere = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.11"

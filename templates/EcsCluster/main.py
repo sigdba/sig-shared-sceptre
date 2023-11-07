@@ -27,6 +27,7 @@ from troposphere.s3 import Bucket, PublicAccessBlockConfiguration
 from troposphere.sns import Subscription, SubscriptionResource, Topic
 
 import model
+import lifecycle
 from util import (
     TEMPLATE,
     add_export,
@@ -174,9 +175,7 @@ def node_security_group(ingress_cidrs):
     )
 
 
-def auto_scaling_group(
-    name, subnets, launch_conf, max_size, desired_size, sns_topic, tags
-):
+def auto_scaling_group(name, subnets, launch_conf, max_size, desired_size, tags):
     return add_resource(
         AutoScalingGroup(
             "Asg" + name,
@@ -186,12 +185,12 @@ def auto_scaling_group(
             MaxSize=max_size,
             DesiredCapacity=str(desired_size),
             MetricsCollection=[MetricsCollection(Granularity="1Minute")],
-            NotificationConfigurations=[
-                NotificationConfigurations(
-                    TopicARN=Ref(sns_topic),
-                    NotificationTypes=["autoscaling:EC2_INSTANCE_TERMINATE"],
-                )
-            ],
+            # NotificationConfigurations=[
+            #     NotificationConfigurations(
+            #         TopicARN=Ref(sns_topic),
+            #         NotificationTypes=["autoscaling:EC2_INSTANCE_TERMINATE"],
+            #     )
+            # ],
             Tags=ASTags(Name=Sub("ecs-node-${AWS::StackName}"), **tags),
             UpdatePolicy=UpdatePolicy(
                 AutoScalingRollingUpdate=AutoScalingRollingUpdate(
@@ -235,40 +234,6 @@ def ecs_cluster(user_data):
                 )
             ],
             Tags=Tags(**{**user_data.tags, **user_data.cluster_tags}),
-        )
-    )
-
-
-def asg_sns_topic(lambda_fn):
-    return add_resource(
-        Topic(
-            "ASGSNSTopic",
-            Subscription=[
-                Subscription(Endpoint=GetAtt(lambda_fn, "Arn"), Protocol="lambda")
-            ],
-            DependsOn=lambda_fn,
-        )
-    )
-
-
-def sns_lambda_role():
-    return add_resource(
-        Role(
-            "SNSLambdaRole",
-            AssumeRolePolicyDocument={
-                "Version": "2012-10-17",
-                "Statement": [
-                    {
-                        "Effect": "Allow",
-                        "Principal": {"Service": ["autoscaling.amazonaws.com"]},
-                        "Action": ["sts:AssumeRole"],
-                    }
-                ],
-            },
-            ManagedPolicyArns=[
-                "arn:aws:iam::aws:policy/service-role/AutoScalingNotificationAccessRole"
-            ],
-            Path="/",
         )
     )
 
@@ -324,66 +289,13 @@ def lambda_execution_role():
     )
 
 
-def lambda_invoke_permission(lambda_fn, sns_topic):
-    return add_resource(
-        Permission(
-            "LambdaInvokePermission",
-            FunctionName=Ref(lambda_fn),
-            Action="lambda:InvokeFunction",
-            Principal="sns.amazonaws.com",
-            SourceArn=Ref(sns_topic),
-        )
-    )
-
-
-def lambda_subs_to_topic(lambda_fn, sns_topic):
-    return add_resource(
-        SubscriptionResource(
-            "LambdaSubscriptionToSNSTopic",
-            Endpoint=GetAtt(lambda_fn, "Arn"),
-            Protocol="lambda",
-            TopicArn=Ref(sns_topic),
-        )
-    )
-
-
-def asg_terminate_hook(asg, sns_topic, sns_fn_role):
-    return add_resource(
-        LifecycleHook(
-            asg.title + "ASGTerminateHook",
-            AutoScalingGroupName=Ref(asg),
-            DefaultResult="CONTINUE",
-            HeartbeatTimeout="1800",
-            LifecycleTransition="autoscaling:EC2_INSTANCE_TERMINATING",
-            NotificationTargetARN=Ref(sns_topic),
-            RoleARN=GetAtt(sns_fn_role, "Arn"),
-            DependsOn=sns_topic,
-        )
-    )
-
-
-def lambda_fn_for_asg():
-    return add_resource(
-        Function(
-            "LambdaFunctionForASG",
-            Description="Gracefully drain ECS tasks from EC2 instances before the instances are terminated by autoscaling.",
-            Handler="index.lambda_handler",
-            Role=GetAtt(lambda_execution_role(), "Arn"),
-            Runtime="python3.9",
-            MemorySize=128,
-            Timeout=60,
-            Code=Code(ZipFile=Sub(read_resource("TerminationLambda.py"))),
-        )
-    )
-
-
 def lambda_fn_for_cps():
     return add_resource(
         Function(
             "LambdaFunctionForCpsReset",
             Description="Updates services in the cluster to use the new default CapacityProviderStrategy",
             Handler="index.lambda_handler",
-            Role=GetAtt("LambdaExecutionRole", "Arn"),
+            Role=lambda_execution_role().GetAtt("Arn"),
             Runtime="python3.9",
             MemorySize=128,
             Timeout=60,
@@ -441,7 +353,7 @@ def capacity_provider_assoc(asgs_with_models):
 
 
 def scaling_group_with_resources(
-    security_groups, node_profile, subnets, sns_topic, sns_fn_role, tags, sg_model
+    security_groups, node_profile, subnets, tags, sg_model
 ):
     lc = launch_config(
         sg_model.name,
@@ -457,10 +369,9 @@ def scaling_group_with_resources(
         lc,
         sg_model.max_size,
         sg_model.desired_size,
-        sns_topic,
         tags,
     )
-    asg_terminate_hook(asg, sns_topic, sns_fn_role)
+    lifecycle.asg_terminate_hook(asg)
     return asg
 
 
@@ -502,12 +413,9 @@ def sceptre_handler(sceptre_user_data):
         node_role = node_instance_role()
         node_profile = node_instance_profile(node_role)
         all_security_groups = [Ref(node_sg)] + user_data.node_security_groups
-        asg_lambda = lambda_fn_for_asg()
-        sns_topic = asg_sns_topic(asg_lambda)
-        sns_fn_role = sns_lambda_role()
 
-        lambda_invoke_permission(asg_lambda, sns_topic)
-        lambda_subs_to_topic(asg_lambda, sns_topic)
+        # Lifecycle
+        lifecycle.init()
 
         asgs_with_models = [
             (
@@ -515,8 +423,6 @@ def sceptre_handler(sceptre_user_data):
                     all_security_groups,
                     node_profile,
                     user_data.subnet_ids,
-                    sns_topic,
-                    sns_fn_role,
                     {**user_data.tags, **user_data.asg_tags, **g.tags},
                     g,
                 ),

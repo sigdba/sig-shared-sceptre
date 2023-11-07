@@ -1,0 +1,156 @@
+---
+Comment: |
+  This state machine is invoked by the ECS Cluster's Auto-Scaling Group(s) (ASG)
+  when an instance is about to be scaled in (terminated). It tells ECS to drain
+  the node of its tasks then waits until they're gone before allowing the
+  termination to continue.
+
+StartAt: ForEachRecord
+States:
+  ForEachRecord:
+    Type: Map
+    ItemProcessor:
+      ProcessorConfig:
+        Mode: INLINE
+      StartAt: ExtractMessage
+      States:
+        ExtractMessage:
+          Type: Pass
+          Next: InsertConfig
+          Parameters:
+            Message.$: States.StringToJson($.body)
+        InsertConfig:
+          Type: Pass
+          Result:
+            ClusterArn: ${cluster_arn}
+          ResultPath: "$.Config"
+          Next: ListContainerInstances
+
+        ListContainerInstances:
+          Type: Task
+          Parameters:
+            Cluster.$: "$.Config.ClusterArn"
+          Resource: arn:aws:states:::aws-sdk:ecs:listContainerInstances
+          Next: DescribeAllContainerInstances
+          ResultPath: "$.ContainerInstances"
+
+        DescribeAllContainerInstances:
+          Type: Task
+          Parameters:
+            Cluster.$: "$.Config.ClusterArn"
+            ContainerInstances.$: "$.ContainerInstances.ContainerInstanceArns"
+          Resource: arn:aws:states:::aws-sdk:ecs:describeContainerInstances
+          Catch:
+            - ErrorEquals: [ "States.TaskFailed" ]
+              Comment: If no container instances returned, just allow the instance to be terminated.
+              Next: AbortAndTerminate
+          ResultPath: "$.Details"
+          Next: ForEachContainerInstance
+
+        AbortAndTerminate:
+          Type: Task
+          Parameters:
+            AutoScalingGroupName.$: "$.AutoScalingGroupName"
+            LifecycleActionResult: CONTINUE
+            LifecycleHookName.$: "$.LifecycleHookName"
+            LifecycleActionToken.$: "$.LifecycleActionToken"
+          Resource: arn:aws:states:::aws-sdk:autoscaling:completeLifecycleAction
+          End: true
+
+        ForEachContainerInstance:
+          Type: Map
+          ItemProcessor:
+            ProcessorConfig:
+              Mode: INLINE
+            StartAt: InstanceIDsEqual?
+            States:
+              InstanceIDsEqual?:
+                Type: Choice
+                Choices:
+                - Variable: "$.EC2InstanceId"
+                  StringEqualsPath: "$.MsgEC2InstanceId"
+                  Comment: Instance ID Match
+                  Next: InstanceActive?
+                Default: Skip
+              InstanceActive?:
+                Type: Choice
+                Choices:
+                - Variable: "$.InstanceStatus"
+                  StringEquals: ACTIVE
+                  Next: StartDraining
+                  Comment: The instance is in "ACTIVE" state.
+                Default: HasRunningTasks?
+
+              StartDraining:
+                Type: Task
+                Next: HasRunningTasks?
+                Parameters:
+                  Cluster.$: "$.ClusterArn"
+                  ContainerInstances.$: States.Array($.ContainerInstanceArn)
+                  Status: DRAINING
+                Resource: arn:aws:states:::aws-sdk:ecs:updateContainerInstancesState
+                ResultPath: "$.StartDrainingResult"
+
+              HasRunningTasks?:
+                Type: Choice
+                Choices:
+                - Variable: "$.RunningTasksCount"
+                  NumericGreaterThan: 0
+                  Comment: Still has running tasks.
+                  Next: WaitWhileDraining
+                Default: AllowTermination
+
+              AllowTermination:
+                Type: Task
+                Parameters:
+                  AutoScalingGroupName.$: "$.AutoScalingGroupName"
+                  LifecycleActionResult: CONTINUE
+                  LifecycleHookName.$: "$.LifecycleHookName"
+                  LifecycleActionToken.$: "$.LifecycleActionToken"
+                Resource: arn:aws:states:::aws-sdk:autoscaling:completeLifecycleAction
+                End: true
+
+              WaitWhileDraining:
+                Type: Wait
+                Seconds: 60
+                Next: GetRunningCount
+              GetRunningCount:
+                Type: Task
+                Parameters:
+                  Cluster.$: "$.ClusterArn"
+                  ContainerInstances.$: States.Array($.ContainerInstanceArn)
+                Resource: arn:aws:states:::aws-sdk:ecs:describeContainerInstances
+                Next: UpdateWaitLoopState
+                ResultSelector:
+                  RunningTasksCount.$: States.ArrayGetItem($.ContainerInstances..RunningTasksCount,
+                    0)
+                ResultPath: "$.Result"
+              UpdateWaitLoopState:
+                Type: Pass
+                Next: HasRunningTasks?
+                Parameters:
+                  LifecycleHookName.$: "$.LifecycleHookName"
+                  AutoScalingGroupName.$: "$.AutoScalingGroupName"
+                  ClusterArn.$: "$.ClusterArn"
+                  ContainerInstanceArn.$: "$.ContainerInstanceArn"
+                  RunningTasksCount.$: "$.Result.RunningTasksCount"
+                  EC2InstanceId.$: "$.EC2InstanceId"
+                  LifecycleActionToken.$: "$.LifecycleActionToken"
+              Skip:
+                Type: Pass
+                End: true
+                Comment: Skip the container instances which don't match the instance
+                  ID from the message.
+          End: true
+          ItemsPath: "$.Details.ContainerInstances"
+          ItemSelector:
+            AutoScalingGroupName.$: "$.Message.AutoScalingGroupName"
+            LifecycleHookName.$: "$.Message.LifecycleHookName"
+            ClusterArn.$: "$.Config.ClusterArn"
+            MsgEC2InstanceId.$: "$.Message.EC2InstanceId"
+            ContainerInstanceArn.$: "$$.Map.Item.Value.ContainerInstanceArn"
+            RunningTasksCount.$: "$$.Map.Item.Value.RunningTasksCount"
+            InstanceStatus.$: "$$.Map.Item.Value.Status"
+            EC2InstanceId.$: "$$.Map.Item.Value.Ec2InstanceId"
+            LifecycleActionToken.$: "$.Message.LifecycleActionToken"
+    End: true

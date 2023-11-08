@@ -54,9 +54,10 @@ def add_resource(r):
 def add_resource_once(logical_id, res_fn):
     res = TEMPLATE.to_dict()["Resources"]
     if logical_id in res:
-        return res[logical_id]
+        ret = TEMPLATE.resources[logical_id]
     else:
-        return add_resource(res_fn(logical_id))
+        ret = add_resource(res_fn(logical_id))
+    return ret
 
 
 def clean_title(s):

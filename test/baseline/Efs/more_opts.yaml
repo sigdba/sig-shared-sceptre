@@ -1,96 +1,160 @@
 ---
-- Outputs:
-    FileSystemId:
-      Value:
-        Ref: FileSystem
-    SourceSecurityGroup:
-      Description: Assign clients to this SG to access the volume
-      Value:
-        Ref: SourceSecurityGroup
-  Parameters:
-    VpcId:
-      Description: ID of the VPC in which to create resources.
-      Type: AWS::EC2::VPC::Id
-  Resources:
-    FileSystem:
-      Properties:
-        BackupPolicy:
-          Status: ENABLED
-        Encrypted: true
-        FileSystemTags:
-        - Key: Name
-          Value: the_fs
-        - Key: atag
-          Value: tagval
-      Type: AWS::EFS::FileSystem
-    MountTargetINsnDASH123123:
-      Properties:
-        FileSystemId:
-          Ref: FileSystem
-        SecurityGroups:
-        - Ref: TargetSecurityGroup
-        SubnetId: sn-123123
-      Type: AWS::EFS::MountTarget
-    MountTargetINsnDASH12312312:
-      Properties:
-        FileSystemId:
-          Ref: FileSystem
-        SecurityGroups:
-        - Ref: TargetSecurityGroup
-        SubnetId: sn-12312312
-      Type: AWS::EFS::MountTarget
-    SourceSecurityGroup:
-      Properties:
-        GroupDescription:
-          Fn::Join:
-          - ''
-          - - 'Members of this group can access EFS: '
-            - the_fs
-        GroupName:
-          Fn::Sub: ${AWS::StackName}-SourceSG
-        Tags:
-        - Key: Name
-          Value:
-            Fn::Sub: ${AWS::StackName}-SourceSG
-        VpcId:
-          Ref: VpcId
-      Type: AWS::EC2::SecurityGroup
-    TargetSecurityGroup:
-      Properties:
-        GroupDescription:
-          Fn::Join:
-          - ''
-          - - 'Security group assigned to EFS: '
-            - the_fs
-        GroupName:
-          Fn::Sub: ${AWS::StackName}-TargetSG
-        SecurityGroupEgress:
-        - CidrIp: 0.0.0.0/0
-          Description: Allow all outbound traffic from EFS
-          FromPort: 0
-          IpProtocol: '-1'
-          ToPort: 65535
-        SecurityGroupIngress:
-        - FromPort: 2049
-          IpProtocol: tcp
-          SourceSecurityGroupId:
-            Ref: SourceSecurityGroup
-          ToPort: 2049
-        - CidrIp: 10.1.0.0/16
-          Description: Some CIDR
-          FromPort: 2049
-          IpProtocol: tcp
-          ToPort: 2049
-        - Description: Some SG
-          FromPort: 2049
-          IpProtocol: tcp
-          SourceSecurityGroupId: sg-123124
-          ToPort: 2049
-        Tags:
-        - Key: Name
-          Value:
-            Fn::Sub: ${AWS::StackName}-TargetSG
-        VpcId:
-          Ref: VpcId
-      Type: AWS::EC2::SecurityGroup
-
+{
+ "Outputs": {
+  "FileSystemId": {
+   "Value": {
+    "Ref": "FileSystem"
+   }
+  },
+  "SourceSecurityGroup": {
+   "Description": "Assign clients to this SG to access the volume",
+   "Value": {
+    "Ref": "SourceSecurityGroup"
+   }
+  }
+ },
+ "Parameters": {
+  "VpcId": {
+   "Description": "ID of the VPC in which to create resources.",
+   "Type": "AWS::EC2::VPC::Id"
+  }
+ },
+ "Resources": {
+  "FileSystem": {
+   "Properties": {
+    "BackupPolicy": {
+     "Status": "ENABLED"
+    },
+    "Encrypted": true,
+    "FileSystemTags": [
+     {
+      "Key": "Name",
+      "Value": "the_fs"
+     },
+     {
+      "Key": "atag",
+      "Value": "tagval"
+     }
+    ]
+   },
+   "Type": "AWS::EFS::FileSystem"
+  },
+  "MountTargetINsnDASH123123": {
+   "Properties": {
+    "FileSystemId": {
+     "Ref": "FileSystem"
+    },
+    "SecurityGroups": [
+     {
+      "Ref": "TargetSecurityGroup"
+     }
+    ],
+    "SubnetId": "sn-123123"
+   },
+   "Type": "AWS::EFS::MountTarget"
+  },
+  "MountTargetINsnDASH12312312": {
+   "Properties": {
+    "FileSystemId": {
+     "Ref": "FileSystem"
+    },
+    "SecurityGroups": [
+     {
+      "Ref": "TargetSecurityGroup"
+     }
+    ],
+    "SubnetId": "sn-12312312"
+   },
+   "Type": "AWS::EFS::MountTarget"
+  },
+  "SourceSecurityGroup": {
+   "Properties": {
+    "GroupDescription": {
+     "Fn::Join": [
+      "",
+      [
+       "Members of this group can access EFS: ",
+       "the_fs"
+      ]
+     ]
+    },
+    "GroupName": {
+     "Fn::Sub": "${AWS::StackName}-SourceSG"
+    },
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": {
+       "Fn::Sub": "${AWS::StackName}-SourceSG"
+      }
+     }
+    ],
+    "VpcId": {
+     "Ref": "VpcId"
+    }
+   },
+   "Type": "AWS::EC2::SecurityGroup"
+  },
+  "TargetSecurityGroup": {
+   "Properties": {
+    "GroupDescription": {
+     "Fn::Join": [
+      "",
+      [
+       "Security group assigned to EFS: ",
+       "the_fs"
+      ]
+     ]
+    },
+    "GroupName": {
+     "Fn::Sub": "${AWS::StackName}-TargetSG"
+    },
+    "SecurityGroupEgress": [
+     {
+      "CidrIp": "0.0.0.0/0",
+      "Description": "Allow all outbound traffic from EFS",
+      "FromPort": 0,
+      "IpProtocol": "-1",
+      "ToPort": 65535
+     }
+    ],
+    "SecurityGroupIngress": [
+     {
+      "FromPort": 2049,
+      "IpProtocol": "tcp",
+      "SourceSecurityGroupId": {
+       "Ref": "SourceSecurityGroup"
+      },
+      "ToPort": 2049
+     },
+     {
+      "CidrIp": "10.1.0.0/16",
+      "Description": "Some CIDR",
+      "FromPort": 2049,
+      "IpProtocol": "tcp",
+      "ToPort": 2049
+     },
+     {
+      "Description": "Some SG",
+      "FromPort": 2049,
+      "IpProtocol": "tcp",
+      "SourceSecurityGroupId": "sg-123124",
+      "ToPort": 2049
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": {
+       "Fn::Sub": "${AWS::StackName}-TargetSG"
+      }
+     }
+    ],
+    "VpcId": {
+     "Ref": "VpcId"
+    }
+   },
+   "Type": "AWS::EC2::SecurityGroup"
+  }
+ }
+}

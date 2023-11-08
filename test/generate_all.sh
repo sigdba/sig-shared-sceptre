@@ -33,7 +33,7 @@ gen_stack () {
     echo ${OUT}
     cd "$SCEPTRE_DIR"
     mkdir -p "$(dirname $OUT)"
-    sceptre --output=yaml generate ${T} >${OUT}
+    pipenv run sceptre --output=yaml generate ${T} >${OUT}
 }
 export -f gen_stack
 

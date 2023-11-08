@@ -1,188 +1,295 @@
 ---
-- Outputs:
-    EcsServiceArn:
-      Value:
-        Ref: Service
-  Parameters:
-    ClusterArn:
-      Description: The ARN or name of the ECS cluster
-      Type: String
-    DesiredCount:
-      Default: '1'
-      Description: The desired number of instances of this service
-      Type: Number
-    ListenerArn:
-      Description: The ARN of the ELB listener which will be used by this service
-      Type: String
-    MaximumPercent:
-      Default: '200'
-      Description: The maximum percent of `DesiredCount` allowed to be running during
-        updates.
-      Type: Number
-    MinimumHealthyPercent:
-      Default: '100'
-      Description: The minimum number of running instances of this service to keep
-        running during an update.
-      Type: Number
-    VpcId:
-      Description: The ID of the VPC of the ECS cluster
-      Type: String
-  Resources:
-    ListenerRule13110:
-      Properties:
-        Actions:
-        - TargetGroupArn:
-            Ref: TargetGroupFORSLASHworkflow
-          Type: forward
-        Conditions:
-        - Field: path-pattern
-          PathPatternConfig:
-            Values:
-            - /workflow
-            - /workflow/*
-        - Field: host-header
-          HostHeaderConfig:
-            Values:
-            - banner.*
-        ListenerArn:
-          Ref: ListenerArn
-        Priority: 13110
-      Type: AWS::ElasticLoadBalancingV2::ListenerRule
-    Service:
-      DependsOn:
-      - ListenerRule13110
-      Properties:
-        Cluster:
-          Ref: ClusterArn
-        DeploymentConfiguration:
-          MaximumPercent:
-            Ref: MaximumPercent
-          MinimumHealthyPercent:
-            Ref: MinimumHealthyPercent
-        DesiredCount:
-          Ref: DesiredCount
-        LoadBalancers:
-        - ContainerName: tomcat
-          ContainerPort: 8080
-          TargetGroupArn:
-            Ref: TargetGroupFORSLASHworkflow
-        PlacementStrategies:
-        - Field: memory
-          Type: binpack
-        Tags:
-        - Key: baggy.link.category
-          Value: Banner
-        - Key: baggy.link.title
-          Value: Banner Workflow
-        - Key: baggy.link.url
-          Value: https://banner.ban.school.edu/workflow/
-        TaskDefinition:
-          Ref: TaskDef
-      Type: AWS::ECS::Service
-    TargetGroupFORSLASHworkflow:
-      Properties:
-        HealthCheckIntervalSeconds: 60
-        HealthCheckPath: /workflow/
-        HealthCheckProtocol: HTTP
-        HealthCheckTimeoutSeconds: 30
-        Matcher:
-          HttpCode: 200-399
-        Port: 8080
-        Protocol: HTTP
-        Tags:
-        - Key: Name
-          Value:
-            Fn::Sub: '${AWS::StackName}: /workflow'
-        TargetGroupAttributes:
-        - Key: stickiness.enabled
-          Value: 'true'
-        - Key: stickiness.type
-          Value: lb_cookie
-        TargetType: instance
-        UnhealthyThresholdCount: 5
-        VpcId:
-          Ref: VpcId
-      Type: AWS::ElasticLoadBalancingV2::TargetGroup
-    TaskDef:
-      Properties:
-        ContainerDefinitions:
-        - Command:
-          - /bin/bash
-          - -c
-          - export WORKFLOW_HOME=/mnt/sig-ban-efs/workflow/workflow88 && cd $WORKFLOW_HOME
-            && java -Xmx256m -jar /mnt/sig-ban-efs/workflow/workflow88/engine/engine.jar
-            main -loggingDir /mnt/sig-ban-efs/workflow/workflow88/engine -nohook
-          Environment:
-          - Name: AWS_DEFAULT_REGION
-            Value:
-              Ref: AWS::Region
-          Essential: true
-          Hostname:
-            Ref: AWS::StackName
-          Image: openjdk:8u322
-          Links: []
-          LogConfiguration:
-            LogDriver: awslogs
-            Options:
-              awslogs-create-group: true
-              awslogs-group:
-                Fn::Sub: /ecs/${AWS::StackName}
-              awslogs-region:
-                Ref: AWS::Region
-              awslogs-stream-prefix: ecs
-          Memory: 1024
-          MemoryReservation: 512
-          MountPoints:
-          - ContainerPath: /mnt/sig-ban-efs/workflow/workflow88
-            ReadOnly: false
-            SourceVolume: wfroot
-          Name: engine
-          PortMappings: []
-          Secrets: []
-        - Environment:
-          - Name: AWS_DEFAULT_REGION
-            Value:
-              Ref: AWS::Region
-          - Name: TOMCAT_MEMORY_ARGS
-            Value: -Xms512M -Xmx5120M
-          - Name: TOMCAT_EXTRA_ARGS
-            Value: -Duser.timezone=America/New_York -Doracle.jdbc.autoCommitSpecCompliant=false
-              -Dbanner.logging.dir=/app_logs
-          Essential: true
-          Hostname:
-            Ref: AWS::StackName
-          Image: sigcorp/tomcat:latest-8-jdk8
-          Links:
-          - engine
-          LogConfiguration:
-            LogDriver: awslogs
-            Options:
-              awslogs-create-group: true
-              awslogs-group:
-                Fn::Sub: /ecs/${AWS::StackName}
-              awslogs-region:
-                Ref: AWS::Region
-              awslogs-stream-prefix: ecs
-          Memory: 5320
-          MemoryReservation: 1024
-          MountPoints:
-          - ContainerPath: /usr/local/tomcat/webapps
-            ReadOnly: false
-            SourceVolume: tomcat_webapps
-          Name: tomcat
-          PortMappings:
-          - ContainerPort: 8080
-          Secrets: []
-        Family:
-          Ref: AWS::StackName
-        Volumes:
-        - EFSVolumeConfiguration:
-            FilesystemId: fs-12345
-            RootDirectory: /workflow/workflow88
-          Name: wfroot
-        - EFSVolumeConfiguration:
-            FilesystemId: fs-12345
-            RootDirectory: /workflow/tomcat_webapps
-          Name: tomcat_webapps
-      Type: AWS::ECS::TaskDefinition
-
+{
+ "Outputs": {
+  "EcsServiceArn": {
+   "Value": {
+    "Ref": "Service"
+   }
+  }
+ },
+ "Parameters": {
+  "ClusterArn": {
+   "Description": "The ARN or name of the ECS cluster",
+   "Type": "String"
+  },
+  "DesiredCount": {
+   "Default": "1",
+   "Description": "The desired number of instances of this service",
+   "Type": "Number"
+  },
+  "ListenerArn": {
+   "Description": "The ARN of the ELB listener which will be used by this service",
+   "Type": "String"
+  },
+  "MaximumPercent": {
+   "Default": "200",
+   "Description": "The maximum percent of `DesiredCount` allowed to be running during updates.",
+   "Type": "Number"
+  },
+  "MinimumHealthyPercent": {
+   "Default": "100",
+   "Description": "The minimum number of running instances of this service to keep running during an update.",
+   "Type": "Number"
+  },
+  "VpcId": {
+   "Description": "The ID of the VPC of the ECS cluster",
+   "Type": "String"
+  }
+ },
+ "Resources": {
+  "ListenerRule13110": {
+   "Properties": {
+    "Actions": [
+     {
+      "TargetGroupArn": {
+       "Ref": "TargetGroupFORSLASHworkflow"
+      },
+      "Type": "forward"
+     }
+    ],
+    "Conditions": [
+     {
+      "Field": "path-pattern",
+      "PathPatternConfig": {
+       "Values": [
+        "/workflow",
+        "/workflow/*"
+       ]
+      }
+     },
+     {
+      "Field": "host-header",
+      "HostHeaderConfig": {
+       "Values": [
+        "banner.*"
+       ]
+      }
+     }
+    ],
+    "ListenerArn": {
+     "Ref": "ListenerArn"
+    },
+    "Priority": 13110
+   },
+   "Type": "AWS::ElasticLoadBalancingV2::ListenerRule"
+  },
+  "Service": {
+   "DependsOn": [
+    "ListenerRule13110"
+   ],
+   "Properties": {
+    "Cluster": {
+     "Ref": "ClusterArn"
+    },
+    "DeploymentConfiguration": {
+     "MaximumPercent": {
+      "Ref": "MaximumPercent"
+     },
+     "MinimumHealthyPercent": {
+      "Ref": "MinimumHealthyPercent"
+     }
+    },
+    "DesiredCount": {
+     "Ref": "DesiredCount"
+    },
+    "LoadBalancers": [
+     {
+      "ContainerName": "tomcat",
+      "ContainerPort": 8080,
+      "TargetGroupArn": {
+       "Ref": "TargetGroupFORSLASHworkflow"
+      }
+     }
+    ],
+    "PlacementStrategies": [
+     {
+      "Field": "memory",
+      "Type": "binpack"
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "baggy.link.category",
+      "Value": "Banner"
+     },
+     {
+      "Key": "baggy.link.title",
+      "Value": "Banner Workflow"
+     },
+     {
+      "Key": "baggy.link.url",
+      "Value": "https://banner.ban.school.edu/workflow/"
+     }
+    ],
+    "TaskDefinition": {
+     "Ref": "TaskDef"
+    }
+   },
+   "Type": "AWS::ECS::Service"
+  },
+  "TargetGroupFORSLASHworkflow": {
+   "Properties": {
+    "HealthCheckIntervalSeconds": 60,
+    "HealthCheckPath": "/workflow/",
+    "HealthCheckProtocol": "HTTP",
+    "HealthCheckTimeoutSeconds": 30,
+    "Matcher": {
+     "HttpCode": "200-399"
+    },
+    "Port": 8080,
+    "Protocol": "HTTP",
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": {
+       "Fn::Sub": "${AWS::StackName}: /workflow"
+      }
+     }
+    ],
+    "TargetGroupAttributes": [
+     {
+      "Key": "stickiness.enabled",
+      "Value": "true"
+     },
+     {
+      "Key": "stickiness.type",
+      "Value": "lb_cookie"
+     }
+    ],
+    "TargetType": "instance",
+    "UnhealthyThresholdCount": 5,
+    "VpcId": {
+     "Ref": "VpcId"
+    }
+   },
+   "Type": "AWS::ElasticLoadBalancingV2::TargetGroup"
+  },
+  "TaskDef": {
+   "Properties": {
+    "ContainerDefinitions": [
+     {
+      "Command": [
+       "/bin/bash",
+       "-c",
+       "export WORKFLOW_HOME=/mnt/sig-ban-efs/workflow/workflow88 && cd $WORKFLOW_HOME && java -Xmx256m -jar /mnt/sig-ban-efs/workflow/workflow88/engine/engine.jar main -loggingDir /mnt/sig-ban-efs/workflow/workflow88/engine -nohook"
+      ],
+      "Environment": [
+       {
+        "Name": "AWS_DEFAULT_REGION",
+        "Value": {
+         "Ref": "AWS::Region"
+        }
+       }
+      ],
+      "Essential": true,
+      "Hostname": {
+       "Ref": "AWS::StackName"
+      },
+      "Image": "openjdk:8u322",
+      "Links": [],
+      "LogConfiguration": {
+       "LogDriver": "awslogs",
+       "Options": {
+        "awslogs-create-group": true,
+        "awslogs-group": {
+         "Fn::Sub": "/ecs/${AWS::StackName}"
+        },
+        "awslogs-region": {
+         "Ref": "AWS::Region"
+        },
+        "awslogs-stream-prefix": "ecs"
+       }
+      },
+      "Memory": 1024,
+      "MemoryReservation": 512,
+      "MountPoints": [
+       {
+        "ContainerPath": "/mnt/sig-ban-efs/workflow/workflow88",
+        "ReadOnly": false,
+        "SourceVolume": "wfroot"
+       }
+      ],
+      "Name": "engine",
+      "PortMappings": [],
+      "Secrets": []
+     },
+     {
+      "Environment": [
+       {
+        "Name": "AWS_DEFAULT_REGION",
+        "Value": {
+         "Ref": "AWS::Region"
+        }
+       },
+       {
+        "Name": "TOMCAT_MEMORY_ARGS",
+        "Value": "-Xms512M -Xmx5120M"
+       },
+       {
+        "Name": "TOMCAT_EXTRA_ARGS",
+        "Value": "-Duser.timezone=America/New_York -Doracle.jdbc.autoCommitSpecCompliant=false -Dbanner.logging.dir=/app_logs"
+       }
+      ],
+      "Essential": true,
+      "Hostname": {
+       "Ref": "AWS::StackName"
+      },
+      "Image": "sigcorp/tomcat:latest-8-jdk8",
+      "Links": [
+       "engine"
+      ],
+      "LogConfiguration": {
+       "LogDriver": "awslogs",
+       "Options": {
+        "awslogs-create-group": true,
+        "awslogs-group": {
+         "Fn::Sub": "/ecs/${AWS::StackName}"
+        },
+        "awslogs-region": {
+         "Ref": "AWS::Region"
+        },
+        "awslogs-stream-prefix": "ecs"
+       }
+      },
+      "Memory": 5320,
+      "MemoryReservation": 1024,
+      "MountPoints": [
+       {
+        "ContainerPath": "/usr/local/tomcat/webapps",
+        "ReadOnly": false,
+        "SourceVolume": "tomcat_webapps"
+       }
+      ],
+      "Name": "tomcat",
+      "PortMappings": [
+       {
+        "ContainerPort": 8080
+       }
+      ],
+      "Secrets": []
+     }
+    ],
+    "Family": {
+     "Ref": "AWS::StackName"
+    },
+    "Volumes": [
+     {
+      "EFSVolumeConfiguration": {
+       "FilesystemId": "fs-12345",
+       "RootDirectory": "/workflow/workflow88"
+      },
+      "Name": "wfroot"
+     },
+     {
+      "EFSVolumeConfiguration": {
+       "FilesystemId": "fs-12345",
+       "RootDirectory": "/workflow/tomcat_webapps"
+      },
+      "Name": "tomcat_webapps"
+     }
+    ]
+   },
+   "Type": "AWS::ECS::TaskDefinition"
+  }
+ }
+}

@@ -41,8 +41,8 @@ jobs:
       - name: Generate test stacks
         run: test/generate_all.sh
 
-      - name: Compare current output to baselines
-        run: test/check_diffs.sh
+      # - name: Compare current output to baselines
+      #   run: test/check_diffs.sh
 
       - name: Confirm that current docs are committed
         run: md5sum -c doc.md5

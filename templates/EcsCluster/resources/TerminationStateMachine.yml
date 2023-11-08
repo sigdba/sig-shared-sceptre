@@ -16,9 +16,27 @@ States:
       States:
         ExtractMessage:
           Type: Pass
-          Next: InsertConfig
+          Next: EventDispatch
           Parameters:
             Message.$: States.StringToJson($.body)
+
+        EventDispatch:
+          Type: Choice
+          Choices:
+            - Not:
+                Variable: "$.Message.LifecycleTransition"
+                IsPresent: true
+              Next: Success
+              Comment: Test event
+            - Variable: "$.Message.LifecycleTransition"
+              StringEquals: autoscaling:EC2_INSTANCE_TERMINATING
+              Next: InsertConfig
+              Comment: Instance termination
+          Default: Success
+
+        Success:
+          Type: Succeed
+
         InsertConfig:
           Type: Pass
           Result:

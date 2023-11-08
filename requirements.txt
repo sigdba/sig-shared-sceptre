@@ -3,5 +3,5 @@ cfnresponse
 boto3==1.20.31
 sceptre==3.1.0
 troposphere==4.4.1
-troposphere==3.2.2
+# troposphere==3.2.2
 pydantic==1.8.2

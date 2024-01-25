@@ -461,6 +461,12 @@ class UserDataModel(BaseModel):
         description="Whether or not to enable the 'execute command' functionality for the containers in this task.",
         default_description="If `launch_type` is `FARGATE`, this value defaults to `true`, the default is `false`.",
     )
+    execution_role_arn: Optional[str] = Field(
+        description="""The Amazon Resource Name (ARN) of the task execution role
+                       that grants the Amazon ECS container agent permission to
+                       make AWS API calls on your behalf.""",
+        default_description="If `launch_type` is `FARGATE` and this value is not provided, a default role will be created.",
+    )
     memory: Optional[str] = Field(
         description="The amount (in MiB) of memory used by the task.",
         notes=[

@@ -374,6 +374,10 @@ def task_def(user_data, container_defs, exec_role):
         host_volume(v) for v in user_data.host_volumes
     ]
 
+    task_role_arn = user_data.execution_role_arn
+    if user_data.enable_execute_command:
+        task_role_arn = task_role_arn or Ref(exec_role)
+
     return add_resource(
         TaskDefinition(
             "TaskDef",
@@ -382,6 +386,7 @@ def task_def(user_data, container_defs, exec_role):
             ContainerDefinitions=container_defs,
             **opts_with(
                 ExecutionRoleArn=(exec_role, Ref),
+                TaskRoleArn=task_role_arn,
                 Cpu=user_data.cpu,
                 Memory=user_data.memory,
                 RequiresCompatibilities=user_data.requires_compatibilities,

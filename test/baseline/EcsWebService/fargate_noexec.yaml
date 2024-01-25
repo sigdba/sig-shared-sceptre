@@ -37,11 +37,13 @@
   }
  },
  "Resources": {
-  "ListenerRule3434": {
+  "ListenerRule37585": {
    "Properties": {
     "Actions": [
      {
-      "TargetGroupArn": "arn:aws:some_target_group",
+      "TargetGroupArn": {
+       "Ref": "TargetGroupFORSLASHdeleteme"
+      },
       "Type": "forward"
      }
     ],
@@ -50,8 +52,8 @@
       "Field": "path-pattern",
       "PathPatternConfig": {
        "Values": [
-        "/weird",
-        "/weird/*"
+        "/deleteme",
+        "/deleteme/*"
        ]
       }
      },
@@ -59,45 +61,21 @@
       "Field": "host-header",
       "HostHeaderConfig": {
        "Values": [
-        "rabbit-mgt.*"
+        "banner.*"
        ]
       }
      }
     ],
-    "ListenerArn": "arn:for:the:http-listener",
-    "Priority": 3434
-   },
-   "Type": "AWS::ElasticLoadBalancingV2::ListenerRule"
-  },
-  "ListenerRule48776": {
-   "Properties": {
-    "Actions": [
-     {
-      "TargetGroupArn": {
-       "Ref": "TargetGroupPORT15672HCSLASH"
-      },
-      "Type": "forward"
-     }
-    ],
-    "Conditions": [
-     {
-      "Field": "host-header",
-      "HostHeaderConfig": {
-       "Values": [
-        "rabbit-mgt.*"
-       ]
-      }
-     }
-    ],
-    "ListenerArn": "arn:for:the:http-listener",
-    "Priority": 48776
+    "ListenerArn": {
+     "Ref": "ListenerArn"
+    },
+    "Priority": 37585
    },
    "Type": "AWS::ElasticLoadBalancingV2::ListenerRule"
   },
   "Service": {
    "DependsOn": [
-    "ListenerRule48776",
-    "ListenerRule3434"
+    "ListenerRule37585"
    ],
    "Properties": {
     "Cluster": {
@@ -115,38 +93,31 @@
      "Ref": "DesiredCount"
     },
     "EnableExecuteCommand": false,
+    "LaunchType": "FARGATE",
     "LoadBalancers": [
      {
       "ContainerName": "main",
-      "ContainerPort": 15672,
+      "ContainerPort": 80,
       "TargetGroupArn": {
-       "Ref": "TargetGroupPORT15672HCSLASH"
+       "Ref": "TargetGroupFORSLASHdeleteme"
       }
-     },
-     {
-      "ContainerName": "main",
-      "ContainerPort": 15672,
-      "TargetGroupArn": "arn:aws:some_target_group"
-     },
-     {
-      "ContainerName": "main",
-      "ContainerPort": 5672,
-      "TargetGroupArn": "arn:for:the:tcp-target-group"
      }
     ],
-    "PlacementStrategies": [
-     {
-      "Field": "memory",
-      "Type": "binpack"
+    "NetworkConfiguration": {
+     "AwsvpcConfiguration": {
+      "SecurityGroups": [],
+      "Subnets": [
+       "some_subnet"
+      ]
      }
-    ],
+    },
     "TaskDefinition": {
      "Ref": "TaskDef"
     }
    },
    "Type": "AWS::ECS::Service"
   },
-  "TargetGroupPORT15672HCSLASH": {
+  "TargetGroupFORSLASHdeleteme": {
    "Properties": {
     "HealthCheckIntervalSeconds": 60,
     "HealthCheckPath": "/",
@@ -155,13 +126,13 @@
     "Matcher": {
      "HttpCode": "200-399"
     },
-    "Port": 15672,
+    "Port": 8080,
     "Protocol": "HTTP",
     "Tags": [
      {
       "Key": "Name",
       "Value": {
-       "Fn::Sub": "${AWS::StackName}: /"
+       "Fn::Sub": "${AWS::StackName}: /deleteme"
       }
      }
     ],
@@ -179,7 +150,7 @@
       "Value": "lb_cookie"
      }
     ],
-    "TargetType": "instance",
+    "TargetType": "ip",
     "UnhealthyThresholdCount": 5,
     "VpcId": {
      "Ref": "VpcId"
@@ -197,17 +168,10 @@
         "Value": {
          "Ref": "AWS::Region"
         }
-       },
-       {
-        "Name": "RABBITMQ_DEFAULT_USER",
-        "Value": "rabbitmqAdm"
        }
       ],
       "Essential": true,
-      "Hostname": {
-       "Ref": "AWS::StackName"
-      },
-      "Image": "rabbitmq:3.9.1-management",
+      "Image": "httpd",
       "Links": [],
       "LogConfiguration": {
        "LogDriver": "awslogs",
@@ -224,57 +188,29 @@
       },
       "Memory": 512,
       "MemoryReservation": 512,
-      "MountPoints": [
-       {
-        "ContainerPath": "/var/lib/rabbitmq",
-        "ReadOnly": false,
-        "SourceVolume": "db"
-       },
-       {
-        "ContainerPath": "/etc/rabbitmq",
-        "ReadOnly": false,
-        "SourceVolume": "config"
-       }
-      ],
+      "MountPoints": [],
       "Name": "main",
       "PortMappings": [
        {
-        "ContainerPort": 5672
-       },
-       {
-        "ContainerPort": 15672
+        "ContainerPort": 80
        }
       ],
-      "Secrets": [
-       {
-        "Name": "RABBITMQ_DEFAULT_PASS",
-        "ValueFrom": "arn:aws:secretsmanager:us-east-1:123123123:secret:ban/ecs/rabbitmqAdm-12342"
-       }
-      ]
+      "Secrets": []
      }
     ],
+    "Cpu": "256",
     "ExecutionRoleArn": {
      "Ref": "TaskExecutionRole"
     },
     "Family": {
      "Ref": "AWS::StackName"
     },
-    "Volumes": [
-     {
-      "EFSVolumeConfiguration": {
-       "FilesystemId": "fs-123123",
-       "RootDirectory": "/rabbitmq/database"
-      },
-      "Name": "db"
-     },
-     {
-      "EFSVolumeConfiguration": {
-       "FilesystemId": "fs-123123",
-       "RootDirectory": "/rabbitmq/config"
-      },
-      "Name": "config"
-     }
-    ]
+    "Memory": "512",
+    "NetworkMode": "awsvpc",
+    "RequiresCompatibilities": [
+     "FARGATE"
+    ],
+    "Volumes": []
    },
    "Type": "AWS::ECS::TaskDefinition"
   },
@@ -319,19 +255,6 @@
        "Version": "2012-10-17"
       },
       "PolicyName": "root"
-     },
-     {
-      "PolicyDocument": {
-       "Statement": [
-        {
-         "Action": "secretsmanager:GetSecretValue",
-         "Effect": "Allow",
-         "Resource": "arn:aws:secretsmanager:us-east-1:123123123:secret:ban/ecs/rabbitmqAdm-12342"
-        }
-       ],
-       "Version": "2012-10-17"
-      },
-      "PolicyName": "secrets"
      }
     ]
    },

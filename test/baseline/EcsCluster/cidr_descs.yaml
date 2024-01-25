@@ -557,8 +557,28 @@
           "ResultPath": "$.Details",
           "Type": "Task"
          },
+         "EventDispatch": {
+          "Choices": [
+           {
+            "Comment": "Test event",
+            "Next": "Success",
+            "Not": {
+             "IsPresent": true,
+             "Variable": "$.Message.LifecycleTransition"
+            }
+           },
+           {
+            "Comment": "Instance termination",
+            "Next": "InsertConfig",
+            "StringEquals": "autoscaling:EC2_INSTANCE_TERMINATING",
+            "Variable": "$.Message.LifecycleTransition"
+           }
+          ],
+          "Default": "Success",
+          "Type": "Choice"
+         },
          "ExtractMessage": {
-          "Next": "InsertConfig",
+          "Next": "EventDispatch",
           "Parameters": {
            "Message.$": "States.StringToJson($.body)"
           },
@@ -698,6 +718,9 @@
           "Resource": "arn:aws:states:::aws-sdk:ecs:listContainerInstances",
           "ResultPath": "$.ContainerInstances",
           "Type": "Task"
+         },
+         "Success": {
+          "Type": "Succeed"
          }
         }
        },

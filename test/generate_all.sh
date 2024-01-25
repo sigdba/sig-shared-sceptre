@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Suppress messages about virtual environments from pipenv
+export PIPENV_VERBOSITY=-1
+
 # Determine SCRIPT_DIR
 [ -z "$SHELL" ] && SHELL=/bin/bash
 case $(basename $SHELL) in
@@ -38,7 +41,7 @@ gen_stack () {
 export -f gen_stack
 
 list_stacks () {
-    TEMPLATE="template_path:.*\.py" # Match all
+    TEMPLATE="template:.*\.py" # Match all
     cd "$SCEPTRE_DIR/config"
     grep -lr "$TEMPLATE" *
     cd "$SCEPTRE_DIR"

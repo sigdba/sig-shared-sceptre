@@ -520,6 +520,7 @@ def service(user_data, listener_rules, lb_mappings):
             LoadBalancers=lb_mappings,
             **opts_with(
                 LaunchType=user_data.launch_type,
+                EnableExecuteCommand=user_data.enable_execute_command,
                 Tags=(user_data.service_tags, Tags),
                 NetworkConfiguration=service_network_configuration(user_data),
                 PlacementStrategies=(

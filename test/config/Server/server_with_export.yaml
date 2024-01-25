@@ -1,5 +1,5 @@
 ---
-template_path: Server/main.py
+template: { type: file, path: Server/main.py }
 
 parameters:
   VpcId: vpc-123

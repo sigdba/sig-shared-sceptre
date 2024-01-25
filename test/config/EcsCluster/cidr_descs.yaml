@@ -1,5 +1,5 @@
 ---
-template_path: EcsCluster/main.py
+template: { type: file, path: EcsCluster/main.py }
 
 parameters:
   EnvName: banner

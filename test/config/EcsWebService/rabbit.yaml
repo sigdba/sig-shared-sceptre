@@ -1,5 +1,5 @@
 ---
-template_path: EcsWebService/EcsWebService.py
+template: { type: file, path: EcsWebService/EcsWebService.py }
 
 parameters:
   VpcId: vpc-12345
@@ -10,6 +10,7 @@ parameters:
   MaximumPercent: 100
 
 sceptre_user_data:
+  enable_execute_command: false
   efs_volumes:
     - name: db
       fs_id: fs-123123

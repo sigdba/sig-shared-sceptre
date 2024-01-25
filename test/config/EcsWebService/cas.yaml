@@ -7,6 +7,7 @@ parameters:
   ListenerArn: arn:for:the:listener
 
 sceptre_user_data:
+  enable_execute_command: true
   service_tags:
     baggy.link.category: Admin
     baggy.link.title: CAS

@@ -1,0 +1,29 @@
+---
+template: { type: file, path: EcsWebService/EcsWebService.py }
+
+parameters:
+  VpcId: some_vpc
+  ClusterArn: some_cluster
+  ListenerArn: some_arn
+
+sceptre_user_data:
+  launch_type: FARGATE
+  enable_execute_command: false
+  cpu: 256
+  memory: 512
+  subnet_ids:
+    - some_subnet
+  containers:
+    - image: httpd
+      container_memory: 512
+      container_port: 80
+      protocol: HTTP
+      rules:
+        - path: /deleteme
+          host: banner.*
+      target_group:
+        attributes:
+          stickiness.enabled: 'false'
+          deregistration_delay.timeout_seconds: 0
+      health_check:
+        path: /

@@ -92,6 +92,7 @@
     "DesiredCount": {
      "Ref": "DesiredCount"
     },
+    "EnableExecuteCommand": true,
     "LaunchType": "FARGATE",
     "LoadBalancers": [
      {

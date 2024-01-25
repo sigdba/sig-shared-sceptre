@@ -457,6 +457,10 @@ class UserDataModel(BaseModel):
             for details."""
         ],
     )
+    enable_execute_command: Optional[bool] = Field(
+        description="Whether or not to enable the 'execute command' functionality for the containers in this task.",
+        default_description="If `launch_type` is `FARGATE`, this value defaults to `true`, the default is `false`.",
+    )
     memory: Optional[str] = Field(
         description="The amount (in MiB) of memory used by the task.",
         notes=[
@@ -543,6 +547,8 @@ class UserDataModel(BaseModel):
                 values["requires_compatibilities"] = ["FARGATE"]
             if "network_mode" not in values:
                 values["network_mode"] = "awsvpc"
+            if "enable_execute_command" not in values:
+                values["enable_execute_command"] = True
         else:
             if "placement_strategies" not in values:
                 values["placement_strategies"] = [

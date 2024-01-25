@@ -48,6 +48,11 @@ listener rules and a target group.
 - `enable_execute_command` (boolean) - Whether or not to enable the 'execute command' functionality for the containers in this task.
   - **Default:** If `launch_type` is `FARGATE`, this value defaults to `true`, the default is `false`.
 
+- `execution_role_arn` (string) - The Amazon Resource Name (ARN) of the task execution role
+                       that grants the Amazon ECS container agent permission to
+                       make AWS API calls on your behalf.
+  - **Default:** If `launch_type` is `FARGATE` and this value is not provided, a default role will be created.
+
 - `host_volumes` (List of [HostVolumeModel](#HostVolumeModel)) - Set of directories on the host server to make available to containers within this service.
   - **Important:** You almost always will want to use `efs_volumes` instead.
   - To make an EFS volume available to a container you must define it in the

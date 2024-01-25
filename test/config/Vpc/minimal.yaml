@@ -1,5 +1,5 @@
 ---
-template_path: Vpc/main.py
+template: { type: file, path: Vpc/main.py }
 
 sceptre_user_data:
   vpc_cidr: 172.30.0.0/16

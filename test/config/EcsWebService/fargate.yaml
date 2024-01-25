@@ -1,5 +1,5 @@
 ---
-template_path: EcsWebService/EcsWebService.py
+template: { type: file, path: EcsWebService/EcsWebService.py }
 
 parameters:
   VpcId: some_vpc

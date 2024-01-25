@@ -1,5 +1,5 @@
 ---
-template_path: GlobalLogRetentionRules/GlobalLogRetentionRules.py
+template: { type: file, path: GlobalLogRetentionRules/GlobalLogRetentionRules.py }
 
 sceptre_user_data:
   rules:

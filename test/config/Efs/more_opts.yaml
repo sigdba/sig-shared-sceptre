@@ -1,5 +1,5 @@
 ---
-template_path: Efs/main.py
+template: { type: file, path: Efs/main.py }
 
 parameters:
   VpcId: vpc-123451

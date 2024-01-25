@@ -1,5 +1,5 @@
 ---
-template_path: MultihostElb/main.py
+template: { type: file, path: MultihostElb/main.py }
 
 parameters:
   VpcId: vpc-1234

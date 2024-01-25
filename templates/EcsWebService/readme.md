@@ -45,6 +45,9 @@ listener rules and a target group.
 - `efs_volumes` (List of [EfsVolumeModel](#EfsVolumeModel)) - Set of EFS volumes to make available to containers within this service.
   - To make an EFS volume available to a container you must define it in the `efs_volumes` setting and define an entry in the `mount_points` setting within the container object.
 
+- `enable_execute_command` (boolean) - Whether or not to enable the 'execute command' functionality for the containers in this task.
+  - **Default:** If `launch_type` is `FARGATE`, this value defaults to `true`, the default is `false`.
+
 - `host_volumes` (List of [HostVolumeModel](#HostVolumeModel)) - Set of directories on the host server to make available to containers within this service.
   - **Important:** You almost always will want to use `efs_volumes` instead.
   - To make an EFS volume available to a container you must define it in the

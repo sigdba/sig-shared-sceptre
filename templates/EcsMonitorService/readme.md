@@ -16,5 +16,5 @@ cluster.
   - **Default:** ``
 
 - `DockerImage` (String) - Docker image to deploy.
-  - **Default:** `sigcorp/ecs_monitor:0.1.11`
+  - **Default:** `sigcorp/ecs_monitor:0.1.12`
 

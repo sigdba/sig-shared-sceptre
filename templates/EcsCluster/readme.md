@@ -78,6 +78,11 @@ Creates an EC2-backed cluster in ECS with optional auto-scaling.
 
 - `key_name` (string) - **required** - The name of the SSH key to assign when creating container instances.
 
+- `max_instance_lifetime_days` (integer) - The maximum amount of time, in seconds, that an instance
+          can be in service. The default is null. If specified, the value must
+          be greater than 1. This value will *only* apply to this autoscaling
+          group.
+
 - `max_size` (integer) - **required** - The maximum number of container instances allowed in this scaling group.
 
 - `name` (string) - **required** - The name to assign the scaling group.

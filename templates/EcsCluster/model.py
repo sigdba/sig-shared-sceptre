@@ -46,6 +46,12 @@ class ScalingGroupModel(BaseModel):
             "**See also:** [AWS::ECS::Service CapacityProviderStrategyItem](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-capacityproviderstrategyitem.html#cfn-ecs-service-capacityproviderstrategyitem-weight)"
         ],
     )
+    max_instance_lifetime_days: Optional[int] = Field(
+        description="""The maximum amount of time, in seconds, that an instance
+          can be in service. The default is null. If specified, the value must
+          be greater than 1. This value will *only* apply to this autoscaling
+          group.""",
+    )
     tags: Dict[str, str] = Field(
         {}, description="Tags to apply to this ASG's EC2 instances."
     )

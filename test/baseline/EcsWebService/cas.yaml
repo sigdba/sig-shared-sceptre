@@ -280,6 +280,9 @@
     "Family": {
      "Ref": "AWS::StackName"
     },
+    "TaskRoleArn": {
+     "Ref": "TaskExecutionRole"
+    },
     "Volumes": [
      {
       "EFSVolumeConfiguration": {

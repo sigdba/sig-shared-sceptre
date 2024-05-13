@@ -210,6 +210,9 @@
     "RequiresCompatibilities": [
      "FARGATE"
     ],
+    "TaskRoleArn": {
+     "Ref": "TaskExecutionRole"
+    },
     "Volumes": []
    },
    "Type": "AWS::ECS::TaskDefinition"

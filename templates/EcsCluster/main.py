@@ -27,7 +27,6 @@ from troposphere.s3 import Bucket, PublicAccessBlockConfiguration
 from troposphere.sns import Subscription, SubscriptionResource, Topic
 
 import model
-import lifecycle
 from util import (
     TEMPLATE,
     add_export,
@@ -175,7 +174,9 @@ def node_security_group(ingress_cidrs):
     )
 
 
-def auto_scaling_group(name, subnets, launch_conf, max_size, desired_size, tags):
+def auto_scaling_group(
+    name, subnets, launch_conf, max_size, max_lifetime_days, desired_size, tags
+):
     return add_resource(
         AutoScalingGroup(
             "Asg" + name,
@@ -185,12 +186,6 @@ def auto_scaling_group(name, subnets, launch_conf, max_size, desired_size, tags)
             MaxSize=max_size,
             DesiredCapacity=str(desired_size),
             MetricsCollection=[MetricsCollection(Granularity="1Minute")],
-            # NotificationConfigurations=[
-            #     NotificationConfigurations(
-            #         TopicARN=Ref(sns_topic),
-            #         NotificationTypes=["autoscaling:EC2_INSTANCE_TERMINATE"],
-            #     )
-            # ],
             Tags=ASTags(Name=Sub("ecs-node-${AWS::StackName}"), **tags),
             UpdatePolicy=UpdatePolicy(
                 AutoScalingRollingUpdate=AutoScalingRollingUpdate(
@@ -200,6 +195,9 @@ def auto_scaling_group(name, subnets, launch_conf, max_size, desired_size, tags)
                     PauseTime="PT0M",
                 )
             ),
+            **opts_with(
+                MaxInstanceLifetime=(max_lifetime_days, lambda secs: secs * 86400)
+            )
         )
     )
 
@@ -326,7 +324,8 @@ def capacity_provider(asg):
             asg.title + "CapacityProvider",
             AutoScalingGroupProvider=AutoScalingGroupProvider(
                 AutoScalingGroupArn=Ref(asg),
-                ManagedTerminationProtection="DISABLED",  # For now, this is handled by our lifecycle Lambda
+                ManagedDraining="ENABLED",
+                ManagedTerminationProtection="DISABLED",
                 ManagedScaling=ManagedScaling(Status="ENABLED", TargetCapacity=100),
             ),
         )
@@ -368,10 +367,11 @@ def scaling_group_with_resources(
         subnets,
         lc,
         sg_model.max_size,
+        sg_model.max_instance_lifetime_days,
         sg_model.desired_size,
         tags,
     )
-    lifecycle.asg_terminate_hook(asg)
+    # lifecycle.asg_terminate_hook(asg)
     return asg
 
 
@@ -387,8 +387,8 @@ def sceptre_handler(sceptre_user_data):
         Description="AMI ID for EC2 cluster nodes",
         Type="AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>",
         Default="/aws/service/ecs/optimized-ami/amazon-linux-2/recommended/image_id",
+        # Default="/aws/service/ecs/optimized-ami/amazon-linux-2023/recommended/image_id",
     )
-
     if sceptre_user_data is None:
         # We're generating documetation. Return the template with just parameters.
         return TEMPLATE
@@ -415,7 +415,7 @@ def sceptre_handler(sceptre_user_data):
         all_security_groups = [Ref(node_sg)] + user_data.node_security_groups
 
         # Lifecycle
-        lifecycle.init()
+        # lifecycle.init()
 
         asgs_with_models = [
             (

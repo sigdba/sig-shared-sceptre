@@ -4,13 +4,18 @@ MIME-Version: 1.0
 --==BOUNDARY==
 Content-Type: text/x-shellscript; charset="us-ascii"
 #!/bin/bash -xe
+
+# Apply security upgrades
+echo latest | sudo tee /etc/dnf/vars/releasever
+dnf upgrade -y --security
+
 # Install awslogs and the jq JSON parser
-yum update -y
-yum install -y awslogs jq wget nfs-utils aws-cfn-bootstrap aws-cli ntp
-pip3 install botocore --upgrade
+dnf install -y jq wget aws-cfn-bootstrap aws-cli chrony python3-boto3
 
-systemctl enable --now ntpd
+# Enable NTP client to keep clock in sync
+systemctl enable --now chronyd
 
+# Set the node's hostname
 hostname ecs-node-${EnvName}
 
 cat > /etc/ecs/ecs.config <<EOF

@@ -4,7 +4,7 @@ Creates an EC2-backed cluster in ECS with optional auto-scaling.
 ## Parameters
 
 - `AmiId` (AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>) - AMI ID for EC2 cluster nodes
-  - **Default:** `/aws/service/ecs/optimized-ami/amazon-linux-2/recommended/image_id`
+  - **Default:** `/aws/service/ecs/optimized-ami/amazon-linux-2023/recommended/image_id`
 
 - `EnvName` (String) - **required** - The name of the ECS cluster.
 

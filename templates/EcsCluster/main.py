@@ -386,8 +386,8 @@ def sceptre_handler(sceptre_user_data):
         "AmiId",
         Description="AMI ID for EC2 cluster nodes",
         Type="AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>",
-        Default="/aws/service/ecs/optimized-ami/amazon-linux-2/recommended/image_id",
-        # Default="/aws/service/ecs/optimized-ami/amazon-linux-2023/recommended/image_id",
+        # Default="/aws/service/ecs/optimized-ami/amazon-linux-2/recommended/image_id",
+        Default="/aws/service/ecs/optimized-ami/amazon-linux-2023/recommended/image_id",
     )
     if sceptre_user_data is None:
         # We're generating documetation. Return the template with just parameters.

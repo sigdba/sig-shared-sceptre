@@ -1,0 +1,36 @@
+---
+template: { type: file, path: EcsCluster/main.py }
+
+parameters:
+  EnvName: banner
+  VpcId: vpc-12345
+
+sceptre_user_data:
+  tags:
+    a: top_a
+    b: top_b
+    c: top_c
+  cluster_tags:
+    b: cluster_b
+  asg_tags:
+    b: asg_b
+  node_security_groups:
+    - sg-12345
+    - sg-67890
+  subnet_ids:
+    - subnet-123456
+  ingress_cidrs:
+    - 1.2.3.4/24
+    - 4.5.6.7/32
+  auto_scaling_enabled: yes
+  force_default_cps: yes
+  scaling_groups:
+    - name: t22xlarge
+      key_name: somekey
+      node_type: t2.2xlarge
+      max_size: 4
+      desired_size: 1
+      weight: 1
+      allow_imds1: true
+      tags:
+        c: asg_spec_c

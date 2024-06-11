@@ -12,6 +12,9 @@ from util import BaseModel
 
 
 class ScalingGroupModel(BaseModel):
+    allow_imds1: Optional[bool] = Field(
+        description="""Allow IMDSv1 metadata service for backward-compatibility."""
+    )
     name: str = Field(description="The name to assign the scaling group.")
     key_name: str = Field(
         description="The name of the SSH key to assign when creating container instances."

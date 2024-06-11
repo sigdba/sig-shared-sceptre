@@ -61,6 +61,8 @@ Creates an EC2-backed cluster in ECS with optional auto-scaling.
 
 ### ScalingGroupModel
 
+- `allow_imds1` (boolean) - Allow IMDSv1 metadata service for backward-compatibility.
+
 - `desired_size` (integer) - **required** - The desired number of container instances in this scaling group.
   - If `auto_scaling_enabled` is true, then ECS may modify the desired size of the scaling group to match demand.
 

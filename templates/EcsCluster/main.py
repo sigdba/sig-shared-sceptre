@@ -202,7 +202,10 @@ def auto_scaling_group(
     )
 
 
-def launch_config(name, sgs, inst_type, inst_prof, keyName, extra_node_user_data):
+def launch_config(
+    name, sgs, inst_type, inst_prof, keyName, extra_node_user_data, allow_imds1
+):
+    metadata_options = MetadataOptions(HttpTokens="optional") if allow_imds1 else None
     return add_resource(
         LaunchConfiguration(
             "LaunchConf" + name,
@@ -214,6 +217,7 @@ def launch_config(name, sgs, inst_type, inst_prof, keyName, extra_node_user_data
             UserData=Base64(
                 Sub(read_resource("UserData.txt"), ExtraUserData=extra_node_user_data)
             ),
+            **opts_with(MetadataOptions=metadata_options)
         )
     )
 
@@ -361,6 +365,7 @@ def scaling_group_with_resources(
         node_profile,
         sg_model.key_name,
         sg_model.extra_node_user_data,
+        sg_model.allow_imds1,
     )
     asg = auto_scaling_group(
         sg_model.name,

@@ -5,6 +5,7 @@ from troposphere.autoscaling import (
     AutoScalingGroup,
     LaunchConfiguration,
     LifecycleHook,
+    MetadataOptions,
     MetricsCollection,
     NotificationConfigurations,
 )

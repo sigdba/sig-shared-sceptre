@@ -156,7 +156,7 @@
       "Arn"
      ]
     },
-    "StrategyHash": "c0921346b9ac7c2b14fded1e29a3175a"
+    "StrategyHash": "ebad890e28b3be673f0490ab7553f3b5"
    },
    "Type": "Custom::CpsReset"
   },

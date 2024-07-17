@@ -1,0 +1,60 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+
+Parameters:
+  RoleName:
+    Type: String
+    Default: Route53MirrorRole
+    Description: Name of the role to be assumed by the mirroring process.
+  DestAccountId:
+    Type: String
+    Description: Account ID where records will be mirrored to
+    MaxLength: 12
+    MinLength: 12
+  DomainName:
+    Type: String
+    Description: Domain name of the hosted zone. Leave blank to omit.
+    Default: ""
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC where the private zone will be created
+
+Conditions:
+  CreateHostedZone: !Equals
+    - !Ref DomainName
+    - ""
+
+Resources:
+  SourceMirrorRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref RoleName
+      Path: /
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/AmazonRoute53ReadOnlyAccess
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub "${DestAccountId}"
+            Action:
+              - sts:AssumeRole
+
+  HostedZone:
+    Type: AWS::Route53::HostedZone
+    Condition: CreateHostedZone
+    Properties:
+      Name: !Ref DomainName
+      HostedZoneConfig:
+        Comment: !Sub "This zone is mirrored into Account ID: ${DestAccountId}"
+      VPCs:
+        - VPCId: !Ref VpcId
+          VPCRegion: !Ref AWS::Region
+
+Outputs:
+  HostedZoneId:
+    Condition: CreateHostedZone
+    Value: !Ref HostedZone
+    Export:
+      Name: !Sub "${AWS::StackName}-hosted-zone-id"

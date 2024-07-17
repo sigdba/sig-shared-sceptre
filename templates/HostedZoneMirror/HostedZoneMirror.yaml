@@ -1,0 +1,200 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+
+Parameters:
+  LogRetentionDays:
+    Type: Number
+    Description: "Number of days to retain logs for the mirroring state machine"
+    Default: "7"
+
+  ScheduleExpression:
+    Type: String
+    Description: EventBridge cron expression for how often the mirroring should be performed
+    Default: "rate(10 minutes)"
+
+  MirrorConfig:
+    Type: String
+    Description: |
+      JSON string with configuration for the mirroring process.
+
+      Example:
+        {
+          "sourceRoleName": "Route53MirrorRole",
+          "zones": [
+            {
+              "sourceHostedZoneId": "Z02694372FYKFHNXABC123",
+              "sourceAccountId": "12768521234",
+              "destHostedZoneId": "Z02174371I29AGNABC321"
+            }
+          ]
+        }
+
+#   DestAccountId:
+#     Type: String
+#     Description: Account ID where records will be mirrored to
+#     MaxLength: 12
+#     MinLength: 12
+#   DomainName:
+#     Type: String
+#     Description: Domain name of the hosted zone
+#   VpcId:
+#     Type: AWS::EC2::VPC::Id
+#     Description: VPC where the private zone will be created
+#   RoleName:
+#     Type: String
+#     Default: Route53MirrorRole
+#     Description: Name of the role to be assumed by the mirroring process.
+
+Resources:
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      RetentionInDays: !Ref LogRetentionDays
+
+  DestMirrorRole:
+    Type: AWS::IAM::Role
+    Properties:
+      # RoleName: !Ref RoleName
+      # Path: /
+      # ManagedPolicyArns:
+      #   - !Sub arn:${AWS::Partition}:iam::aws:policy/AmazonRoute53ReadOnlyAccess
+      Policies:
+        - PolicyName: main
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # This is wider than it should be due to an issue with the StateMachine creation API
+              - Effect: Allow
+                Action:
+                  - "logs:*"
+                Resource:
+                  - "*"
+              - Effect: Allow
+                Action:
+                  - "sts:AssumeRole"
+                Resource:
+                  - "arn:*:iam::*:role/Route53MirrorRole"
+              - Effect: Allow
+                Action:
+                  - "route53:ChangeResourceRecordSets"
+                  - "states:StartExecution"
+                Resource:
+                  - "*"
+
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - states.amazonaws.com
+                - events.amazonaws.com
+            Action:
+              - sts:AssumeRole
+
+  Schedule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Mirrors Route53 hosted zones in other accounts into a centralized zone in this account
+      ScheduleExpression: !Ref ScheduleExpression
+      Targets:
+        - Id: StateMachine
+          Arn: !GetAtt MirrorStateMachine.Arn
+          Input: !Ref MirrorConfig
+          RoleArn: !GetAtt DestMirrorRole.Arn
+
+  MirrorStateMachine:
+    Type: AWS::StepFunctions::StateMachine
+    DependsOn:
+      - DestMirrorRole
+      - LogGroup
+    Properties:
+      LoggingConfiguration:
+        Destinations:
+          - CloudWatchLogsLogGroup:
+              LogGroupArn: !GetAtt LogGroup.Arn
+        IncludeExecutionData: true
+        Level: ALL
+      RoleArn: !GetAtt DestMirrorRole.Arn
+      Definition:
+        Comment: Mirrors records between Route53 hosted zones in separate accounts
+        StartAt: ForEachInputZone
+        States:
+          ForEachInputZone:
+            Type: Map
+            ItemProcessor:
+              ProcessorConfig:
+                Mode: INLINE
+              StartAt: ListInputRecords
+              States:
+                ListInputRecords:
+                  Type: Task
+                  Parameters:
+                    HostedZoneId.$: "$.inputHostedZoneId"
+                  Resource: arn:aws:states:::aws-sdk:route53:listResourceRecordSets
+                  Next: ForEachRecordset
+                  ResultPath: "$.inputRecords"
+                  Credentials:
+                    RoleArn.$: "$.inputRole"
+                ForEachRecordset:
+                  Type: Map
+                  ItemProcessor:
+                    ProcessorConfig:
+                      Mode: INLINE
+                    StartAt: RejectUnwantedTypes
+                    States:
+                      RejectUnwantedTypes:
+                        Type: Choice
+                        Choices:
+                        - Or:
+                          - Variable: "$.inputRecordSet.Type"
+                            StringEquals: CNAME
+                          - Variable: "$.inputRecordSet.Type"
+                            StringEquals: A
+                          Comment: Type is CNAME or A
+                          Next: UpdatedRecords
+                        Default: SkippedInputRecords
+                      SkippedInputRecords:
+                        Type: Pass
+                        End: true
+                      UpdatedRecords:
+                        Type: Pass
+                        Next: ChangeResourceRecordSets
+                      ChangeResourceRecordSets:
+                        Type: Task
+                        Parameters:
+                          ChangeBatch:
+                            Changes:
+                            - Action: UPSERT
+                              ResourceRecordSet.$: "$.inputRecordSet"
+                          HostedZoneId.$: "$.outputHostedZoneId"
+                        Resource: arn:aws:states:::aws-sdk:route53:changeResourceRecordSets
+                        End: true
+                        Catch:
+                        - ErrorEquals:
+                          - States.ALL
+                          Next: FailedChanges
+                        Retry:
+                        - ErrorEquals:
+                          - States.TaskFailed
+                          BackoffRate: 2
+                          IntervalSeconds: 1
+                          Comment: Retry on Error
+                          JitterStrategy: FULL
+                          MaxAttempts: 5
+                      FailedChanges:
+                        Type: Pass
+                        End: true
+                  End: true
+                  ItemsPath: "$.inputRecords.ResourceRecordSets"
+                  ItemSelector:
+                    outputHostedZoneId.$: "$.outputHostedZoneId"
+                    inputRecordSet.$: "$$.Map.Item.Value"
+            ItemsPath: "$.zones"
+            End: true
+            ItemSelector:
+              outputHostedZoneId.$: "$$.Map.Item.Value.destHostedZoneId"
+              inputHostedZoneId.$: "$$.Map.Item.Value.sourceHostedZoneId"
+              inputAccountId.$: "$$.Map.Item.Value.sourceAccountId"
+              inputRole.$: States.Format('arn:aws:iam::{}:role/{}', $$.Map.Item.Value.sourceAccountId,
+                $.sourceRoleName)

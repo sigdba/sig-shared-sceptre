@@ -20,9 +20,10 @@ Parameters:
     Description: VPC where the private zone will be created
 
 Conditions:
-  CreateHostedZone: !Equals
-    - !Ref DomainName
-    - ""
+  CreateHostedZone: !Not
+    - !Equals
+      - !Ref DomainName
+      - ""
 
 Resources:
   SourceMirrorRole:

@@ -56,7 +56,7 @@ def lambda_fn_for_root_vol_props():
             Description="Retrieves information on an EC2 instance's root volume and optionally sets tags and size",
             Handler="index.lambda_handler",
             Role=GetAtt(lambda_execution_role(), "Arn"),
-            Runtime="python3.9",
+            Runtime="python3.14",
             MemorySize=128,
             Timeout=900,
             Code=Code(ZipFile=Sub(read_resource("ec2-root-ebs-properties.py"))),

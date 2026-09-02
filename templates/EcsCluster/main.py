@@ -299,7 +299,7 @@ def lambda_fn_for_cps():
             Description="Updates services in the cluster to use the new default CapacityProviderStrategy",
             Handler="index.lambda_handler",
             Role=lambda_execution_role().GetAtt("Arn"),
-            Runtime="python3.9",
+            Runtime="python3.14",
             MemorySize=128,
             Timeout=60,
             Code=Code(ZipFile=Sub(read_resource("ResetCapacityProvidersLambda.py"))),

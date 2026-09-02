@@ -267,7 +267,7 @@ def add_waiter_lambda(as_conf, exec_role):
             # TODO: VPCConfig?
             Handler="index.lambda_handler",
             Role=GetAtt(exec_role, "Arn"),
-            Runtime="python3.9",
+            Runtime="python3.14",
             MemorySize=128,
             Timeout=900,
             Code=Code(ZipFile=Sub(read_resource("WaiterLambda.py"))),
@@ -349,7 +349,7 @@ def add_stopper_lambda(as_conf):
             Description="Polls TG metrics and auto-stops idle ECS service.",
             Handler="index.lambda_handler",
             Role=GetAtt("StopperLambdaExecutionRole", "Arn"),
-            Runtime="python3.9",
+            Runtime="python3.14",
             MemorySize=128,
             Timeout=900,
             Code=Code(ZipFile=Sub(read_resource("StopLambda.py"))),
